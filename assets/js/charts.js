@@ -177,46 +177,6 @@ export function raceTip(r) {
   return `<div class="tt-title">${esc(r.title)}</div>${rows.join('')}`;
 }
 
-// ------------------------------------------------------------------------------------- House tile grid
-
-export const TILE_POS = {
-  AK: [0, 0], ME: [11, 0], VT: [10, 1], NH: [11, 1],
-  WA: [1, 2], ID: [2, 2], MT: [3, 2], ND: [4, 2], MN: [5, 2], IL: [6, 2], WI: [7, 2], MI: [8, 2], NY: [9, 2], RI: [10, 2], MA: [11, 2],
-  OR: [1, 3], NV: [2, 3], WY: [3, 3], SD: [4, 3], IA: [5, 3], IN: [6, 3], OH: [7, 3], PA: [8, 3], NJ: [9, 3], CT: [10, 3],
-  CA: [1, 4], UT: [2, 4], CO: [3, 4], NE: [4, 4], MO: [5, 4], KY: [6, 4], WV: [7, 4], VA: [8, 4], MD: [9, 4], DE: [10, 4],
-  AZ: [2, 5], NM: [3, 5], KS: [4, 5], AR: [5, 5], TN: [6, 5], NC: [7, 5], SC: [8, 5],
-  OK: [4, 6], LA: [5, 6], MS: [6, 6], AL: [7, 6], GA: [8, 6],
-  HI: [0, 7], TX: [4, 7], FL: [9, 7],
-};
-
-export function houseTiles(onState) {
-  const tip = tooltip();
-  const grid = h('div', { class: 'tile-grid', role: 'img', 'aria-label': 'House districts by state' });
-  const cells = [];
-  for (const [code, [cx, cy]] of Object.entries(TILE_POS)) {
-    const races = (store.byState[code] || []).filter(r => r.type === 'house');
-    const n = races.length;
-    if (!n) continue;
-    const cols = Math.max(2, Math.ceil(Math.sqrt(n)));
-    const tile = h('a', { class: 'tile', href: `#/state/${code}`, style: { gridColumn: cx + 1, gridRow: cy + 1 } },
-      h('span', { class: 'tl' }, code));
-    const dots = h('div', { class: 'dots', style: { gridTemplateColumns: `repeat(${cols}, 1fr)`, alignContent: 'center' } });
-    races.forEach(r => {
-      const c = cur(r);
-      const dot = h('i', { style: { background: probColor(c.p, r.leftParty, r.rightParty) } });
-      dot.addEventListener('mousemove', (e) => { e.stopPropagation(); tip.show(raceTip(r), e); });
-      dot.addEventListener('mouseleave', () => tip.hide());
-      dot.addEventListener('click', (e) => { e.preventDefault(); location.hash = r.url; });
-      dots.appendChild(dot);
-    });
-    tile.appendChild(dots);
-    if (onState) tile.addEventListener('click', (e) => { if (e.target === tile) onState(code); });
-    cells.push(tile);
-  }
-  grid.append(...cells);
-  return grid;
-}
-
 // ------------------------------------------------------------------------------------- line chart
 
 /** Forecast history: series = [{ key, label, color, dash }] over points [{ t, ...}] (probabilities 0-1). */

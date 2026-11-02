@@ -29,6 +29,18 @@ Browser (index.html + assets/)
 The model code in `assets/js/model.js` runs both in the pipeline (Node) and in the browser, so the
 pre-election forecast and the election-night projection use the same math.
 
+### Maps
+
+The House maps use the Census Bureau's TIGER/Line 2026 congressional districts (the 120th Congress lines
+used in this election, including the mid-decade redraws), clipped to the coastline. `pipeline/build_geo.mjs`
+turns them into:
+
+- `data/geo/districts-2026.json`: all 435 districts for the national map (zoomable, click a state to zoom in)
+- `data/geo/cd/XX.json`: each state at higher detail, for state pages and the district locator on race pages
+- `data/geo/house-hex.json`: the equal-size hexagon map, laid out automatically from district locations
+
+They are built once and committed. To rebuild: `npm install && npm run geo` (needs `unzip`).
+
 ### The model
 
 Each race comes down to the expected margin between its two leading candidates. Four signals estimate
@@ -86,6 +98,7 @@ Polymarket prices without vote counts.
 | Polls | VoteHub open polling API | CC BY 4.0 |
 | Prediction markets | Polymarket Gamma + CLOB public APIs | Polymarket terms |
 | Election-night counts and calls | AP via The New York Times public results JSON | Unofficial; see above |
+| 2026 congressional district boundaries | U.S. Census Bureau TIGER/Line 2026 (`cd120`) + cartographic state outlines | Public domain |
 | State shapes | us-atlas (U.S. Census Bureau) | ISC / public domain |
 
 This is an independent project, not affiliated with any campaign, party or news organization.

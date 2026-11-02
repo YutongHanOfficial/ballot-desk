@@ -1,6 +1,7 @@
 import { h, pct, num, timeAgo, probColor, partyVar, lastName, esc } from '../ui.js';
 import { store, cur, chamber, racesOf } from '../store.js';
 import { usMap, mapLegend, BAND_LEGEND, historyChart, raceTip } from '../charts.js';
+import { houseMap } from '../maps.js';
 import { chamberCard, raceCard, headline, electionBanner, CHAMBERS } from './common.js';
 
 export function competitive(type, n) {
@@ -99,6 +100,9 @@ export function render(root) {
     const r = store.races.find(x => x.type === type && x.state === code);
     if (r) location.hash = r.url;
   };
+  root.append(h('section', { class: 'section card' },
+    h('div', { class: 'card-title' }, 'House forecast, district by district', h('a', { class: 'more', href: '#/house' }, 'Details →')),
+    houseMap({ id: 'home' })));
   root.append(h('section', { class: 'section grid g2' },
     h('div', { class: 'card' }, h('div', { class: 'card-title' }, 'Senate forecast', h('a', { class: 'more', href: '#/senate' }, 'Details →')),
       usMap({ fill: stateFill('senate'), onClick: go('senate'), tip: stateTip('senate') }), mapLegend(BAND_LEGEND.slice(0, 7))),

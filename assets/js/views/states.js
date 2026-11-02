@@ -3,7 +3,8 @@ import { h, pct, num, partyChip, partyVar, ratingChip, sortableTable, esc, PARTY
 import { store, cur } from '../store.js';
 import { raceCard, raceColumns, electionBanner, pollCloseText } from './common.js';
 import { stateGrid } from './home.js';
-import { usMap, mapLegend, probMini } from '../charts.js';
+import { usMap, mapLegend, probMini, BAND_LEGEND } from '../charts.js';
+import { stateDistrictMap } from '../maps.js';
 
 export function renderIndex(root) {
   const fill = (code) => {
@@ -65,6 +66,9 @@ export function renderState(root, code) {
       h('div', { class: 'section-head' },
         h('div', null, h('h2', null, 'U.S. House'),
           h('p', null, `Now: ${holdNow.D} D · ${holdNow.R} R${holdNow.I ? ` · ${holdNow.I} I` : ''}${holdNow.new ? ` · ${holdNow.new} new or vacant` : ''}. Projected: ${expD.toFixed(1)} D · ${(house.length - expD).toFixed(1)} R (expected seats).`))),
+      h('div', { class: 'card', style: { marginBottom: '14px' } },
+        h('div', { class: 'card-title' }, `${st.name}'s ${house.length > 1 ? `${house.length} districts` : 'at-large district'}`, h('span', { class: 'muted', style: { textTransform: 'none', letterSpacing: 0 } }, '2026 lines · tap a district')),
+        stateDistrictMap(code, { zoomKey: `state-${code}` }), mapLegend(BAND_LEGEND.slice(0, 8))),
       sortableTable(raceColumns({ type: 'house' }), house, { sortKey: 'race', desc: false, onRow: r => { location.hash = r.url; }, stateKey: `state-${code}` })));
   }
 

@@ -6,6 +6,12 @@
   "scripts": {
     "races": "python3 pipeline/build_races.py",
     "refresh": "node pipeline/refresh.mjs",
-    "serve": "python3 pipeline/serve.py 8026"
+    "serve": "python3 pipeline/serve.py 8026",
+    "geo": "node pipeline/build_geo.mjs"
+  },
+  "devDependencies": {
+    "d3": "7.9.0",
+    "mapshaper": "0.7.101",
+    "topojson-client": "3.1.0"
   }
 }

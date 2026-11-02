@@ -246,13 +246,32 @@ select.input { width: auto; padding-right: 28px; }
 .strip-mark span { position: absolute; top: 0; left: 6px; font-size: 11px; font-weight: 700; white-space: nowrap; }
 .strip-labels { display: flex; justify-content: space-between; font-size: 12px; color: var(--muted); margin-top: 8px; gap: 8px; }
 
-.tile-grid { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); gap: 4px; }
-.tile { aspect-ratio: 1; border-radius: 5px; background: var(--surface-2); padding: 3px; display: flex; flex-direction: column; text-decoration: none; min-width: 0; position: relative; }
-.tile .tl { font-size: 9px; font-weight: 750; color: var(--muted); line-height: 1; margin-bottom: 2px; }
-.tile .dots { flex: 1; display: grid; gap: 1px; align-content: start; }
-.tile .dots i { aspect-ratio: 1; border-radius: 1.5px; display: block; }
-.tile:hover { outline: 2px solid var(--ink); }
-@media (max-width: 680px) { .tile-grid { gap: 2px; } .tile { padding: 2px; border-radius: 3px; } .tile .tl { font-size: 7px; } }
+.map-toolbar { display: flex; gap: 10px; align-items: center; justify-content: space-between; flex-wrap: wrap; margin-bottom: 10px; }
+.map-frame { position: relative; }
+.map-frame svg { display: block; width: 100%; height: auto; touch-action: pan-y; user-select: none; -webkit-user-select: none; }
+.map-frame svg.zoomed { cursor: grab; touch-action: none; }
+.map-frame svg.zoomed:active { cursor: grabbing; }
+.map-skeleton { border-radius: var(--radius); }
+.district-map .district { stroke: var(--surface); stroke-width: .5; vector-effect: non-scaling-stroke; cursor: pointer; transition: opacity .12s; }
+.district-map .district:hover { opacity: .78; }
+.district-map .state-borders { fill: none; stroke: var(--surface); stroke-width: 1.7; vector-effect: non-scaling-stroke; pointer-events: none; }
+.district-map .coast { fill: none; stroke: var(--line-2); stroke-width: .6; vector-effect: non-scaling-stroke; pointer-events: none; }
+.district-labels text { font-family: var(--sans); font-weight: 700; fill: var(--ink); text-anchor: middle; dominant-baseline: central; paint-order: stroke; stroke: var(--surface); stroke-width: 2.6px; stroke-linejoin: round; pointer-events: none; }
+.state-labels text { font-size: 12px; dominant-baseline: auto; }
+.state-map .district { stroke-width: .9; }
+.locator .district { cursor: pointer; }
+.locator .district.target { cursor: default; }
+.locator .target-outline { fill: none; stroke: var(--ink); stroke-width: 2.5; vector-effect: non-scaling-stroke; pointer-events: none; }
+.state-labels text.target { font-size: 14px; }
+.zoom-ctrls { position: absolute; top: 8px; right: 8px; display: flex; flex-direction: column; gap: 4px; }
+.zoom-btn { width: 32px; height: 32px; border-radius: 8px; border: 1px solid var(--line); background: var(--surface); color: var(--ink); font-size: 17px; font-weight: 700; line-height: 1; cursor: pointer; box-shadow: var(--shadow); display: grid; place-items: center; }
+.zoom-btn:hover { border-color: var(--line-2); }
+.zoom-select { position: absolute; left: 8px; top: 8px; max-width: 190px; font-size: 13px; padding: 6px 8px; box-shadow: var(--shadow); }
+.hex-map .hex { cursor: pointer; transition: opacity .12s; }
+.hex-map .hex:hover { opacity: .75; }
+.hex-map .hex-borders { fill: none; stroke: var(--ink); stroke-width: 1.7; stroke-linejoin: round; stroke-linecap: round; opacity: .8; pointer-events: none; }
+.hex-labels text { font-family: var(--sans); font-weight: 750; fill: var(--ink); text-anchor: middle; paint-order: stroke; stroke: var(--surface); stroke-width: 2.4px; stroke-linejoin: round; pointer-events: none; letter-spacing: .02em; }
+@media (max-width: 680px) { .zoom-select { position: static; margin-bottom: 8px; max-width: none; width: 100%; } .zoom-btn { width: 30px; height: 30px; } }
 
 /* ------------------------------------------------------------------ race page */
 .race-hero { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); gap: 16px; align-items: stretch; }

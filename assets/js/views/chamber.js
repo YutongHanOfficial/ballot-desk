@@ -1,7 +1,8 @@
 // Senate, House and Governor pages.
 import { h, pct, num, timeAgo, sortableTable } from '../ui.js';
 import { store, cur, chamber, racesOf } from '../store.js';
-import { usMap, mapLegend, BAND_LEGEND, histogram, seatStrip, houseTiles } from '../charts.js';
+import { usMap, mapLegend, BAND_LEGEND, histogram, seatStrip } from '../charts.js';
+import { houseMap } from '../maps.js';
 import { chamberCard, raceColumns, electionBanner, CHAMBERS } from './common.js';
 import { stateFill, stateTip } from './home.js';
 import { calledSeats } from '../live.js';
@@ -81,8 +82,8 @@ export function renderChamber(root, type) {
   // Map
   if (type === 'house') {
     root.append(h('section', { class: 'section card' },
-      h('div', { class: 'card-title' }, 'Every district, by state', h('span', { class: 'muted', style: { textTransform: 'none', letterSpacing: 0 } }, 'Each square is one district')),
-      houseTiles(), mapLegend(BAND_LEGEND.slice(0, 8))));
+      h('div', { class: 'card-title' }, 'House forecast map', h('span', { class: 'muted', style: { textTransform: 'none', letterSpacing: 0 } }, '2026 district lines')),
+      houseMap({ id: 'house' })));
   } else {
     const go = (code) => { const r = races.find(x => x.state === code && !x.special) || races.find(x => x.state === code); if (r) location.hash = r.url; };
     root.append(h('section', { class: 'section card' },

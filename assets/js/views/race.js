@@ -2,6 +2,7 @@
 import { h, pct, num, partyChip, partyVar, ratingChip, marginText, lastName, fmtDate, oddsText, compact, timeAgo, PARTY_NAME, bandLabel } from '../ui.js';
 import { store, cur } from '../store.js';
 import { splitBar, pollChart, marginCurve, signalRows } from '../charts.js';
+import { stateDistrictMap } from '../maps.js';
 import { electionBanner, pollCloseText, raceCard } from './common.js';
 
 function winsText(name, q) {
@@ -163,7 +164,12 @@ function candidateList(r) {
 
 function context(r) {
   const pviText = r.pvi === null || r.pvi === undefined ? '—' : r.pvi === 0 ? 'EVEN' : `${r.pvi > 0 ? 'D' : 'R'}+${Math.abs(r.pvi)}`;
+  const map = r.type === 'house'
+    ? stateDistrictMap(r.state, { highlight: r.id, width: 560, maxHeight: 340 })
+    : stateDistrictMap(r.state, { width: 560, maxHeight: 300 });
   return h('div', { class: 'card' }, h('div', { class: 'card-title' }, 'About this race'),
+    h('div', { style: { marginBottom: '12px' } }, map,
+      h('div', { class: 'xs muted', style: { marginTop: '4px' } }, r.type === 'house' ? `${r.short} with neighboring districts (2026 lines)` : `${r.stateName}'s House districts, colored by our forecast`)),
     h('dl', { class: 'kv', style: { margin: 0 } },
       h('dt', null, 'Partisan lean'), h('dd', null, `${pviText} (Cook PVI)`),
       r.lastResult ? [h('dt', null, 'Last result'), h('dd', null, r.lastResult)] : null,
