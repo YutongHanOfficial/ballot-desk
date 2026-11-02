@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Midterms 2026 · Forecast & live results</title>
+  <meta name="description" content="Forecast and live results for every 2026 midterm race: Senate, House, governors, down-ballot offices, legislatures and ballot measures. Polls, expert ratings, prediction markets and a simulation model, updated through election night.">
+  <meta property="og:title" content="Midterms 2026 · Forecast & live results">
+  <meta property="og:description" content="Who will win the Senate, House and governorships? Live odds for every race, from polls, ratings and markets.">
+  <meta property="og:type" content="website">
+  <meta name="theme-color" content="#f7f6f3" media="(prefers-color-scheme: light)">
+  <meta name="theme-color" content="#0e1013" media="(prefers-color-scheme: dark)">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='16' height='32' fill='%231f5fd1'/%3E%3Crect x='16' width='16' height='32' fill='%23d0312d'/%3E%3Ctext x='16' y='22' font-family='Arial' font-weight='800' font-size='14' fill='white' text-anchor='middle'%3E26%3C/text%3E%3C/svg%3E">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Source+Serif+4:opsz,wght@8..60,600;8..60,700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="assets/css/app.css">
+</head>
+<body>
+  <a class="sr-only" href="#main">Skip to content</a>
+  <header class="site-header">
+    <div class="header-inner">
+      <a class="brand" href="#/" aria-label="Midterms 2026 home">
+        <span class="brand-mark">26</span>
+        <span class="brand-text"><b>Midterms 2026</b><span>Forecast &amp; live results</span></span>
+      </a>
+      <nav class="nav" aria-label="Main">
+        <a href="#/" data-nav="home">Overview</a>
+        <a href="#/senate" data-nav="senate">Senate</a>
+        <a href="#/house" data-nav="house">House</a>
+        <a href="#/governors" data-nav="governors">Governors</a>
+        <a href="#/states" data-nav="states">States</a>
+        <a href="#/downballot" data-nav="downballot">Down-ballot</a>
+        <a href="#/live" data-nav="live" class="live-link"><span class="live-dot"></span>Live</a>
+        <a href="#/methodology" data-nav="methodology">Methodology</a>
+      </nav>
+      <div class="header-tools">
+        <button class="icon-btn" id="theme-btn" type="button" aria-label="Toggle dark mode" title="Toggle dark mode">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg>
+        </button>
+      </div>
+    </div>
+  </header>
+  <div class="status-bar"><div class="status-inner" id="status" aria-live="polite"></div></div>
+
+  <main id="main">
+    <div class="skeleton" style="height:44px;width:60%;margin:10px 0 18px"></div>
+    <div class="grid g3">
+      <div class="skeleton" style="height:190px"></div><div class="skeleton" style="height:190px"></div><div class="skeleton" style="height:190px"></div>
+    </div>
+  </main>
+
+  <footer class="site-footer">
+    <div class="footer-inner">
+      <div>
+        <p><b style="color:var(--ink)">Midterms 2026</b> is an independent, automated forecast. It is not affiliated with any campaign, party or news organization.</p>
+        <p>Forecasts are probabilities, not predictions. Official results come from each state’s election office.</p>
+      </div>
+      <div>
+        <p>Data: <a href="https://en.wikipedia.org/wiki/2026_United_States_elections" target="_blank" rel="noopener">Wikipedia</a> (CC BY-SA 4.0) for candidates and ratings · <a href="https://votehub.com/polls" target="_blank" rel="noopener">VoteHub</a> (CC BY 4.0) for polls · <a href="https://polymarket.com" target="_blank" rel="noopener">Polymarket</a> for market prices · AP vote counts via The New York Times on election night.</p>
+        <p><a href="#/methodology">How the forecast works</a></p>
+      </div>
+    </div>
+  </footer>
+
+  <script src="assets/vendor/d3.min.js"></script>
+  <script src="assets/vendor/topojson-client.min.js"></script>
+  <script type="module" src="assets/js/app.js"></script>
+</body>
+</html>

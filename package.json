@@ -1,0 +1,11 @@
+{
+  "name": "midterms-2026",
+  "private": true,
+  "type": "module",
+  "description": "Forecast and live results for the November 3, 2026 U.S. midterm elections",
+  "scripts": {
+    "races": "python3 pipeline/build_races.py",
+    "refresh": "node pipeline/refresh.mjs",
+    "serve": "python3 pipeline/serve.py 8026"
+  }
+}

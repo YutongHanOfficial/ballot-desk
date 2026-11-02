@@ -1,0 +1,45 @@
+name: Refresh forecast data
+
+on:
+  schedule:
+    - cron: '7,37 * * * *'      # watchdog: also starts a refresh if the loop below is not running
+  workflow_dispatch:
+    inputs:
+      loop_minutes:
+        description: 'Keep refreshing for this many minutes (0 = once)'
+        default: '340'
+
+permissions:
+  contents: write
+  actions: write
+
+concurrency:
+  group: refresh-data
+  cancel-in-progress: false
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    timeout-minutes: 350
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Refresh polls, markets and the forecast
+        env:
+          LOOP_MINUTES: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.loop_minutes || '0' }}
+          INTERVAL_MINUTES: '20'
+        run: bash pipeline/loop.sh
+      - name: Start the next loop
+        # GITHUB_TOKEN may dispatch workflows, so the long-running loop re-launches itself until the polls close.
+        if: github.event_name == 'workflow_dispatch' && github.event.inputs.loop_minutes != '0'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if [ "$(date -u +%s)" -lt "$(date -u -d '2026-11-03T23:00:00Z' +%s)" ]; then
+            gh workflow run refresh.yml --ref "${GITHUB_REF_NAME}" -f loop_minutes=340
+          fi
