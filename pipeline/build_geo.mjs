@@ -5,6 +5,9 @@
 //   data/geo/districts-2026.json   all 435 districts (TopoJSON, lon/lat), simplified for the national map
 //   data/geo/cd/XX.json            one state's districts at higher detail, for state and race pages
 //   data/geo/house-hex.json        equal-size hexagon layout, one hex per district
+//   data/geo/counties/XX.json      a state's counties (Census cartographic boundaries, 2025)
+//   data/geo/counties-2024.json    2024 presidential vote by county: { fips: [total, dem, gop] }
+//                                  (tonmcg/US_County_Level_Election_Results_08-24, MIT licence)
 //
 // One-time build: `npm install && npm run geo` (needs `unzip`). The output is committed; the GitHub Action
 // never runs this.
@@ -286,6 +289,48 @@ function fillHoles(nodes, owner, neighbors, key, center) {
   for (const nd of nodes) nd.cells = [...cellsOf.get(nd.st)].map(parse);
 }
 
+// ------------------------------------------------------------------------------------------- counties
+
+async function buildCounties() {
+  log('counties');
+  const zip = path.join(CACHE, 'cb_2025_us_county_500k.zip');
+  await download('https://www2.census.gov/geo/tiger/GENZ2025/shp/cb_2025_us_county_500k.zip', zip);
+  const dir = path.join(CACHE, 'counties');
+  if (!fs.existsSync(path.join(dir, 'cb_2025_us_county_500k.shp'))) execFileSync('unzip', ['-oq', zip, '-d', dir]);
+  const csvFile = path.join(CACHE, 'county_president_2024.csv');
+  await download('https://raw.githubusercontent.com/tonmcg/US_County_Level_Election_Results_08-24/master/2024_US_County_Level_Presidential_Results.csv', csvFile);
+
+  // 2024 baseline. Alaska reports by state House district and D.C. by ward, so neither has county shapes.
+  const lines = fs.readFileSync(csvFile, 'utf8').trim().split(/\r?\n/);
+  const head = lines.shift().split(',');
+  const col = (n) => head.indexOf(n);
+  const base = {};
+  for (const line of lines) {
+    const c = line.split(',');
+    const fips = c[col('county_fips')].padStart(5, '0');
+    if (!FIPS[fips.slice(0, 2)] || fips.startsWith('02')) continue;
+    base[fips] = [+c[col('total_votes')], +c[col('votes_dem')], +c[col('votes_gop')]];
+  }
+  fs.writeFileSync(path.join(OUT, 'counties-2024.json'), JSON.stringify(base));
+
+  const perDir = path.join(CACHE, 'county-per-state');
+  fs.rmSync(perDir, { recursive: true, force: true });
+  fs.mkdirSync(perDir, { recursive: true });
+  ms('-i', path.join(dir, 'cb_2025_us_county_500k.shp'), '-filter-fields', 'GEOID,NAME,STATEFP', '-split', 'STATEFP', '-o', perDir + path.sep);
+  fs.mkdirSync(path.join(OUT, 'counties'), { recursive: true });
+  for (const file of fs.readdirSync(perDir).filter(f => f.endsWith('.shp'))) {
+    const fips = (file.match(/(\d{2})\.shp$/) || [])[1];
+    if (!FIPS[fips] || fips === '02') continue;
+    const out = path.join(perDir, `${fips}.json`);
+    ms('-i', path.join(perDir, file), '-simplify', 'resolution=900x900', 'keep-shapes', '-o', 'format=topojson', 'quantization=100000', out);
+    const t = JSON.parse(fs.readFileSync(out, 'utf8'));
+    const obj = Object.values(t.objects)[0];
+    for (const g of obj.geometries) g.properties = { id: g.properties.GEOID, n: g.properties.NAME };
+    t.objects = { counties: obj };
+    fs.writeFileSync(path.join(OUT, 'counties', `${FIPS[fips]}.json`), JSON.stringify(t));
+  }
+}
+
 // ------------------------------------------------------------------------------------------- main
 
 async function main() {
@@ -338,7 +383,9 @@ async function main() {
   const hex = hexLayout(dists, 15.5);
   fs.writeFileSync(path.join(OUT, 'house-hex.json'), JSON.stringify(hex));
 
-  const sizes = ['districts-2026.json', 'house-hex.json'].map(f => `${f} ${(fs.statSync(path.join(OUT, f)).size / 1024).toFixed(0)}KB`);
+  await buildCounties();
+
+  const sizes = ['districts-2026.json', 'house-hex.json', 'counties-2024.json'].map(f => `${f} ${(fs.statSync(path.join(OUT, f)).size / 1024).toFixed(0)}KB`);
   log(`done: ${fc.features.length} districts; ${sizes.join(', ')}; ${fs.readdirSync(path.join(OUT, 'cd')).length} state files`);
 }
 

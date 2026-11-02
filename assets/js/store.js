@@ -1,5 +1,5 @@
 // Loads the precomputed data files and exposes merged race objects to the views.
-import { ordinal } from './ui.js';
+import { ordinal, probColor, partyVar } from './ui.js';
 import { pollCloseDate } from './config.js';
 
 export const store = {
@@ -9,6 +9,7 @@ export const store = {
     markets: {}, control: {}, marketsAt: null,       // live Polymarket prices
     results: {}, resultsAt: {}, resultsOk: null,     // live vote counts by race id
     est: null, sim: null, swing: null, active: false, demo: false,
+    counties: {},                                    // live county results by race id (election night)
   },
   loadedAt: null,
   sim: null,          // a running election-night simulation (sim.js)
@@ -117,6 +118,25 @@ export function marketControl(type) {
 }
 
 export function racesOf(type) { return store.races.filter(r => r.type === type); }
+
+/** Election night (real or simulated) with results flowing: maps switch from forecast to results colours. */
+export const nightMode = () => !!store.sim || store.live.active;
+
+/**
+ * Map colour for a race. Before results: forecast confidence. On election night: solid for projected
+ * winners, light for the current leader, grey when nothing is counted, paler grey before polls close.
+ */
+export function raceFill(r) {
+  if (!r) return 'var(--none)';
+  if (awaiting(r)) return 'var(--await)';
+  if (!r.left || !r.right) return partyVar((r.left ? r.leftParty : r.rightParty) || r.samePartyGeneral, 1);
+  if (!nightMode()) return probColor(cur(r).p, r.leftParty, r.rightParty);
+  const res = store.live.results[r.id];
+  if (!res || (!res.total && !res.called)) return 'var(--novotes)';
+  if (res.called === 'left' || res.called === 'right') return partyVar(res.called === 'left' ? r.leftParty : r.rightParty, 1);
+  if (res.left === res.right) return 'var(--toss)';
+  return partyVar(res.left > res.right ? r.leftParty : r.rightParty, 3);
+}
 
 /** On election night (real or simulated), true for races whose polls have not closed yet. */
 export function awaiting(r) {

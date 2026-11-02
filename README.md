@@ -1,6 +1,6 @@
-# Midterms 2026: forecast and live results
+# Votetide
 
-A static website with a forecast and live results for every race on the November 3, 2026 ballot:
+**Forecast, live results and simulations for the 2026 U.S. midterms.** A static website covering every race on the November 3, 2026 ballot:
 35 Senate races (including the Ohio and Florida specials), all 435 House seats, 36 governors,
 lieutenant governors, attorneys general, secretaries of state, 88 state legislative chambers and
 144 statewide ballot measures.
@@ -47,6 +47,7 @@ turns them into:
 - `data/geo/districts-2026.json`: all 435 districts for the national map (zoomable, click a state to zoom in)
 - `data/geo/cd/XX.json`: each state at higher detail, for state pages and the district locator on race pages
 - `data/geo/house-hex.json`: the equal-size hexagon map, laid out automatically from district locations
+- `data/geo/counties/XX.json` + `data/geo/counties-2024.json`: county maps and the 2024 presidential vote by county
 
 They are built once and committed. To rebuild: `npm install && npm run geo` (needs `unzip`).
 
@@ -109,6 +110,9 @@ Polymarket prices without vote counts.
 | Prediction markets | Polymarket Gamma + CLOB public APIs | Polymarket terms |
 | Election-night counts and calls | AP via The New York Times public results JSON | Unofficial; see above |
 | 2026 congressional district boundaries | U.S. Census Bureau TIGER/Line 2026 (`cd120`) + cartographic state outlines | Public domain |
+| County boundaries | U.S. Census Bureau cartographic boundaries, 2025 | Public domain |
+| 2024 presidential vote by county | [tonmcg/US_County_Level_Election_Results_08-24](https://github.com/tonmcg/US_County_Level_Election_Results_08-24) | MIT |
+| Election-night county results | AP via each race's NYT results file (fetched in the browser) | Unofficial; see above |
 | State shapes | us-atlas (U.S. Census Bureau) | ISC / public domain |
 
 This is an independent project, not affiliated with any campaign, party or news organization.

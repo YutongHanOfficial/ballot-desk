@@ -3,7 +3,7 @@ import { h, pct, num, partyVar, partyChip, esc, lastName, PARTY_NAME, sortableTa
 import { store } from '../store.js';
 import { histogram, usMap, mapLegend } from '../charts.js';
 import { houseMap } from '../maps.js';
-import { makeScenario, startNight, stopSim, randomSeed, simFill, clockLabel } from '../sim.js';
+import { makeScenario, startNight, stopSim, randomSeed, simFill, clockLabel, ensureSimData } from '../sim.js';
 
 const OPTS = { errMode: 'random', err: 0 };   // the polling-error choice survives live re-renders
 const CACHE = new Map();
@@ -14,6 +14,14 @@ function scenarioFor(seed, err) {
   const key = `${seed}|${err}`;
   if (!CACHE.has(key)) CACHE.set(key, makeScenario({ seed, nat: err }));
   return CACHE.get(key);
+}
+
+/** Start a replay (same seed = same result), once the county data for county-by-county counting is in. */
+function playNight(seed, err) {
+  ensureSimData().then(() => {
+    startNight(makeScenario({ seed: seed ?? randomSeed(), nat: err }), { speed: 3 });
+    location.hash = '#/live';
+  });
 }
 
 function errText(x) {
@@ -49,11 +57,8 @@ export function render(root) {
       onclick: (e) => { OPTS.errMode = k; custom.style.display = k === 'custom' ? '' : 'none'; e.target.parentNode.querySelectorAll('button').forEach(b => b.classList.toggle('on', b === e.target)); },
     }, label)));
   const quickBtn = h('button', { type: 'button', class: 'btn primary', onclick: () => { location.hash = newQuickHash(); } }, '🎲  Quick simulation');
-  const nightBtn = h('button', { type: 'button', class: 'btn', onclick: () => {
-    const e = OPTS.errMode === 'custom' ? OPTS.err : null;
-    startNight(seed !== null ? scenarioFor(seed, e) : makeScenario({ nat: e }), { speed: 3 });
-    location.hash = '#/live';
-  } }, seed !== null ? '▶  Play this result as election night' : '▶  Simulate election night');
+  const nightBtn = h('button', { type: 'button', class: 'btn', onclick: () => playNight(seed, OPTS.errMode === 'custom' ? OPTS.err : null) },
+    seed !== null ? '▶  Play this result as election night' : '▶  Simulate election night');
   root.append(h('div', { class: 'card sim-controls' },
     h('div', { class: 'sim-control-row' },
       h('div', null, h('div', { class: 'card-title' }, 'National polling error'), seg),
@@ -103,7 +108,7 @@ function resultView(sc, seed, err) {
       h('span', { class: 'xs' }, `Simulation #${seed}. `), h('a', { href: location.hash, class: 'xs' }, 'Link to this result')),
     h('div', { class: 'sim-buttons', style: { marginTop: '14px' } },
       h('button', { type: 'button', class: 'btn primary', onclick: () => { location.hash = newQuickHash(); } }, '🎲  Simulate again'),
-      h('button', { type: 'button', class: 'btn', onclick: () => { startNight(sc, { speed: 3 }); location.hash = '#/live'; } }, '▶  Play this as election night'))));
+      h('button', { type: 'button', class: 'btn', onclick: () => playNight(seed, err) }, '▶  Play this as election night'))));
 
   const card = (type, label, total, need) => {
     const s = o.seats[type];

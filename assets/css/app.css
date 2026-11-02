@@ -86,8 +86,8 @@ button { font: inherit; color: inherit; }
 }
 .header-inner { max-width: var(--max); margin: 0 auto; padding: 0 16px; display: flex; align-items: center; gap: 18px; height: 58px; }
 .brand { display: flex; align-items: center; gap: 10px; text-decoration: none; flex-shrink: 0; }
-.brand-mark { width: 30px; height: 30px; border-radius: 8px; display: grid; place-items: center; overflow: hidden;
-  background: linear-gradient(90deg, var(--dem) 0 50%, var(--rep) 50% 100%); color: #fff; font: 800 13px/1 var(--sans); letter-spacing: -.02em; }
+.brand-mark { width: 30px; height: 30px; display: block; flex-shrink: 0; }
+.brand-mark svg { display: block; width: 100%; height: 100%; }
 .brand-text { display: flex; flex-direction: column; line-height: 1.1; }
 .brand-text b { font: 700 16px/1.1 var(--serif); letter-spacing: -.01em; }
 .brand-text span { font-size: 11px; color: var(--muted); letter-spacing: .02em; }
@@ -411,3 +411,26 @@ footer.site-footer { border-top: 1px solid var(--line); background: var(--surfac
 .sim-cta { display: flex; align-items: center; gap: 14px; margin-top: 16px; text-decoration: none; flex-wrap: wrap; }
 .sim-cta .grow { flex: 1; min-width: 220px; }
 .sim-cta-icon { font-size: 26px; }
+/* map states on election night: no race < polls still open < polls closed but nothing counted */
+:root { --norace: #f4f2ee; --await: #e4e0d8; --novotes: #c9c4ba; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --norace: #191c21; --await: #2a2f37; --novotes: #424954; } }
+:root[data-theme="dark"] { --norace: #191c21; --await: #2a2f37; --novotes: #424954; }
+
+/* ------------------------------------------------------------------ election-night maps */
+.hero-map .map-wrap { max-width: 980px; }
+.bg-row { align-items: start; }
+.bg-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+@media (max-width: 680px) { .bg-grid { grid-template-columns: minmax(0, 1fr); } }
+.bg-card { display: flex; flex-direction: column; gap: 6px; padding: 10px; border: 1px solid var(--line); border-radius: var(--radius-sm); text-decoration: none; background: var(--surface); transition: border-color .15s; min-width: 0; }
+.bg-card:hover { border-color: var(--line-2); }
+.bg-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; font-size: 14px; }
+.bg-cands { display: grid; grid-template-columns: 1fr 1fr; gap: 4px 10px; }
+.bg-cand { display: flex; align-items: center; gap: 6px; font-size: 13px; min-width: 0; }
+.bg-cand .nm { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.county-map .county { stroke: var(--surface); stroke-width: .35; vector-effect: non-scaling-stroke; }
+.county-map .county:hover { stroke: var(--ink); stroke-width: 1.2; }
+.county-map.compact .county { stroke-width: .25; }
+.county-map .state-outline { stroke: var(--ink-2); stroke-width: .9; opacity: .5; }
+.feed { max-height: 980px; overflow: auto; }
+
+.map-tag { position: absolute; left: 4px; bottom: 4px; font-size: 10px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: var(--muted); background: color-mix(in srgb, var(--surface) 85%, transparent); padding: 2px 6px; border-radius: 4px; pointer-events: none; }

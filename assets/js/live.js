@@ -2,7 +2,7 @@
 import { CONFIG, pollCloseDate } from './config.js';
 import { store, notify, loadData } from './store.js';
 import { liveEstimate, estimateSwing, simulate, samePerson } from './model.js';
-import { makeScenario, startNight, registerSimHooks } from './sim.js';
+import { makeScenario, startNight, registerSimHooks, ensureSimData } from './sim.js';
 
 const AT_LARGE = new Set(['AK', 'DE', 'ND', 'SD', 'VT', 'WY']);
 const params = new URLSearchParams(location.search);
@@ -32,7 +32,7 @@ export function startLive() {
     onStop: () => { recomputeNow(); if (resultsEnabled() && !isDemo()) ['senate', 'gov', 'house'].forEach(refreshResults); },
   });
   if (isDemo()) {
-    startNight(makeScenario(), { speed: 3 });
+    ensureSimData().then(() => startNight(makeScenario(), { speed: 3 }));
   } else if (resultsEnabled()) {
     for (const office of ['senate', 'gov', 'house']) {
       refreshResults(office);
@@ -115,20 +115,14 @@ function nytRaceId(nytId) {
   return AT_LARGE.has(st) || n === 0 ? `${st}-AL` : `${st}-${String(n).padStart(2, '0')}`;
 }
 
-function normalizeNyt(race, nr) {
-  const tru = nr.top_reporting_unit || {};
+/** Our two main candidates in an NYT race: { cands, L, R }, matched by name, then by unique party. */
+function nytSides(race, nr) {
   const meta = nr.candidate_metadata || {};
-  const cands = (tru.candidates || []).map(c => {
-    const m = meta[c.nyt_id] || {};
-    const name = [m.first_name, m.last_name].filter(Boolean).join(' ');
+  const cands = Object.values(meta).map(m => {
     const pid = m.party?.nyt_id;
     const party = pid === 'DEM' ? 'D' : pid === 'GOP' || pid === 'REP' ? 'R' : pid === 'IND' ? 'I' : pid === 'LIB' ? 'L' : pid === 'GRN' ? 'G' : 'O';
-    return { id: c.nyt_id, name, party, votes: c.votes?.total || 0, incumbent: !!m.incumbent };
+    return { id: m.nyt_id, name: [m.first_name, m.last_name].filter(Boolean).join(' '), party, incumbent: !!m.incumbent };
   });
-  const total = tru.total_votes || cands.reduce((s, c) => s + c.votes, 0);
-  const won = new Set((nr.outcome?.won || []).map(String));
-  cands.forEach(c => { c.pct = total ? c.votes / total : 0; c.winner = won.has(c.id); });
-  cands.sort((a, b) => b.votes - a.votes || (a.name > b.name ? 1 : -1));
   const findSide = (name, party) => {
     const exact = cands.find(c => c.name.toLowerCase() === String(name || '').toLowerCase());
     if (exact) return exact;
@@ -136,7 +130,19 @@ function normalizeNyt(race, nr) {
     if (hits.length > 1) return hits.find(c => c.incumbent) || hits[0];
     return hits[0] || cands.find(c => c.party === party && cands.filter(x => x.party === party).length === 1);
   };
-  const L = findSide(race.left, race.leftParty), R = findSide(race.right, race.rightParty);
+  return { cands, L: findSide(race.left, race.leftParty), R: findSide(race.right, race.rightParty) };
+}
+
+function normalizeNyt(race, nr) {
+  const tru = nr.top_reporting_unit || {};
+  const { cands: meta, L: Lm, R: Rm } = nytSides(race, nr);
+  const byId = Object.fromEntries(meta.map(c => [c.id, c]));
+  const cands = (tru.candidates || []).map(c => ({ ...(byId[c.nyt_id] || { id: c.nyt_id, name: c.nyt_id, party: 'O' }), id: c.nyt_id, votes: c.votes?.total || 0 }));
+  const total = tru.total_votes || cands.reduce((s, c) => s + c.votes, 0);
+  const won = new Set((nr.outcome?.won || []).map(String));
+  cands.forEach(c => { c.pct = total ? c.votes / total : 0; c.winner = won.has(c.id); });
+  cands.sort((a, b) => b.votes - a.votes || (a.name > b.name ? 1 : -1));
+  const L = Lm && cands.find(c => c.id === Lm.id), R = Rm && cands.find(c => c.id === Rm.id);
   let called = null;
   if (won.size) called = L && won.has(L.id) ? 'left' : R && won.has(R.id) ? 'right' : 'other';
   const runoff = (nr.outcome?.advanced_to_runoff || []).length > 0;
@@ -144,7 +150,61 @@ function normalizeNyt(race, nr) {
     eevp: tru.eevp || 0, total, cands, left: L ? L.votes : 0, right: R ? R.votes : 0, called, runoff,
     status: nr.race_call_status, updated: tru.provider_updated_at || nr.updated_at, precincts: [tru.precincts_reporting, tru.precincts_total],
     calledAt: (nr.outcome?.winner_accepted_at || [])[0] || null,
+    slug: String(nr.url || '').split('/').pop().replace(/\.html$/, '') || null,
   };
+}
+
+// ------------------------------------------------------------------------------------------- county results
+
+// County-level results live in each race's own NYT file. They are fetched only for races someone is looking
+// at (a race page, the election-night battleground maps), at most every 90 seconds.
+const countyWanted = new Map();   // race id -> { seen: last time a view asked, fetched: last fetch, wait: backoff }
+let countyTimer = null;
+
+export function wantCounties(ids) {
+  if (store.sim || !resultsEnabled() || isDemo()) return;
+  const now = Date.now();
+  for (const id of ids) {
+    const w = countyWanted.get(id) || { fetched: 0, wait: 0 };
+    w.seen = now;
+    countyWanted.set(id, w);
+  }
+  if (!countyTimer) { countyTimer = setInterval(refreshCounties, 15000); }
+  setTimeout(refreshCounties, 50);
+}
+
+async function refreshCounties() {
+  if (store.sim || !visible()) return;
+  const now = Date.now();
+  for (const [id, w] of countyWanted) {
+    if (now - w.seen > 180e3) continue;                      // nobody is looking any more
+    if (now - w.fetched < 90e3 || now < w.wait) continue;
+    const race = store.byId[id];
+    const res = store.live.results[id];
+    const close = pollCloseDate(race.state);
+    if (!race || !res?.slug || (close && now < close)) continue;
+    w.fetched = now;
+    try {
+      const r = await fetch(`https://static01.nyt.com/elections-assets/pages/data/2026-11-03/${res.slug}.json?t=${Math.floor(now / 60000)}`, { cache: 'no-store' });
+      if (!r.ok) { w.wait = now + 300e3; continue; }          // race files go up on election night
+      const data = await r.json();
+      const nr = (data.races || []).find(x => nytRaceId(x.nyt_id) === id) || (data.races || [])[0];
+      if (!nr) continue;
+      const { L, R } = nytSides(race, nr);
+      const out = {};
+      for (const u of nr.reporting_units || []) {
+        if (u.level !== 'county' || !u.fips_county) continue;
+        const votes = (cid) => (u.candidates || []).find(c => c.nyt_id === cid)?.votes?.total || 0;
+        out[`${u.fips_state}${u.fips_county}`] = [(u.eevp || 0) / 100, L ? votes(L.id) : 0, R ? votes(R.id) : 0, u.total_votes || 0];
+      }
+      if (Object.keys(out).length) {
+        store.live.counties = { ...(store.live.counties || {}), [id]: out };
+        notify('counties');
+      }
+    } catch (e) {
+      w.wait = now + 120e3;
+    }
+  }
 }
 
 async function refreshResults(office) {

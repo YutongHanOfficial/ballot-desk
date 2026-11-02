@@ -1,11 +1,13 @@
 // Election-night dashboard.
 import { h, pct, partyVar, timeAgo, fmtTimeET, lastName, marginText } from '../ui.js';
-import { store, cur, chamber, marketControl, racesOf } from '../store.js';
-import { calledSeats, resultsEnabled } from '../live.js';
+import { store, cur, chamber, marketControl, racesOf, nightMode, awaiting } from '../store.js';
+import { calledSeats, resultsEnabled, wantCounties } from '../live.js';
 import { CONFIG, POLL_CLOSE_ET, pollCloseDate } from '../config.js';
 import { raceCard, CHAMBERS } from './common.js';
 import { eventsSoFar, clockLabel } from '../sim.js';
-import { competitive } from './home.js';
+import { competitive, stateFill, stateTip } from './home.js';
+import { usMap, mapLegend, currentLegend } from '../charts.js';
+import { houseMap, countyMap } from '../maps.js';
 
 function calledBar(type) {
   const C = CHAMBERS[type];
@@ -53,6 +55,66 @@ function timeline() {
   }));
 }
 
+const HERO = { tab: 'senate' };
+
+/** The big map at the top: Senate, governors or House, coloured by results as they come in. */
+function heroMap() {
+  const tabs = [['senate', 'Senate'], ['gov', 'Governors'], ['house', 'House']];
+  const seg = h('div', { class: 'seg' });
+  const body = h('div');
+  const summary = h('div', { class: 'compare-line', style: { marginTop: '10px' } });
+  const draw = () => {
+    seg.querySelectorAll('button').forEach((b, i) => b.classList.toggle('on', tabs[i][0] === HERO.tab));
+    const type = HERO.tab;
+    if (type === 'house') body.replaceChildren(houseMap({ id: 'live-house', caption: false }));
+    else {
+      const go = (code) => { const r = store.races.find(x => x.type === type && x.state === code); if (r) location.hash = r.url; };
+      body.replaceChildren(usMap({ fill: stateFill(type), tip: stateTip(type), onClick: go }), mapLegend(currentLegend()));
+    }
+    const races = racesOf(type).filter(r => r.left || r.right);
+    const called = races.filter(r => store.live.results[r.id]?.called).length;
+    const counting = races.filter(r => { const x = store.live.results[r.id]; return x && x.total > 0 && !x.called; }).length;
+    const waiting = races.filter(r => awaiting(r)).length;
+    summary.replaceChildren(
+      h('span', null, h('b', null, called), ` of ${races.length} races projected`),
+      nightMode() ? h('span', null, h('b', null, counting), ' counting · ', h('b', null, waiting), ' polls still open') : h('span', null, 'Colored by our forecast until results arrive'));
+  };
+  tabs.forEach(([k, label]) => seg.appendChild(h('button', { type: 'button', onclick: () => { HERO.tab = k; draw(); } }, label)));
+  draw();
+  return h('section', { class: 'section card hero-map' },
+    h('div', { class: 'map-toolbar' }, seg, h('span', { class: 'xs muted' }, nightMode() ? 'Solid = projected winner · light = leading' : 'Forecast view')),
+    body, summary);
+}
+
+/** Small-multiple county maps of the most competitive statewide races. */
+function battlegrounds() {
+  const list = store.races.filter(r => (r.type === 'senate' || r.type === 'gov') && r.left && r.right && r.state !== 'AK' && r.p !== null)
+    .sort((a, b) => Math.abs(a.p - 0.5) - Math.abs(b.p - 0.5)).slice(0, 8);
+  if (nightMode() && !store.sim) wantCounties(list.map(r => r.id));
+  const card = (r) => {
+    const c = cur(r);
+    const res = c.result;
+    const counting = res && (res.total > 0 || res.called);
+    const tot = res?.total || 0;
+    const line = (side) => {
+      const name = side === 'left' ? r.left : r.right, party = side === 'left' ? r.leftParty : r.rightParty;
+      const val = counting ? (tot ? `${((side === 'left' ? res.left : res.right) / tot * 100).toFixed(1)}%` : '—') : pct(side === 'left' ? c.p : 1 - c.p);
+      const won = res?.called === side;
+      return h('div', { class: 'bg-cand' }, h('span', { class: `party-chip ${party}` }, party), h('span', { class: 'nm' }, lastName(name), won ? h('span', { class: 'winner-check', style: { marginLeft: '5px' } }, '✓') : null), h('b', { style: { color: partyVar(party) } }, val));
+    };
+    const status = res?.called ? h('span', { class: 'pill called' }, 'Projected')
+      : awaiting(r) ? h('span', { class: 'pill' }, `Polls close ${fmtTimeET(pollCloseDate(r.state)).replace(' ET', '')}`)
+      : counting ? h('span', { class: 'pill live' }, `${Math.round(c.eevp)}% counted`) : h('span', { class: 'pill' }, nightMode() ? 'Awaiting votes' : `${r.office}`);
+    return h('a', { class: 'bg-card', href: r.url },
+      h('div', { class: 'bg-head' }, h('b', null, `${r.stateName} ${r.office === 'Governor' ? 'Gov.' : 'Sen.'}${r.special ? ' (S)' : ''}`), status),
+      h('div', { class: 'bg-cands' }, line('left'), line('right')),
+      countyMap(r.state, { raceId: r.id, width: 380, maxHeight: 250, compact: true }));
+  };
+  return h('div', { class: 'card span2' },
+    h('div', { class: 'card-title' }, 'Battlegrounds, county by county', h('span', { class: 'muted', style: { textTransform: 'none', letterSpacing: 0 } }, nightMode() ? 'Shaded by leader and margin' : 'Shaded by the 2024 vote until counting starts')),
+    h('div', { class: 'bg-grid' }, list.map(card)));
+}
+
 export function render(root) {
   const enabled = resultsEnabled();
   const live = store.live;
@@ -77,8 +139,10 @@ export function render(root) {
   }
 
   root.append(h('div', { class: 'grid g3' }, calledBar('senate'), calledBar('house'), calledBar('gov')));
+  root.append(heroMap());
   const feed = eventFeed();
-  if (feed) root.append(feed);
+  root.append(h('section', { class: 'section grid g3 bg-row' }, battlegrounds(),
+    feed || h('div', { class: 'card' }, h('div', { class: 'card-title' }, 'Election night, as it happens'), h('p', { class: 'muted small', style: { margin: 0 } }, 'Poll closings and projections will appear here through the night.'))));
 
   if (live.active && live.swing && live.swing.n >= 3) {
     const sw = live.swing.swing;
@@ -89,31 +153,27 @@ export function render(root) {
   const counting = racesOf('senate').concat(racesOf('gov'), racesOf('house')).filter(r => { const res = live.results[r.id]; return res && (res.total > 0 || res.called); });
   if (live.active) {
     const close = counting.filter(r => !live.results[r.id].called && r.left && r.right)
-      .sort((a, b) => Math.abs(cur(a).p - 0.5) - Math.abs(cur(b).p - 0.5)).slice(0, 18);
-    const calls = counting.filter(r => live.results[r.id].called && r.left && r.right && Math.abs((r.p ?? 0.5) - 0.5) < 0.47)
-      .sort((a, b) => String(live.results[b.id].calledAt || '').localeCompare(String(live.results[a.id].calledAt || ''))).slice(0, 18);
+      .sort((a, b) => Math.abs(cur(a).p - 0.5) - Math.abs(cur(b).p - 0.5)).slice(0, 12);
+    const flips = counting.filter(r => { const res = live.results[r.id]; if (!res.called || !r.holder) return false; const party = res.called === 'left' ? r.leftParty : res.called === 'right' ? r.rightParty : 'O'; return party !== r.holder; });
     root.append(h('section', { class: 'section' }, h('div', { class: 'section-head' }, h('div', null, h('h2', null, 'Too close to call'), h('p', null, 'Uncalled races, closest first. Percentages are the share of the vote counted so far.'))),
       close.length ? h('div', { class: 'race-cards' }, close.map(r => raceCard(r))) : h('div', { class: 'card empty' }, 'No uncalled races with votes yet.')));
-    if (calls.length) root.append(h('section', { class: 'section' }, h('div', { class: 'section-head' }, h('h2', null, 'Calls in competitive races')),
-      h('div', { class: 'race-cards' }, calls.map(r => raceCard(r)))));
-    const flips = counting.filter(r => { const res = live.results[r.id]; if (!res.called || !r.holder) return false; const party = res.called === 'left' ? r.leftParty : res.called === 'right' ? r.rightParty : 'O'; return party !== r.holder; });
     if (flips.length) root.append(h('section', { class: 'section' }, h('div', { class: 'section-head' }, h('h2', null, `Seats that flipped (${flips.length})`)),
       h('div', { class: 'chips' }, flips.map(r => { const res = live.results[r.id]; const party = res.called === 'left' ? r.leftParty : r.rightParty; return h('a', { href: r.url, style: { color: partyVar(party) } }, `${r.short} → ${party}`); }))));
   } else {
-    const key = competitive('senate', 6).concat(competitive('gov', 3), competitive('house', 6));
-    root.append(h('section', { class: 'section' }, h('div', { class: 'section-head' }, h('div', null, h('h2', null, 'Races to watch tonight'), h('p', null, 'These cards switch to live counts as soon as votes are reported.'))),
-      h('div', { class: 'race-cards' }, key.map(r => raceCard(r)))));
+    root.append(h('section', { class: 'section' }, h('div', { class: 'section-head' }, h('div', null, h('h2', null, 'House races to watch'), h('p', null, 'These switch to live counts as soon as votes are reported.'))),
+      h('div', { class: 'race-cards' }, competitive('house', 6).map(r => raceCard(r)))));
   }
 
   root.append(h('section', { class: 'section grid g2' },
     h('div', { class: 'card' }, h('div', { class: 'card-title' }, 'When polls close (Eastern time)'), timeline()),
     h('div', { class: 'card' }, h('div', { class: 'card-title' }, 'How to read election night'),
       h('div', { class: 'prose', style: { fontSize: '14px' } },
+        h('p', null, h('b', null, 'Maps'), ' turn light when a candidate leads and solid when a race is projected. Counties are shaded by who leads them and by how much.'),
         h('p', null, h('b', null, 'Expected vote counted'), ' is the AP’s estimate of the share of all ballots that have been tallied. Early returns can lean heavily toward one party depending on whether mail, early or Election Day votes are counted first.'),
         h('p', null, h('b', null, 'Our live projection'), ' blends the counted vote with the pre-election forecast in proportion to how much is left, and nudges uncounted races by how far results are running from expectations elsewhere.'),
         h('p', null, h('b', null, 'Calls'), ' come from the Associated Press. Close races, ranked-choice tabulation in Alaska and Maine, and Georgia’s 50% runoff rule can delay outcomes for days.'),
         h('p', { class: 'muted', style: { marginBottom: 0 } }, `Results refresh every ${CONFIG.results.refreshSec.senate} seconds (House every ${Math.round(CONFIG.results.refreshSec.house / 60)} minutes); markets every minute.`)))));
-  void lastName; void marginText;
+  void marginText;
 }
 
 const FEED = { all: false };
@@ -145,7 +205,7 @@ function eventFeed() {
     const sym = { close: '◷', call: '✓', batch: '✓', control: '★', info: 'ℹ', final: '■' }[k] || '•';
     return h('span', { class: `feed-icon ${k}`, style: party ? { background: partyVar(party), color: '#fff' } : null }, sym);
   };
-  return h('section', { class: 'section card feed' },
+  return h('section', { class: 'card feed' },
     h('div', { class: 'card-title' }, store.sim ? 'Election night, as it happens (simulated)' : 'Election night, as it happens',
       items.length > 12 ? h('button', { type: 'button', class: 'linkish', onclick: () => { FEED.all = !FEED.all; const p = document.querySelector('.feed'); if (p) p.replaceWith(eventFeed()); } }, FEED.all ? 'Show fewer' : `Show all ${items.length}`) : null),
     h('ol', { class: 'feed-list' }, shown.map(e => h('li', { class: `feed-item ${e.kind}${e.big || e.kind === 'control' ? ' big' : ''}` },

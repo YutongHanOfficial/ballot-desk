@@ -8,6 +8,10 @@
 import { store, notify } from './store.js';
 import { MODEL, rng, drawMargins, liveEstimate } from './model.js';
 import { POLL_CLOSE_ET, pollCloseDate } from './config.js';
+import { countyBaseline, loadCountyBaseline } from './geo.js';
+
+/** County data the replay needs; resolve this before makeScenario() for county-by-county counting. */
+export const ensureSimData = () => loadCountyBaseline().catch(() => null);
 
 const SIX_PM = Date.UTC(2026, 10, 3, 23, 0);   // Nov 3, 6 p.m. Eastern
 export const START = -10;                       // minutes after 6 p.m.
@@ -81,11 +85,63 @@ export function makeScenario({ seed = randomSeed(), nat = null } = {}) {
       contested,
     };
   }
+  // Statewide races are counted county by county (separate random stream, so the race-level draws above
+  // are identical with or without county data).
+  const base = countyBaseline();
+  if (base) {
+    const byState = countiesByState(base);
+    const RC = rng((seed ^ 0x5bd1e995) >>> 0);
+    for (const r of races) {
+      const p = per[r.id];
+      if (r.type === 'house' || !p.contested || !byState[r.state]) continue;
+      p.counties = countyParams(RC, p, byState[r.state]);
+      p.total = p.counties.reduce((t, c) => t + c.total, 0);
+    }
+  }
   const sc = { seed, nat: natErr, natFixed: nat !== null && nat !== undefined, races: per };
   scheduleCalls(sc);
   sc.events = buildEvents(sc);
   sc.outcome = outcome(sc);
   return sc;
+}
+
+// ------------------------------------------------------------------------------------------- counties
+
+let byStateMemo = null;
+function countiesByState(base) {
+  if (byStateMemo && byStateMemo.base === base) return byStateMemo.out;
+  const codeOf = Object.fromEntries(store.states.map(s => [s.fips, s.code]));
+  const out = {};
+  for (const [fips, [total, dem, gop]] of Object.entries(base)) {
+    const st = codeOf[fips.slice(0, 2)];
+    if (!st || !total) continue;
+    (out[st] ||= []).push({ fips, total, m24: 100 * (dem - gop) / total });
+  }
+  byStateMemo = { base, out };
+  return out;
+}
+
+/** Shift each county's 2024 lean to this scenario's statewide result, then give it its own count. */
+function countyParams(R, p, list) {
+  const tot = list.reduce((s, c) => s + c.total, 0);
+  let cs = list.map(c => ({ fips: c.fips, w: (c.total / tot) * (0.92 + R.uni() * 0.16), m24: c.m24 }));
+  const wsum = cs.reduce((s, c) => s + c.w, 0);
+  cs.forEach(c => { c.w /= wsum; });
+  const m24 = cs.reduce((s, c) => s + c.w * c.m24, 0);
+  cs.forEach(c => { c.margin = c.m24 + (p.margin - m24) + 2.5 * R.normal(); });
+  for (let i = 0; i < 4; i++) {          // re-centre so the counties add up to the statewide margin
+    const d = p.margin - cs.reduce((s, c) => s + c.w * c.margin, 0);
+    cs.forEach(c => { c.margin = Math.max(-96, Math.min(96, c.margin + d)); });
+  }
+  const order = cs.slice().sort((a, b) => a.w - b.w);
+  order.forEach((c, i) => { c.size = order.length > 1 ? i / (order.length - 1) : 0.5; });
+  return cs.map(c => ({
+    fips: c.fips, margin: c.margin, total: Math.max(50, Math.round(p.total * c.w)),
+    start: p.start + R.uni() * 16,
+    half: p.half * (0.6 + 0.9 * c.size) * (0.85 + R.uni() * 0.3),               // big counties count slower
+    night: Math.min(0.998, p.night * (c.size > 0.85 ? 0.9 + R.uni() * 0.08 : 0.98 + R.uni() * 0.03)),
+    finish: p.finish, skew: p.skew * (0.5 + R.uni()), other: p.other,
+  }));
 }
 
 // ------------------------------------------------------------------------------------------- counting
@@ -101,6 +157,15 @@ function fracAt(p, t) {
 }
 
 function votesAt(p, t) {
+  if (p.counties) {
+    let counted = 0, left = 0, right = 0, others = 0;
+    for (const c of p.counties) { const v = oneCount(c, t); counted += v.counted; left += v.left; right += v.right; others += v.others; }
+    return { f: p.total ? counted / p.total : 0, counted, left, right, others };
+  }
+  return oneCount(p, t);
+}
+
+function oneCount(p, t) {
   const f = fracAt(p, t);
   const counted = Math.round(p.total * f);
   const m = Math.max(-98, Math.min(98, p.margin + p.skew * Math.pow(1 - f, 1.3)));
@@ -150,7 +215,13 @@ export function resultsAt(sc, t) {
     const total = v.counted;
     cands.forEach(c => { c.pct = total ? c.votes / total : 0; });
     cands.sort((a, b) => b.votes - a.votes);
+    let counties;
+    if (p.counties) {
+      counties = {};
+      for (const c of p.counties) { const cv = oneCount(c, t); counties[c.fips] = [cv.f, cv.left, cv.right, cv.counted]; }
+    }
     out[id] = {
+      counties,
       eevp: Math.round(v.f * 1000) / 10, total, left: p.contested ? v.left : (r.left ? v.counted : 0), right: p.contested ? v.right : (r.right ? v.counted : 0),
       called, calledAt: called ? iso(p.callT) : null, runoff, status: called ? 'called' : runoff ? 'runoff' : total ? 'counting' : 'too_early',
       cands, updated: iso(t), demo: true,

@@ -1,6 +1,6 @@
 // SVG charts (D3 is loaded globally from assets/vendor).
 import { h, s, pct, partyVar, probColor, tooltip, esc, lastName, marginText, fmtDate, compact, PARTY_NAME } from './ui.js';
-import { store, cur, awaiting } from './store.js';
+import { store, cur, awaiting, raceFill, nightMode } from './store.js';
 import { pollCloseDate } from './config.js';
 
 const d3 = window.d3;
@@ -95,7 +95,7 @@ export function usMap({ fill, onClick, tip: tipFn, height = 380, labels = true, 
     if (!code) continue;
     const color = fill(code);
     const active = !!onClick && color !== null;
-    const p = s('path', { d: path(f), class: `state${active ? '' : ' inactive'}`, fill: color || 'var(--none)', 'data-state': code });
+    const p = s('path', { d: path(f), class: `state${active ? '' : ' inactive'}`, fill: color || 'var(--norace)', 'data-state': code });
     if (stroke) p.setAttribute('stroke', stroke(code) || 'var(--surface)');
     if (tipFn) {
       p.addEventListener('mousemove', (e) => { const html = tipFn(code); if (html) tip.show(html, e); });
@@ -114,7 +114,7 @@ export function usMap({ fill, onClick, tip: tipFn, height = 380, labels = true, 
       if (code === 'DC') continue;
       const color = fill(code);
       const box = s('g', { transform: `translate(925, ${yy})`, style: onClick && color !== null ? 'cursor:pointer' : '' });
-      box.appendChild(s('rect', { width: 18, height: 14, rx: 3, fill: color || 'var(--none)', stroke: 'var(--line-2)', 'stroke-width': 0.5 }));
+      box.appendChild(s('rect', { width: 18, height: 14, rx: 3, fill: color || 'var(--norace)', stroke: 'var(--line-2)', 'stroke-width': 0.5 }));
       box.appendChild(s('text', { x: -5, y: 11, 'text-anchor': 'end', style: 'font-size:11px;font-weight:600' }, code));
       if (tipFn) { box.addEventListener('mousemove', (e) => { const html = tipFn(code); if (html) tip.show(html, e); }); box.addEventListener('mouseleave', () => tip.hide()); }
       if (onClick && color !== null) box.addEventListener('click', () => { tip.hide(); onClick(code); });
@@ -128,6 +128,14 @@ export function usMap({ fill, onClick, tip: tipFn, height = 380, labels = true, 
 export function mapLegend(items) {
   return h('div', { class: 'legend' }, items.map(([color, label]) => h('span', null, h('i', { style: { background: color } }), label)));
 }
+
+export const RESULT_LEGEND = [
+  ['var(--dem)', 'Dem. won'], ['var(--dem-3)', 'Dem. leading'], ['var(--rep-3)', 'Rep. leading'], ['var(--rep)', 'Rep. won'],
+  ['var(--ind)', 'Ind. won'], ['var(--novotes)', 'No votes counted'], ['var(--await)', 'Polls still open'], ['var(--norace)', 'No race'],
+];
+
+/** Forecast bands before results; won/leading once election-night results flow. */
+export function currentLegend() { return nightMode() ? RESULT_LEGEND : BAND_LEGEND.slice(0, 8); }
 
 export const BAND_LEGEND = [
   ['var(--dem)', 'Solid D'], ['var(--dem-2)', 'Likely D'], ['var(--dem-3)', 'Lean D'], ['var(--toss)', 'Toss-up'],
@@ -143,7 +151,7 @@ export function seatStrip(races, { need, base = 0, height = 34, majorityLabel } 
     .sort((a, b) => b.dp - a.dp);
   const strip = h('div', { class: 'seat-strip', style: { height: `${height}px`, gap: rows.length > 120 ? '0' : '2px' } });
   rows.forEach(({ r, c }) => {
-    const a = h('a', { href: r.url, style: { background: probColor(c.p, r.leftParty, r.rightParty), borderRadius: rows.length > 120 ? '0' : null }, 'aria-label': r.title });
+    const a = h('a', { href: r.url, style: { background: raceFill(r), borderRadius: rows.length > 120 ? '0' : null }, 'aria-label': r.title });
     a.addEventListener('mousemove', (e) => tip.show(raceTip(r), e));
     a.addEventListener('mouseleave', () => tip.hide());
     strip.appendChild(a);

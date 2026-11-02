@@ -1,30 +1,20 @@
 // District maps: the national House map (geographic or equal-size hexagons) and per-state district maps.
 // Boundaries are the Census Bureau's 2026 (120th Congress) districts, built by pipeline/build_geo.mjs.
-import { h, s, probColor, partyVar, tooltip } from './ui.js';
-import { store, cur, awaiting } from './store.js';
-import { raceTip, mapLegend, BAND_LEGEND } from './charts.js';
+import { h, s, probColor, partyVar, tooltip, esc } from './ui.js';
+import { store, cur, awaiting, raceFill, nightMode } from './store.js';
+import { raceTip, mapLegend, currentLegend } from './charts.js';
 
 const d3 = window.d3;
 const topojson = window.topojson;
 
 // ------------------------------------------------------------------------------------------- loading
 
-const cache = new Map();
-const pending = new Map();
-
-export function loadGeo(url) {
-  if (cache.has(url)) return Promise.resolve(cache.get(url));
-  if (!pending.has(url)) {
-    pending.set(url, fetch(url).then(r => { if (!r.ok) throw new Error(`${url}: HTTP ${r.status}`); return r.json(); })
-      .then(d => { cache.set(url, d); return d; })
-      .catch(e => { pending.delete(url); throw e; }));
-  }
-  return pending.get(url);
-}
+import { loadGeo, cachedGeo, COUNTY_BASE_URL } from './geo.js';
+export { loadGeo };
 
 /** Build immediately when the files are cached; otherwise show a placeholder and swap the map in on arrival. */
 function withGeo(urls, build, height) {
-  const have = urls.map(u => cache.get(u));
+  const have = urls.map(u => cachedGeo(u));
   if (have.every(Boolean)) return build(...have);
   const holder = h('div', { class: 'skeleton map-skeleton', style: { height: `${height}px` } });
   Promise.all(urls.map(loadGeo))
@@ -35,11 +25,7 @@ function withGeo(urls, build, height) {
 
 // ------------------------------------------------------------------------------------------- colour
 
-export function raceFill(r) {
-  if (!r || awaiting(r)) return 'var(--none)';
-  if (!r.left || !r.right) return partyVar((r.left ? r.leftParty : r.rightParty) || r.samePartyGeneral, 1);
-  return probColor(cur(r).p, r.leftParty, r.rightParty);
-}
+export { raceFill };
 
 function hoverable(el, r, tipFn = raceTip) {
   const tip = tooltip();
@@ -137,7 +123,7 @@ export function houseMap({ id = 'house', caption = true, fill = raceFill, tip = 
   }
   wrap.append(h('div', { class: 'map-toolbar' }, seg,
     caption ? h('span', { class: 'xs muted map-hint' }, VIEW.mode === 'hex' ? 'Every district the same size' : 'Click a state to zoom · pinch or Ctrl/⌘-scroll') : null),
-    body, mapLegend(BAND_LEGEND.slice(0, 8)));
+    body, mapLegend(currentLegend()));
   draw();
   // keep the hint in sync with the mode
   seg.addEventListener('click', () => { const hint = wrap.querySelector('.map-hint'); if (hint) hint.textContent = VIEW.mode === 'hex' ? 'Every district the same size' : 'Click a state to zoom · pinch or Ctrl/⌘-scroll'; });
@@ -224,18 +210,16 @@ export function stateDistrictMap(code, { highlight = null, width = 720, maxHeigh
   return withGeo([`data/geo/cd/${code}.json`], (topo) => buildStateMap(code, topo, { highlight, width, maxHeight, zoomKey }), Math.min(maxHeight, 360));
 }
 
-function buildStateMap(code, topo, { highlight, width: W, maxHeight, zoomKey }) {
-  const fc = topojson.feature(topo, topo.objects.districts);
+/** Conformal conic projection framed on a state (or, with focus, on part of it). */
+function stateFrame(fc, W, maxHeight, focus = null) {
   const [[west, south], [east, north]] = d3.geoBounds(fc);
   const lon = west > east ? ((west + east + 360) / 2 + 180) % 360 - 180 : (west + east) / 2;   // Alaska spans 180°
   const proj = d3.geoConicConformal().rotate([-lon, 0]).parallels([south + (north - south) / 3, north - (north - south) / 3]);
-  const target = highlight ? fc.features.find(f => f.properties.id === highlight) : null;
   proj.fitWidth(W - 20, fc);
   let path = d3.geoPath(proj);
-  // Frame the whole state, or, for a small urban district, its neighbourhood.
   let box = path.bounds(fc);
-  if (target) {
-    const tb = path.bounds(target);
+  if (focus) {
+    const tb = path.bounds(focus);
     const tw = tb[1][0] - tb[0][0], th = tb[1][1] - tb[0][1];
     if (Math.max(tw / (box[1][0] - box[0][0]), th / (box[1][1] - box[0][1])) < 0.28) {
       const cx = (tb[0][0] + tb[1][0]) / 2, cy = (tb[0][1] + tb[1][1]) / 2;
@@ -250,6 +234,13 @@ function buildStateMap(code, topo, { highlight, width: W, maxHeight, zoomKey }) 
   const bcx = (box[0][0] + box[1][0]) / 2, bcy = (box[0][1] + box[1][1]) / 2;
   proj.scale(proj.scale() * k).translate([(tx - bcx) * k + W / 2, (ty - bcy) * k + H / 2]);
   path = d3.geoPath(proj);
+  return { proj, path, H };
+}
+
+function buildStateMap(code, topo, { highlight, width: W, maxHeight, zoomKey }) {
+  const fc = topojson.feature(topo, topo.objects.districts);
+  const target = highlight ? fc.features.find(f => f.properties.id === highlight) : null;
+  const { path, H } = stateFrame(fc, W, maxHeight, target);
 
   const svg = s('svg', { viewBox: `0 0 ${W} ${H}`, class: `district-map state-map${highlight ? ' locator' : ''}`, role: 'img', 'aria-label': `${store.stateByCode[code]?.name} congressional districts` });
   const layer = s('g');
@@ -279,3 +270,84 @@ function buildStateMap(code, topo, { highlight, width: W, maxHeight, zoomKey }) 
   if (ZOOM[zoomKey]) labels.style.fontSize = `${12 / ZOOM[zoomKey].k}px`;
   return h('div', { class: 'map-frame' }, svg, zoomButtons(api));
 }
+
+// ------------------------------------------------------------------------------------------- county maps
+
+/** County results for a race right now: a simulation's synthetic counts, or the live NYT race file. */
+export function countyResults(raceId) {
+  if (store.sim) return store.live.results[raceId]?.counties || null;
+  return store.live.counties?.[raceId] || null;
+}
+
+// Lightest step is a tint of the third so it stays visible on dark backgrounds.
+const tint = (party) => `color-mix(in srgb, ${partyVar(party, 3)} 70%, var(--surface))`;
+function marginFill(party, m) {
+  const a = Math.abs(m);
+  return a >= 30 ? partyVar(party, 1) : a >= 15 ? partyVar(party, 2) : a >= 5 ? partyVar(party, 3) : tint(party);
+}
+
+export const COUNTY_LEGEND = [
+  ['var(--dem)', 'D +30'], ['var(--dem-2)', '+15'], ['var(--dem-3)', '+5'], ['color-mix(in srgb, var(--dem-3) 70%, var(--surface))', '<5'],
+  ['color-mix(in srgb, var(--rep-3) 70%, var(--surface))', '<5'], ['var(--rep-3)', '+5'], ['var(--rep-2)', '+15'], ['var(--rep)', 'R +30'],
+];
+
+/**
+ * A state's counties. With a race and county results available (election night, or a simulation), counties
+ * are shaded by who leads and by how much; otherwise by the 2024 presidential vote.
+ */
+export function countyMap(code, { raceId = null, width = 720, maxHeight = 540, compact = false, zoomKey = null } = {}) {
+  if (code === 'AK') return h('div', { class: 'empty small' }, 'Alaska reports results by state House district rather than by county, so there is no county map.');
+  return withGeo([`data/geo/counties/${code}.json`, COUNTY_BASE_URL], (topo, base) => buildCountyMap(code, topo, base, { raceId, width, maxHeight, compact, zoomKey }), compact ? 200 : 360);
+}
+
+function buildCountyMap(code, topo, base, { raceId, width: W, maxHeight, compact, zoomKey }) {
+  const fc = topojson.feature(topo, topo.objects.counties);
+  const { path, H } = stateFrame(fc, W, maxHeight);
+  const race = raceId ? store.byId[raceId] : null;
+  const live = race ? countyResults(raceId) : null;
+  const night = !!race && nightMode();
+  const waiting = night && awaiting(race);
+  const liveMode = night && (!!live || waiting);
+  const tip = tooltip();
+  const svg = s('svg', { viewBox: `0 0 ${W} ${H}`, class: `district-map county-map${compact ? ' compact' : ''}`, role: 'img', 'aria-label': `${store.stateByCode[code]?.name} counties` });
+  const layer = s('g');
+  const suffix = code === 'LA' ? ' Parish' : '';
+  for (const f of fc.features) {
+    const fips = f.properties.id, name = f.properties.n + suffix;
+    let fill = 'var(--none)', html;
+    if (liveMode) {
+      const v = live && live[fips];
+      if (waiting) fill = 'var(--await)';
+      else if (v && v[3] > 0) {
+        const m = 100 * (v[1] - v[2]) / v[3];
+        fill = marginFill(m >= 0 ? race.leftParty : race.rightParty, m);
+      }
+      html = `<div class="tt-title">${esc(name)}</div>` + (v && v[3] > 0
+        ? `<div class="tt-row"><span><span class="party-chip ${race.leftParty}" style="margin-right:6px">${race.leftParty}</span>${esc(lastNameOf(race.left))}</span><b>${(100 * v[1] / v[3]).toFixed(1)}%</b></div>` +
+          `<div class="tt-row"><span><span class="party-chip ${race.rightParty}" style="margin-right:6px">${race.rightParty}</span>${esc(lastNameOf(race.right))}</span><b>${(100 * v[2] / v[3]).toFixed(1)}%</b></div>` +
+          `<div class="tt-row muted"><span>${Math.round(v[0] * 100)}% counted</span><span>${v[3].toLocaleString()} votes</span></div>`
+        : `<div class="muted">${waiting ? 'Polls still open' : 'No votes counted yet'}</div>`);
+      if (!waiting && !(v && v[3] > 0)) fill = 'var(--novotes)';
+    } else {
+      const b = base[fips];
+      if (b && b[0] > 0) {
+        const m = 100 * (b[1] - b[2]) / b[0];
+        fill = marginFill(m >= 0 ? 'D' : 'R', m);
+        html = `<div class="tt-title">${esc(name)}</div><div class="tt-row"><span>Harris (D)</span><b>${(100 * b[1] / b[0]).toFixed(1)}%</b></div><div class="tt-row"><span>Trump (R)</span><b>${(100 * b[2] / b[0]).toFixed(1)}%</b></div><div class="tt-row muted"><span>2024 president</span><span>${b[0].toLocaleString()} votes</span></div>`;
+      } else html = `<div class="tt-title">${esc(name)}</div><div class="muted">No 2024 county result</div>`;
+    }
+    const p = s('path', { d: path(f), fill, class: 'county' });
+    p.addEventListener('mousemove', (e) => tip.show(html, e));
+    p.addEventListener('mouseleave', () => tip.hide());
+    layer.appendChild(p);
+  }
+  layer.appendChild(s('path', { d: path(topojson.mesh(topo, topo.objects.counties, (a, b) => a === b)), class: 'coast state-outline' }));
+  svg.appendChild(layer);
+  const frame = h('div', { class: 'map-frame' }, svg);
+  if (zoomKey && !compact) frame.appendChild(zoomButtons(attachZoom(svg, layer, { key: zoomKey, width: W, height: H, maxK: 10 })));
+  frame.dataset.mode = liveMode ? 'live' : 'baseline';
+  if (compact && night) frame.appendChild(h('span', { class: 'map-tag' }, waiting ? 'Polls open' : liveMode ? (store.sim ? 'Simulated counts' : 'Live counts') : '2024 vote'));
+  return frame;
+}
+
+const lastNameOf = (n) => String(n || '').split(' ').slice(-1)[0];

@@ -1,6 +1,6 @@
 // Site settings. Edit and redeploy; no build step.
 export const CONFIG = {
-  siteName: 'Midterms 2026',
+  siteName: 'Votetide',
   electionDay: '2026-11-03',
   firstPollsClose: '2026-11-03T23:00:00Z',   // 6 p.m. Eastern (parts of Indiana and Kentucky)
   lastPollsClose: '2026-11-04T06:00:00Z',    // 1 a.m. Eastern (western Aleutians)

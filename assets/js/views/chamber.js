@@ -1,7 +1,7 @@
 // Senate, House and Governor pages.
 import { h, pct, num, timeAgo, sortableTable } from '../ui.js';
 import { store, cur, chamber, racesOf } from '../store.js';
-import { usMap, mapLegend, BAND_LEGEND, histogram, seatStrip } from '../charts.js';
+import { usMap, mapLegend, currentLegend, histogram, seatStrip } from '../charts.js';
 import { houseMap } from '../maps.js';
 import { chamberCard, raceColumns, electionBanner, CHAMBERS } from './common.js';
 import { stateFill, stateTip } from './home.js';
@@ -77,7 +77,7 @@ export function renderChamber(root, type) {
     h('div', { class: 'card-title' }, type === 'house' ? 'All 435 seats, from most to least Democratic' : `All ${races.length} races, from most to least Democratic`),
     type !== 'house' ? h('p', { class: 'small muted', style: { marginTop: 0 } }, `Democrats start with ${base} ${type === 'gov' ? 'governorships' : 'seats'} not on the ballot; the marker shows the race that would give them ${C.need}.`) : null,
     seatStrip(races, { need: C.need, base, height: type === 'house' ? 40 : 46, majorityLabel: type === 'gov' ? `${C.need}th governorship` : `${C.need}th seat` }),
-    mapLegend(BAND_LEGEND.slice(0, 8))));
+    mapLegend(currentLegend())));
 
   // Map
   if (type === 'house') {
@@ -88,7 +88,7 @@ export function renderChamber(root, type) {
     const go = (code) => { const r = races.find(x => x.state === code && !x.special) || races.find(x => x.state === code); if (r) location.hash = r.url; };
     root.append(h('section', { class: 'section card' },
       h('div', { class: 'card-title' }, `${C.name} map`),
-      usMap({ fill: stateFill(type), onClick: go, tip: stateTip(type) }), mapLegend(BAND_LEGEND)));
+      usMap({ fill: stateFill(type), onClick: go, tip: stateTip(type) }), mapLegend(currentLegend())));
   }
 
   // Table (filter and search survive the live re-render)

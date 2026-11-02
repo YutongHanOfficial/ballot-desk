@@ -3,8 +3,9 @@ import { h, pct, num, partyChip, partyVar, ratingChip, sortableTable, esc, PARTY
 import { store, cur } from '../store.js';
 import { raceCard, raceColumns, electionBanner, pollCloseText } from './common.js';
 import { stateGrid } from './home.js';
-import { usMap, mapLegend, probMini, BAND_LEGEND } from '../charts.js';
-import { stateDistrictMap } from '../maps.js';
+import { usMap, mapLegend, probMini, currentLegend } from '../charts.js';
+import { stateDistrictMap, countyMap, countyResults, COUNTY_LEGEND } from '../maps.js';
+import { nightMode } from '../store.js';
 
 export function renderIndex(root) {
   const fill = (code) => {
@@ -66,9 +67,7 @@ export function renderState(root, code) {
       h('div', { class: 'section-head' },
         h('div', null, h('h2', null, 'U.S. House'),
           h('p', null, `Now: ${holdNow.D} D · ${holdNow.R} R${holdNow.I ? ` · ${holdNow.I} I` : ''}${holdNow.new ? ` · ${holdNow.new} new or vacant` : ''}. Projected: ${expD.toFixed(1)} D · ${(house.length - expD).toFixed(1)} R (expected seats).`))),
-      h('div', { class: 'card', style: { marginBottom: '14px' } },
-        h('div', { class: 'card-title' }, `${st.name}'s ${house.length > 1 ? `${house.length} districts` : 'at-large district'}`, h('span', { class: 'muted', style: { textTransform: 'none', letterSpacing: 0 } }, '2026 lines · tap a district')),
-        stateDistrictMap(code, { zoomKey: `state-${code}` }), mapLegend(BAND_LEGEND.slice(0, 8))),
+      stateMapCard(st, house, statewide),
       sortableTable(raceColumns({ type: 'house' }), house, { sortKey: 'race', desc: false, onRow: r => { location.hash = r.url; }, stateKey: `state-${code}` })));
   }
 
@@ -83,6 +82,38 @@ export function renderState(root, code) {
     root.append(h('section', { class: 'section' }, h('div', { class: 'section-head' }, h('h2', null, 'Ballot measures')),
       h('div', { class: 'card' }, measures.map(measureItem))));
   }
+}
+
+const MAPVIEW = {};   // per state: 'districts' or a race id / 'pres24' for the county map
+
+function stateMapCard(st, house, statewide) {
+  const code = st.code;
+  const countyRaces = statewide.filter(r => r.left && r.right && (r.type === 'senate' || r.type === 'gov'));
+  let view = MAPVIEW[code] || (nightMode() && countyRaces.length && code !== 'AK' ? countyRaces[0].id : 'districts');
+  const body = h('div');
+  const hint = h('span', { class: 'xs muted' });
+  const seg = h('div', { class: 'seg' });
+  const opts = [['districts', 'House districts']];
+  if (code !== 'AK') {
+    if (nightMode()) countyRaces.forEach(r => opts.push([r.id, `${r.office} by county`]));
+    opts.push(['pres24', '2024 by county']);
+  }
+  const draw = () => {
+    seg.querySelectorAll('button').forEach((b, i) => b.classList.toggle('on', opts[i][0] === view));
+    hint.textContent = view === 'districts' ? `${house.length > 1 ? `${house.length} districts` : 'At-large district'} · 2026 lines` : 'Hover a county for details';
+    if (view === 'districts') {
+      body.replaceChildren(stateDistrictMap(code, { zoomKey: `state-${code}` }), mapLegend(currentLegend()));
+    } else {
+      const raceId = view === 'pres24' ? null : view;
+      body.replaceChildren(countyMap(code, { raceId, zoomKey: `stcounty-${code}-${view}` }), mapLegend(COUNTY_LEGEND),
+        h('p', { class: 'xs muted', style: { margin: '6px 0 0' } }, raceId && countyResults(raceId) ? 'Live county results, shaded by leader and margin.' : '2024 presidential vote by county (Harris vs. Trump).'));
+    }
+  };
+  opts.forEach(([k, label]) => seg.appendChild(h('button', { type: 'button', onclick: () => { view = k; MAPVIEW[code] = k; draw(); } }, label)));
+  draw();
+  return h('div', { class: 'card', style: { marginBottom: '14px' } },
+    h('div', { class: 'map-toolbar' }, seg, hint),
+    body);
 }
 
 export function legisCard(l) {

@@ -2,7 +2,10 @@
 import { h, pct, num, partyChip, partyVar, ratingChip, marginText, lastName, fmtDate, oddsText, compact, timeAgo, PARTY_NAME, bandLabel } from '../ui.js';
 import { store, cur } from '../store.js';
 import { splitBar, pollChart, marginCurve, signalRows } from '../charts.js';
-import { stateDistrictMap } from '../maps.js';
+import { stateDistrictMap, countyMap, countyResults, COUNTY_LEGEND } from '../maps.js';
+import { mapLegend } from '../charts.js';
+import { nightMode } from '../store.js';
+import { wantCounties } from '../live.js';
 import { electionBanner, pollCloseText, raceCard } from './common.js';
 
 function winsText(name, q) {
@@ -71,6 +74,7 @@ export function render(root, id) {
     marginCurve(r, c.mu, c.sd),
     h('p', { class: 'xs muted', style: { margin: '6px 0 0' } }, 'Shaded by winner; the bar marks the middle 80% of simulated margins.'));
   root.append(h('div', { class: 'race-hero' }, hero, curve));
+  if (r.type !== 'house') root.append(countyCard(r));
 
   // What drives it + market
   const comps = r.components || {};
@@ -96,6 +100,23 @@ export function render(root, id) {
   if (others.length) root.append(h('section', { class: 'section' }, h('div', { class: 'section-head' }, h('h2', null, `More in ${r.stateName}`), h('a', { class: 'small', href: `#/state/${r.state}` }, 'State page →')),
     h('div', { class: 'race-cards' }, others.map(x => raceCard(x)))));
 }
+
+/** Statewide races: county map, live on election night, otherwise the 2024 presidential vote. */
+export function countyCard(r) {
+  if (nightMode() && !store.sim) wantCounties([r.id]);
+  const live = nightMode() && countyResults(r.id);
+  const title = live ? 'Results by county' : 'How the counties voted in 2024';
+  const note = r.state === 'AK' ? '' : live
+    ? `Shaded by who leads each county and by how much. ${store.sim ? 'Simulated counts.' : 'AP counts via The New York Times.'}`
+    : nightMode() ? 'County results appear as soon as counties report.' : 'Presidential vote by county, 2024 (Harris vs. Trump). On election night this map switches to live county results.';
+  return h('section', { class: 'section card' },
+    h('div', { class: 'card-title' }, title, live ? h('span', { class: 'pill live', style: { textTransform: 'none', letterSpacing: 0 } }, h('span', { class: 'live-dot' }), store.sim ? 'Simulated' : 'Live') : null),
+    countyMap(r.state, { raceId: r.id, zoomKey: `county-${r.id}` }),
+    r.state === 'AK' ? null : mapLegend(COUNTY_LEGEND.map(([c, l], i) => [c, i < 4 && live ? l.replace('D', lastNameShort(r.left, r.leftParty)) : i >= 4 && live ? l.replace('R', lastNameShort(r.right, r.rightParty)) : l])),
+    note ? h('p', { class: 'xs muted', style: { margin: '6px 0 0' } }, note) : null);
+}
+
+const lastNameShort = (name, party) => (party === 'D' || party === 'R' ? party : lastName(name));
 
 function resultsCard(r, c) {
   const res = c.result;

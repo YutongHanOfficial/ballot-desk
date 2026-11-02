@@ -1,6 +1,6 @@
 import { h, pct, num, timeAgo, probColor, partyVar, lastName, esc } from '../ui.js';
-import { store, cur, chamber, racesOf, awaiting } from '../store.js';
-import { usMap, mapLegend, BAND_LEGEND, historyChart, raceTip } from '../charts.js';
+import { store, cur, chamber, racesOf, raceFill } from '../store.js';
+import { usMap, mapLegend, currentLegend, historyChart, raceTip } from '../charts.js';
 import { houseMap } from '../maps.js';
 import { chamberCard, raceCard, headline, electionBanner, CHAMBERS } from './common.js';
 
@@ -13,11 +13,7 @@ export function stateFill(type) {
   return (code) => {
     const r = store.races.find(x => x.type === type && x.state === code && (type !== 'senate' || !x.special)) ||
       store.races.find(x => x.type === type && x.state === code);
-    if (!r) return null;
-    if (awaiting(r)) return 'var(--none)';
-    const c = cur(r);
-    if (!r.left || !r.right) return probColor(r.left ? 1 : 0, r.leftParty, r.rightParty);
-    return probColor(c.p, r.leftParty, r.rightParty);
+    return r ? raceFill(r) : null;
   };
 }
 
@@ -110,9 +106,9 @@ export function render(root) {
     houseMap({ id: 'home' })));
   root.append(h('section', { class: 'section grid g2' },
     h('div', { class: 'card' }, h('div', { class: 'card-title' }, 'Senate forecast', h('a', { class: 'more', href: '#/senate' }, 'Details →')),
-      usMap({ fill: stateFill('senate'), onClick: go('senate'), tip: stateTip('senate') }), mapLegend(BAND_LEGEND.slice(0, 7))),
+      usMap({ fill: stateFill('senate'), onClick: go('senate'), tip: stateTip('senate') }), mapLegend(currentLegend())),
     h('div', { class: 'card' }, h('div', { class: 'card-title' }, 'Governor forecast', h('a', { class: 'more', href: '#/governors' }, 'Details →')),
-      usMap({ fill: stateFill('gov'), onClick: go('gov'), tip: stateTip('gov') }), mapLegend(BAND_LEGEND.slice(0, 7)))));
+      usMap({ fill: stateFill('gov'), onClick: go('gov'), tip: stateTip('gov') }), mapLegend(currentLegend()))));
 
   // Tipping point
   const tip = Object.entries(chamber('senate').tipping || store.forecast.control.senate.tipping || {}).slice(0, 8);
