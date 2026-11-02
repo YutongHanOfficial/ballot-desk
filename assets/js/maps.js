@@ -204,6 +204,11 @@ function hexMap(hex, { fill = raceFill, tip: tipFn = raceTip } = {}) {
   return h('div', { class: 'map-frame hex-frame' }, svg);
 }
 
+/** The equal-size House map on its own, without the style toggle or legend (broadcast view). */
+export function houseHex({ fill = raceFill } = {}) {
+  return withGeo(['/data/geo/house-hex.json'], (hex) => hexMap(hex, { fill, tip: () => '' }), 420);
+}
+
 // ------------------------------------------------------------------------------------------- state maps
 
 /** One state's districts, coloured by forecast. highlight = race id to spotlight (race-page locator). */

@@ -84,6 +84,13 @@ Useful addresses and switches:
 - `?results=on` / `?results=off`: force the live results feed on or off (`?results=on` also shows the
   election-night front page)
 
+## Live streams
+
+`/stream` is a kit for streaming election night on YouTube or TikTok: scenes and overlays to add to OBS Studio
+or Streamlabs as Browser Sources (`/broadcast`, 1920×1080; `/broadcast?format=vertical`, 1080×1920; transparent
+`?overlay=scoreboard|ticker|alerts`). They update themselves, rotate through maps and key races, and flash an
+alert when a race is projected. `?demo=live&speed=10` rehearses on a simulated night.
+
 ## Addresses
 
 Pages have plain addresses (`/live`, `/state/PA`, `/race/GA-SEN`). The app is one page that switches views

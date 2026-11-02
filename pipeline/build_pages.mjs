@@ -27,6 +27,8 @@ const pages = [
   ['/methodology', 'How the forecast works', 'How Ballot Desk forecasts the 2026 midterms: polls, expert ratings, prediction markets, partisan lean and a simulation model.'],
   ['/simulate', 'Election simulator', 'Simulate the 2026 midterms: draw one outcome in a click, or replay a whole election night as polls close and races are called.'],
   ['/support', 'Support', 'Ballot Desk is free and independent, with no ads and no paywall. Chip in to help keep it running.'],
+  ['/stream', 'Stream kit', 'Live election-night scenes and overlays for OBS and Streamlabs: balance of power, maps, key races, a ticker and projection alerts.', { noindex: true }],
+  ['/broadcast', 'Broadcast', 'Ballot Desk election-night broadcast scene.', { noindex: true }],
 ];
 
 const OFFICES = { senate: 'Senate', gov: 'governor', ltgov: 'lieutenant governor', ag: 'attorney general', sos: 'secretary of state' };
@@ -59,7 +61,7 @@ for (const r of base.races) {
 }
 
 const esc = (s) => String(s).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-function pageHtml(url, title, desc) {
+function pageHtml(url, title, desc, { noindex = false } = {}) {
   const full = `${title} · Ballot Desk`;
   const swaps = [
     [/<title>[^<]*<\/title>/, `<title>${esc(full)}</title>`],
@@ -74,18 +76,19 @@ function pageHtml(url, title, desc) {
     if (!re.test(html)) throw new Error(`index.html is missing ${re}`);
     html = html.replace(re, () => value);
   }
+  if (noindex) html = html.replace('<meta charset="utf-8">', '<meta charset="utf-8">\n  <meta name="robots" content="noindex">');
   return html.replace('<!doctype html>', '<!doctype html>\n<!-- Generated from index.html by pipeline/build_pages.mjs (npm run pages). Edit index.html instead. -->');
 }
 
 // The generator owns state/ and race/ outright, so pages for races that no longer exist disappear.
 for (const dir of ['state', 'race']) fs.rmSync(path.join(ROOT, dir), { recursive: true, force: true });
-for (const [p, title, desc] of pages) {
+for (const [p, title, desc, opts] of pages) {
   const file = path.join(ROOT, `${p}.html`);
   fs.mkdirSync(path.dirname(file), { recursive: true });
-  fs.writeFileSync(file, pageHtml(`${SITE}${p}`, title, desc));
+  fs.writeFileSync(file, pageHtml(`${SITE}${p}`, title, desc, opts));
 }
 
-const urls = ['/', ...pages.map(([p]) => p)];
+const urls = ['/', ...pages.filter(([, , , opts]) => !opts?.noindex).map(([p]) => p)];
 fs.writeFileSync(path.join(ROOT, 'sitemap.xml'), `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${urls.map(u => `  <url><loc>${SITE}${u === '/' ? '/' : u}</loc></url>`).join('\n')}\n</urlset>\n`);
 fs.writeFileSync(path.join(ROOT, 'robots.txt'), `User-agent: *\nAllow: /\n\nSitemap: ${SITE}/sitemap.xml\n`);
 console.log(`wrote ${pages.length} pages, sitemap.xml and robots.txt`);

@@ -36,7 +36,8 @@ export function startLive() {
     onStop: () => { recomputeNow(); if (resultsEnabled() && !isDemo()) ['senate', 'gov', 'house'].forEach(refreshResults); },
   });
   if (isDemo()) {
-    ensureSimData().then(() => startNight(makeScenario(), { speed: 3 }));
+    // ?speed=10 plays a rehearsal faster (1x = 2 simulated minutes per second)
+    ensureSimData().then(() => startNight(makeScenario(), { speed: Math.min(60, Math.max(1, +params.get('speed') || 3)) }));
   } else if (resultsEnabled()) {
     for (const office of ['senate', 'gov', 'house']) {
       refreshResults(office);

@@ -12,6 +12,8 @@ import * as downballot from './views/downballot.js';
 import * as method from './views/method.js';
 import * as simulate from './views/simulate.js';
 import * as support from './views/support.js';
+import * as broadcast from './views/broadcast.js';
+import * as stream from './views/stream.js';
 import { START, END, clockLabel, togglePlay, setSpeed, seek, stopSim } from './sim.js';
 import { navigate, currentPath, upgradeHashLink, tidyAddress } from './nav.js';
 
@@ -35,6 +37,8 @@ const ROUTES = [
   { re: /^\/methodology$/, nav: 'methodology', render: (root) => method.render(root), title: () => method.title() },
   { re: /^\/simulate$/, nav: 'simulate', render: (root) => simulate.render(root), title: () => simulate.title() },
   { re: /^\/support$/, nav: 'support', render: (root) => support.render(root), title: () => support.title() },
+  { re: /^\/broadcast$/, nav: 'broadcast', render: (root) => broadcast.render(root), title: () => broadcast.title() },
+  { re: /^\/stream$/, nav: 'stream', render: (root) => stream.render(root), title: () => stream.title() },
 ];
 
 // Unknown addresses inside the app get a proper not-found page instead of silently showing the front page.
@@ -115,6 +119,7 @@ function render({ keepScroll = false } = {}) {
   const { r, m, path } = route();
   const key = `${path}|${navOf(r)}`;
   const sameView = current && current.key === key;
+  document.body.classList.toggle('broadcast-mode', navOf(r) === 'broadcast');
   const y = window.scrollY;
   const root = h('div', { class: 'view' });
   try {
@@ -220,6 +225,7 @@ async function boot() {
   window.addEventListener('bd:navigate', onLocationChange);
   document.addEventListener('click', onLinkClick);
   subscribe((reason) => {
+    if (navOf(route().r) === 'broadcast') return;   // the broadcast stage updates itself, without a full redraw
     if (reason === 'sim') drawSimBar();
     if (reason === 'markets' && !isMarketView()) { drawStatus(); return; }
     scheduleRender();
