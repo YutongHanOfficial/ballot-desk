@@ -279,16 +279,16 @@ export function countyResults(raceId) {
   return store.live.counties?.[raceId] || null;
 }
 
-// Lightest step is a tint of the third so it stays visible on dark backgrounds.
-const tint = (party) => `color-mix(in srgb, ${partyVar(party, 3)} 70%, var(--surface))`;
+// Lightest step: a paler tint of the "lean" shade, so darker always means a bigger margin.
+const tint = (party) => `color-mix(in srgb, ${partyVar(party, 3)} 50%, #ffffff)`;
 function marginFill(party, m) {
   const a = Math.abs(m);
   return a >= 30 ? partyVar(party, 1) : a >= 15 ? partyVar(party, 2) : a >= 5 ? partyVar(party, 3) : tint(party);
 }
 
 export const COUNTY_LEGEND = [
-  ['var(--dem)', 'D +30'], ['var(--dem-2)', '+15'], ['var(--dem-3)', '+5'], ['color-mix(in srgb, var(--dem-3) 70%, var(--surface))', '<5'],
-  ['color-mix(in srgb, var(--rep-3) 70%, var(--surface))', '<5'], ['var(--rep-3)', '+5'], ['var(--rep-2)', '+15'], ['var(--rep)', 'R +30'],
+  ['var(--dem)', 'D +30'], ['var(--dem-2)', '+15'], ['var(--dem-3)', '+5'], ['color-mix(in srgb, var(--dem-3) 50%, #ffffff)', '<5'],
+  ['color-mix(in srgb, var(--rep-3) 50%, #ffffff)', '<5'], ['var(--rep-3)', '+5'], ['var(--rep-2)', '+15'], ['var(--rep)', 'R +30'],
 ];
 
 /**

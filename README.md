@@ -1,4 +1,4 @@
-# Votetide
+# Ballot Desk
 
 **Forecast, live results and simulations for the 2026 U.S. midterms.** A static website covering every race on the November 3, 2026 ballot:
 35 Senate races (including the Ohio and Florida specials), all 435 House seats, 36 governors,

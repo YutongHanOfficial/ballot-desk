@@ -153,10 +153,10 @@ export function bandLabel(pLeft, race) {
 
 export const RATING_COLORS = (r) => {
   if (!r) return { bg: 'var(--none)', fg: 'var(--muted)' };
-  if (r.score === 0) return { bg: 'var(--toss)', fg: 'var(--ink)' };
+  if (r.score === 0) return { bg: 'var(--toss)', fg: '#121417' };
   const party = r.side === 'D' ? 'D' : r.side === 'R' ? 'R' : r.side === 'I' ? 'I' : null;
   const lvl = Math.abs(r.score) >= 3 ? 1 : Math.abs(r.score) >= 2 ? 2 : 3;
-  return { bg: party ? partyVar(party, lvl) : 'var(--oth)', fg: lvl === 1 ? '#fff' : 'var(--ink)' };
+  return { bg: party ? partyVar(party, lvl) : 'var(--oth)', fg: lvl === 1 ? '#fff' : '#121417' };
 };
 
 export function partyChip(party) {

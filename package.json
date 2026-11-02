@@ -1,5 +1,5 @@
 {
-  "name": "votetide",
+  "name": "ballot-desk",
   "private": true,
   "type": "module",
   "description": "Forecast and live results for the November 3, 2026 U.S. midterm elections",
