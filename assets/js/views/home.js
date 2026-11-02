@@ -1,6 +1,6 @@
 import { h, pct, num, timeAgo, probColor, partyVar, lastName, esc, fmtDate } from '../ui.js';
-import { store, cur, chamber, racesOf, raceFill } from '../store.js';
-import { usMap, mapLegend, currentLegend, historyChart, raceTip } from '../charts.js';
+import { store, cur, chamber, racesOf, raceFill, projected } from '../store.js';
+import { usMap, currentLegendEl, historyChart, raceTip } from '../charts.js';
 import { houseMap } from '../maps.js';
 import { chamberCard, raceCard, headline, electionBanner, CHAMBERS, supportNote } from './common.js';
 import { navigate } from '../nav.js';
@@ -16,6 +16,12 @@ export function stateFill(type, fill = raceFill) {
       store.races.find(x => x.type === type && x.state === code);
     return r ? fill(r) : null;
   };
+}
+
+/** On election night, whether a state's race (the regular one, if there are two) has been projected. */
+export function stateCalled(type) {
+  return (code) => projected(store.races.find(x => x.type === type && x.state === code && (type !== 'senate' || !x.special)) ||
+    store.races.find(x => x.type === type && x.state === code));
 }
 
 export function stateTip(type) {
@@ -112,9 +118,9 @@ export function render(root) {
     houseMap({ id: 'home' })));
   root.append(h('section', { class: 'section grid g2' },
     h('div', { class: 'card' }, h('div', { class: 'card-title' }, 'Senate forecast', h('a', { class: 'more', href: '/senate' }, 'Details →')),
-      usMap({ fill: stateFill('senate'), onClick: go('senate'), tip: stateTip('senate') }), mapLegend(currentLegend())),
+      usMap({ fill: stateFill('senate'), onClick: go('senate'), tip: stateTip('senate'), mark: stateCalled('senate') }), currentLegendEl()),
     h('div', { class: 'card' }, h('div', { class: 'card-title' }, 'Governor forecast', h('a', { class: 'more', href: '/governors' }, 'Details →')),
-      usMap({ fill: stateFill('gov'), onClick: go('gov'), tip: stateTip('gov') }), mapLegend(currentLegend()))));
+      usMap({ fill: stateFill('gov'), onClick: go('gov'), tip: stateTip('gov'), mark: stateCalled('gov') }), currentLegendEl())));
 
   // Tipping point
   const tip = Object.entries(chamber('senate').tipping || store.forecast.control.senate.tipping || {}).slice(0, 8);

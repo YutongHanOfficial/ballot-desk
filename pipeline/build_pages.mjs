@@ -62,7 +62,7 @@ for (const r of base.races) {
 
 const esc = (s) => String(s).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 function pageHtml(url, title, desc, { noindex = false } = {}) {
-  const full = `${title} · Ballot Desk`;
+  const full = `Ballot Desk - ${title}`;
   const swaps = [
     [/<title>[^<]*<\/title>/, `<title>${esc(full)}</title>`],
     [/<meta name="description" content="[^"]*">/, `<meta name="description" content="${esc(desc)}">`],

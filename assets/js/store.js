@@ -144,8 +144,9 @@ export function racesOf(type) { return store.races.filter(r => r.type === type);
 export const nightMode = () => !!store.sim || store.live.active;
 
 /**
- * Map colour for a race. Before results: forecast confidence. On election night: solid for projected
- * winners, light for the current leader, grey when nothing is counted, paler grey before polls close.
+ * Map colour for a race. Before results: forecast confidence. On election night: the party's full colour once
+ * projected (maps add a check mark), shaded by the size of the lead while counting, grey when nothing is counted,
+ * paler grey before polls close.
  */
 export function raceFill(r) {
   if (!r) return 'var(--none)';
@@ -156,7 +157,22 @@ export function raceFill(r) {
   if (!res || (!res.total && !res.called)) return 'var(--novotes)';
   if (res.called === 'left' || res.called === 'right') return partyVar(res.called === 'left' ? r.leftParty : r.rightParty, 1);
   if (res.left === res.right) return 'var(--toss)';
-  return partyVar(res.left > res.right ? r.leftParty : r.rightParty, 3);
+  return leadFill(res.left > res.right ? r.leftParty : r.rightParty, (100 * Math.abs(res.left - res.right)) / (res.total || 1));
+}
+
+/** A lead that is not yet a projection, by size in points: darker for bigger, never as dark as a call. */
+export function leadFill(party, margin) {
+  if (margin >= 10) return `color-mix(in srgb, ${partyVar(party, 1)} 45%, ${partyVar(party, 2)})`;
+  if (margin >= 5) return partyVar(party, 2);
+  if (margin >= 2) return partyVar(party, 3);
+  return `color-mix(in srgb, ${partyVar(party, 3)} 45%, var(--toss))`;
+}
+
+/** On election night, true once a race is projected (maps draw a check mark on it). */
+export function projected(r) {
+  if (!r || !nightMode()) return false;
+  const c = store.live.results[r.id]?.called;
+  return c === 'left' || c === 'right' || c === 'other';
 }
 
 /** On election night (real or simulated), true for races whose polls have not closed yet. */

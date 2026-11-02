@@ -5,8 +5,8 @@ import { calledSeats, resultsEnabled, wantCounties, houseVote } from '../live.js
 import { CONFIG, POLL_CLOSE_ET, pollCloseDate } from '../config.js';
 import { raceCard, CHAMBERS, countdown, supportNote } from './common.js';
 import { eventsSoFar, clockLabel } from '../sim.js';
-import { competitive, stateFill, stateTip } from './home.js';
-import { usMap, mapLegend, splitBar, probMini, probCell, RESULT_LEGEND, BAND_LEGEND } from '../charts.js';
+import { competitive, stateFill, stateTip, stateCalled } from './home.js';
+import { usMap, mapLegend, splitBar, probMini, probCell, resultScale, BAND_LEGEND } from '../charts.js';
 import { houseMap, countyMap } from '../maps.js';
 import { navigate } from '../nav.js';
 
@@ -146,13 +146,13 @@ function heroMap() {
     seg.querySelectorAll('button').forEach((b, i) => b.classList.toggle('on', tabs[i][0] === type));
     modeSeg.querySelectorAll('button').forEach((b, i) => b.classList.toggle('on', modes[i][0] === HERO.mode));
     const fill = odds ? oddsFill : raceFill;
-    const legend = night && !odds ? RESULT_LEGEND : BAND_LEGEND.slice(0, 8);
-    if (type === 'house') body.replaceChildren(houseMap({ id: 'live-house', caption: false, fill, legend }));
+    const legend = () => night && !odds ? resultScale() : mapLegend(BAND_LEGEND.slice(0, 8));
+    if (type === 'house') body.replaceChildren(houseMap({ id: 'live-house', caption: false, fill, legend: legend() }));
     else {
       const go = (code) => { const r = store.races.find(x => x.type === type && x.state === code && !x.special) || store.races.find(x => x.type === type && x.state === code); if (r) navigate(r.url); };
-      body.replaceChildren(usMap({ fill: stateFill(type, fill), tip: stateTip(type), onClick: go }), mapLegend(legend));
+      body.replaceChildren(usMap({ fill: stateFill(type, fill), tip: stateTip(type), onClick: go, mark: stateCalled(type) }), legend());
     }
-    hint.textContent = !night ? 'Colored by our forecast until results arrive' : odds ? 'Each race’s live chance of winning' : 'Solid = projected winner · light = leading';
+    hint.textContent = !night ? 'Colored by our forecast until results arrive' : odds ? 'Each race’s live chance of winning' : '✓ = projected · shading = size of the lead';
     const races = racesOf(type).filter(r => r.left || r.right);
     const called = races.filter(isCalled).length;
     const counting = races.filter(r => { const x = store.live.results[r.id]; return x && x.total > 0 && !isCalled(r); }).length;

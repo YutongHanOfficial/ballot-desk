@@ -3,7 +3,7 @@ import { h, pct, num, partyChip, partyVar, ratingChip, sortableTable, esc, PARTY
 import { store, cur } from '../store.js';
 import { raceCard, raceColumns, electionBanner, pollCloseText } from './common.js';
 import { stateGrid } from './home.js';
-import { usMap, mapLegend, probMini, currentLegend } from '../charts.js';
+import { usMap, mapLegend, probMini, currentLegendEl } from '../charts.js';
 import { stateDistrictMap, countyMap, countyResults, COUNTY_LEGEND } from '../maps.js';
 import { nightMode } from '../store.js';
 import { navigate } from '../nav.js';
@@ -106,7 +106,7 @@ function stateMapCard(st, house, statewide) {
     seg.querySelectorAll('button').forEach((b, i) => b.classList.toggle('on', opts[i][0] === view));
     hint.textContent = view === 'districts' ? `${house.length > 1 ? `${house.length} districts` : 'At-large district'} · 2026 lines` : 'Hover a county for details';
     if (view === 'districts') {
-      body.replaceChildren(stateDistrictMap(code, { zoomKey: `state-${code}` }), mapLegend(currentLegend()));
+      body.replaceChildren(stateDistrictMap(code, { zoomKey: `state-${code}` }), currentLegendEl());
     } else {
       const raceId = view === 'pres24' ? null : view;
       body.replaceChildren(countyMap(code, { raceId, zoomKey: `stcounty-${code}-${view}` }), mapLegend(COUNTY_LEGEND),

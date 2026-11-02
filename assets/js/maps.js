@@ -1,8 +1,8 @@
 // District maps: the national House map (geographic or equal-size hexagons) and per-state district maps.
 // Boundaries are the Census Bureau's 2026 (120th Congress) districts, built by pipeline/build_geo.mjs.
 import { h, s, probColor, partyVar, tooltip, esc } from './ui.js';
-import { store, cur, awaiting, raceFill, nightMode } from './store.js';
-import { raceTip, mapLegend, currentLegend } from './charts.js';
+import { store, cur, awaiting, raceFill, nightMode, projected } from './store.js';
+import { raceTip, mapLegend, currentLegendEl } from './charts.js';
 
 const d3 = window.d3;
 const topojson = window.topojson;
@@ -124,7 +124,7 @@ export function houseMap({ id = 'house', caption = true, fill = raceFill, tip = 
   }
   wrap.append(h('div', { class: 'map-toolbar' }, seg,
     caption ? h('span', { class: 'xs muted map-hint' }, VIEW.mode === 'hex' ? 'Every district the same size' : 'Click a state to zoom · pinch or Ctrl/⌘-scroll') : null),
-    body, mapLegend(legend || currentLegend()));
+    body, legend ? (legend instanceof Node ? legend : mapLegend(legend)) : currentLegendEl());
   draw();
   // keep the hint in sync with the mode
   seg.addEventListener('click', () => { const hint = wrap.querySelector('.map-hint'); if (hint) hint.textContent = VIEW.mode === 'hex' ? 'Every district the same size' : 'Click a state to zoom · pinch or Ctrl/⌘-scroll'; });
@@ -186,7 +186,7 @@ function hexPoints(x, y, r) {
   return out.trim();
 }
 
-function hexMap(hex, { fill = raceFill, tip: tipFn = raceTip } = {}) {
+function hexMap(hex, { fill = raceFill, tip: tipFn = raceTip, mark = projected } = {}) {
   const svg = s('svg', { viewBox: `0 0 ${hex.width} ${hex.height}`, class: 'hex-map', role: 'img', 'aria-label': 'Equal-size map of all 435 House districts' });
   for (const [id, [x, y]] of Object.entries(hex.cells)) {
     const r = store.byId[id];
@@ -198,6 +198,10 @@ function hexMap(hex, { fill = raceFill, tip: tipFn = raceTip } = {}) {
     svg.appendChild(poly);
   }
   svg.appendChild(s('path', { d: hex.borders, class: 'hex-borders' }));
+  // projected seats get a small check mark
+  const checks = s('g', { class: 'hex-checks', style: `font-size:${(hex.r * 0.95).toFixed(1)}px` });
+  for (const [id, [x, y]] of Object.entries(hex.cells)) if (mark(store.byId[id])) checks.appendChild(s('text', { x, y: y + hex.r * 0.04 }, '✓'));
+  svg.appendChild(checks);
   const lab = s('g', { class: 'hex-labels', style: `font-size:${(hex.r * 0.78).toFixed(1)}px` });
   for (const [st, [x, y]] of Object.entries(hex.labels)) lab.appendChild(s('text', { x, y: y + hex.r * 0.28 }, st));
   svg.appendChild(lab);

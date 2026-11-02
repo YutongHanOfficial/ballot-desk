@@ -1,10 +1,10 @@
 // Senate, House and Governor pages.
 import { h, pct, num, timeAgo, sortableTable } from '../ui.js';
 import { store, cur, chamber, racesOf } from '../store.js';
-import { usMap, mapLegend, currentLegend, histogram, seatStrip } from '../charts.js';
+import { usMap, currentLegendEl, histogram, seatStrip } from '../charts.js';
 import { houseMap } from '../maps.js';
 import { chamberCard, raceColumns, electionBanner, CHAMBERS } from './common.js';
-import { stateFill, stateTip } from './home.js';
+import { stateFill, stateTip, stateCalled } from './home.js';
 import { calledSeats } from '../live.js';
 import { navigate } from '../nav.js';
 
@@ -78,7 +78,7 @@ export function renderChamber(root, type) {
     h('div', { class: 'card-title' }, type === 'house' ? 'All 435 seats, from most to least Democratic' : `All ${races.length} races, from most to least Democratic`),
     type !== 'house' ? h('p', { class: 'small muted', style: { marginTop: 0 } }, `Democrats start with ${base} ${type === 'gov' ? 'governorships' : 'seats'} not on the ballot; the marker shows the race that would give them ${C.need}.`) : null,
     seatStrip(races, { need: C.need, base, height: type === 'house' ? 40 : 46, majorityLabel: type === 'gov' ? `${C.need}th governorship` : `${C.need}th seat` }),
-    mapLegend(currentLegend())));
+    currentLegendEl()));
 
   // Map
   if (type === 'house') {
@@ -89,7 +89,7 @@ export function renderChamber(root, type) {
     const go = (code) => { const r = races.find(x => x.state === code && !x.special) || races.find(x => x.state === code); if (r) navigate(r.url); };
     root.append(h('section', { class: 'section card' },
       h('div', { class: 'card-title' }, `${C.name} map`),
-      usMap({ fill: stateFill(type), onClick: go, tip: stateTip(type) }), mapLegend(currentLegend())));
+      usMap({ fill: stateFill(type), onClick: go, tip: stateTip(type), mark: stateCalled(type) }), currentLegendEl()));
   }
 
   // Table (filter and search survive the live re-render)

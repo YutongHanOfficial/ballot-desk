@@ -129,7 +129,7 @@ function render({ keepScroll = false } = {}) {
     root.replaceChildren(h('div', { class: 'card empty' }, 'Something went wrong drawing this page. ', h('a', { href: '/' }, 'Back to the front page')));
   }
   main.replaceChildren(root);
-  document.title = `${r.title(m)} · ${CONFIG.siteName}`;
+  document.title = `${CONFIG.siteName} - ${r.title(m)}`;
   document.querySelectorAll('.nav a, .support-btn').forEach(a => a.classList.toggle('active', a.dataset.nav === navOf(r)));
   if (keepScroll && sameView) window.scrollTo(0, y);
   else if (!sameView) window.scrollTo(0, 0);

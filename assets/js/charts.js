@@ -1,6 +1,6 @@
 // SVG charts (D3 is loaded globally from assets/vendor).
 import { h, s, pct, partyVar, probColor, tooltip, esc, lastName, marginText, fmtDate, compact, PARTY_NAME } from './ui.js';
-import { store, cur, awaiting, raceFill, nightMode, duelNow } from './store.js';
+import { store, cur, awaiting, raceFill, nightMode, duelNow, leadFill } from './store.js';
 import { pollCloseDate } from './config.js';
 
 const d3 = window.d3;
@@ -88,7 +88,7 @@ export function histogram(hist, { threshold, total, width = 640, height = 220, x
 // ------------------------------------------------------------------------------------- US map
 
 const FIPS_TO_CODE = {};
-export function usMap({ fill, onClick, tip: tipFn, height = 380, labels = true, stroke } = {}) {
+export function usMap({ fill, onClick, tip: tipFn, height = 380, labels = true, stroke, mark } = {}) {
   if (!Object.keys(FIPS_TO_CODE).length) for (const st of store.states) FIPS_TO_CODE[st.fips] = st.code;
   const tip = tooltip();
   const geo = store.geo;
@@ -111,18 +111,30 @@ export function usMap({ fill, onClick, tip: tipFn, height = 380, labels = true, 
     if (active) p.addEventListener('click', () => { tip.hide(); onClick(code); });
     g.appendChild(p);
   }
+  // A check mark on each projected state (the small north-eastern ones get it in their callout box instead).
+  const CALLOUTS = ['VT', 'NH', 'MA', 'RI', 'CT', 'NJ', 'DE', 'MD'];
+  if (mark) {
+    const checks = s('g', { class: 'map-checks', 'pointer-events': 'none' });
+    for (const f of states) {
+      const code = FIPS_TO_CODE[f.id];
+      if (!code || CALLOUTS.includes(code) || code === 'DC' || !mark(code)) continue;
+      const [cx, cy] = CHECK_AT[code] || path.centroid(f);
+      checks.appendChild(s('text', { x: cx, y: cy, class: 'map-check' }, '✓'));
+    }
+    g.appendChild(checks);
+  }
   // outline of the nation for crisp edges
   g.appendChild(s('path', { d: path(topojson.mesh(geo, geo.objects.states, (a, b) => a !== b)), fill: 'none', stroke: 'var(--surface)', 'stroke-width': 0.8, 'pointer-events': 'none' }));
   if (labels) {
-    // small north-eastern states get callout boxes so they can be seen and tapped
-    const callouts = ['VT', 'NH', 'MA', 'RI', 'CT', 'NJ', 'DE', 'MD', 'DC'];
-    let yy = 175;
-    for (const code of callouts) {
-      if (code === 'DC') continue;
+    // Small north-eastern states get callout boxes out in the Atlantic, clear of the coast, so they can be seen
+    // and tapped: box first, label to its right.
+    let yy = 206;
+    for (const code of CALLOUTS) {
       const color = fill(code);
-      const box = s('g', { transform: `translate(925, ${yy})`, style: onClick && color !== null ? 'cursor:pointer' : '' });
+      const box = s('g', { transform: `translate(914, ${yy})`, style: onClick && color !== null ? 'cursor:pointer' : '' });
       box.appendChild(s('rect', { width: 18, height: 14, rx: 3, fill: color || 'var(--norace)', stroke: 'var(--line-2)', 'stroke-width': 0.5 }));
-      box.appendChild(s('text', { x: -5, y: 11, 'text-anchor': 'end', style: 'font-size:11px;font-weight:600' }, code));
+      if (mark && mark(code)) box.appendChild(s('text', { x: 9, y: 7.5, class: 'map-check small' }, '✓'));
+      box.appendChild(s('text', { x: 23, y: 11, style: 'font-size:11px;font-weight:600' }, code));
       if (tipFn) { box.addEventListener('mousemove', (e) => { const html = tipFn(code); if (html) tip.show(html, e); }); box.addEventListener('mouseleave', () => tip.hide()); }
       if (onClick && color !== null) box.addEventListener('click', () => { tip.hide(); onClick(code); });
       svg.appendChild(box);
@@ -132,17 +144,41 @@ export function usMap({ fill, onClick, tip: tipFn, height = 380, labels = true, 
   return h('div', { class: 'map-wrap chart' }, svg);
 }
 
+// Where a check mark sits when a state's centroid is awkward (Florida's falls in the Gulf side, Michigan's in the lake).
+const CHECK_AT = {};
+
 export function mapLegend(items) {
   return h('div', { class: 'legend' }, items.map(([color, label]) => h('span', null, h('i', { style: { background: color } }), label)));
 }
 
 export const RESULT_LEGEND = [
-  ['var(--dem)', 'Dem. won'], ['var(--dem-3)', 'Dem. leading'], ['var(--rep-3)', 'Rep. leading'], ['var(--rep)', 'Rep. won'],
-  ['var(--ind)', 'Ind. won'], ['var(--novotes)', 'No votes counted'], ['var(--await)', 'Polls still open'], ['var(--norace)', 'No race'],
+  ['var(--dem)', 'Dem. projected'], [leadFill('D', 7), 'Dem. leading'], [leadFill('R', 7), 'Rep. leading'], ['var(--rep)', 'Rep. projected'],
+  ['var(--ind)', 'Ind. projected'], ['var(--novotes)', 'No votes counted'], ['var(--await)', 'Polls still open'], ['var(--norace)', 'No race'],
 ];
 
 /** Forecast bands before results; won/leading once election-night results flow. */
 export function currentLegend() { return nightMode() ? RESULT_LEGEND : BAND_LEGEND.slice(0, 8); }
+
+/**
+ * Election-night key as one scale: projected (with the check), then leads from big to small for each side,
+ * then the greys. Shared by the site's maps and the broadcast.
+ */
+export function resultScale() {
+  const cells = [
+    ['var(--dem)', '✓', 'Called'], [leadFill('D', 12), '10+'], [leadFill('D', 7), '5–10'], [leadFill('D', 3), '2–5'], [leadFill('D', 1), '<2'],
+    [leadFill('R', 1), '<2'], [leadFill('R', 3), '2–5'], [leadFill('R', 7), '5–10'], [leadFill('R', 12), '10+'], ['var(--rep)', '✓', 'Called'],
+  ];
+  return h('div', { class: 'rscale' },
+    h('div', { class: 'rs-main' },
+      h('div', { class: 'rs-cap' }, h('span', { class: 'c-dem' }, 'Democrat'), h('span', null, 'leading by (points)'), h('span', { class: 'c-rep' }, 'Republican')),
+      h('div', { class: 'rs-bar' }, cells.map(([c, t]) => h('span', { style: { background: c } }, t === '✓' ? h('b', null, '✓') : null))),
+      h('div', { class: 'rs-labels' }, cells.map(([, t, l]) => h('span', null, l || t)))),
+    h('div', { class: 'rs-grey' }, [['var(--novotes)', 'No votes yet'], ['var(--await)', 'Polls open'], ['var(--norace)', 'No race']]
+      .map(([c, l]) => h('span', null, h('i', { style: { background: c } }), l))));
+}
+
+/** The right key for maps coloured by raceFill right now. */
+export function currentLegendEl() { return nightMode() ? resultScale() : mapLegend(BAND_LEGEND.slice(0, 8)); }
 
 export const BAND_LEGEND = [
   ['var(--dem)', 'Solid D'], ['var(--dem-2)', 'Likely D'], ['var(--dem-3)', 'Lean D'], ['var(--toss)', 'Toss-up'],
