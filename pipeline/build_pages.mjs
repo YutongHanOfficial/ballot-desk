@@ -44,9 +44,12 @@ for (const r of base.races) {
   const left = f.left ?? r.left, right = f.right ?? r.right;
   const lp = f.leftParty ?? r.leftParty, rp = f.rightParty ?? r.rightParty;
   const who = (name, party) => `${name}${PARTY[party] ? ` (${party})` : ''}`;
-  const both = { D: 'Democrats', R: 'Republicans' }[f.duel?.party];
-  const desc = f.duel
-    ? `${f.duel.a} vs. ${f.duel.b}, both ${both || 'from one party'}: odds, prediction markets and live results on election night.`
+  // Same-party races come from the race list (not the forecast), so the text never depends on a data run.
+  const pair = r.samePartyGeneral ? (r.candidates || []).filter(c => !c.writeIn && c.party === r.samePartyGeneral)
+    .sort((a, b) => (b.incumbent ? 1 : 0) - (a.incumbent ? 1 : 0)).slice(0, 2) : [];
+  const both = { D: 'Democrats', R: 'Republicans' }[r.samePartyGeneral] || 'from one party';
+  const desc = pair.length === 2
+    ? `${pair[0].name} vs. ${pair[1].name}, both ${both}: odds, prediction markets and live results on election night.`
     : left && right
     ? `${who(left, lp)} vs. ${who(right, rp)}: forecast, polls, prediction markets and live results on election night.`
     : left || right
