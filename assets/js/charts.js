@@ -206,7 +206,7 @@ export function raceTip(r) {
 /** Forecast history: series = [{ key, label, color, dash }] over points [{ t, ...}] (probabilities 0-1). */
 export function historyChart(points, series, { width = 640, height = 220, yDomain = [0, 1], yFormat = (v) => pct(v), area = false } = {}) {
   const tip = tooltip();
-  const m = { t: 14, r: 46, b: 26, l: 8 };
+  const m = { t: 14, r: 50, b: 26, l: 8 };
   const pts = points.map(p => ({ ...p, d: new Date(p.t) }));
   const svg = s('svg', { viewBox: `0 0 ${width} ${height}` });
   if (pts.length < 2) {
@@ -217,20 +217,30 @@ export function historyChart(points, series, { width = 640, height = 220, yDomai
   const y = d3.scaleLinear().domain(yDomain).range([height - m.b, m.t]);
   for (const v of y.ticks(4)) {
     svg.appendChild(s('line', { x1: m.l, x2: width - m.r, y1: y(v), y2: y(v), stroke: 'var(--line)' }));
-    svg.appendChild(s('text', { x: width - m.r + 6, y: y(v) + 4 }, yFormat(v)));
+    svg.appendChild(s('text', { x: width - m.r + 10, y: y(v) + 4 }, yFormat(v)));
   }
   if (yDomain[0] === 0 && yDomain[1] === 1) svg.appendChild(s('line', { x1: m.l, x2: width - m.r, y1: y(0.5), y2: y(0.5), stroke: 'var(--line-2)', 'stroke-dasharray': '3 3' }));
   const spanDays = (x.domain()[1] - x.domain()[0]) / 864e5;
   const tickFmt = (t) => spanDays < 2 ? t.toLocaleTimeString('en-US', { hour: 'numeric', timeZone: 'America/New_York' }) : fmtDate(t.toISOString());
   for (const t of x.ticks(5)) svg.appendChild(s('text', { x: x(t), y: height - 6, 'text-anchor': 'middle' }, tickFmt(t)));
+  // Series with `marker` end in a ringed dot and a value label: a short history still shows its latest value.
+  const labels = [];
   for (const se of series) {
     const valid = pts.filter(p => p[se.key] !== null && p[se.key] !== undefined);
-    if (valid.length < 2) continue;
-    const line = d3.line().x(p => x(p.d)).y(p => y(p[se.key])).curve(d3.curveMonotoneX);
-    svg.appendChild(s('path', { d: line(valid), fill: 'none', stroke: se.color, 'stroke-width': se.width || 2.25, 'stroke-dasharray': se.dash || null, 'stroke-linejoin': 'round' }));
+    if (!valid.length || (valid.length < 2 && !se.marker)) continue;
+    if (valid.length >= 2) {
+      const line = d3.line().x(p => x(p.d)).y(p => y(p[se.key])).curve(d3.curveMonotoneX);
+      svg.appendChild(s('path', { d: line(valid), fill: 'none', stroke: se.color, 'stroke-width': se.width || 2.25, 'stroke-dasharray': se.dash || null, 'stroke-linejoin': 'round' }));
+    }
     const last = valid[valid.length - 1];
-    svg.appendChild(s('circle', { cx: x(last.d), cy: y(last[se.key]), r: 3.5, fill: se.color }));
+    if (se.marker) {
+      svg.appendChild(s('circle', { cx: x(last.d), cy: y(last[se.key]), r: 5, fill: se.color, stroke: 'var(--surface)', 'stroke-width': 2.5 }));
+      labels.push({ x: x(last.d) - 10, y: y(last[se.key]) + 4, text: yFormat(last[se.key]), color: se.color });
+    }
   }
+  labels.sort((a, b) => a.y - b.y);
+  for (let i = 1; i < labels.length; i++) labels[i].y = Math.max(labels[i].y, labels[i - 1].y + 14);
+  for (const l of labels) svg.appendChild(s('text', { x: l.x, y: l.y, 'text-anchor': 'end', class: 'chart-value', style: `fill:${l.color}` }, l.text));
   const hover = s('rect', { x: m.l, y: m.t, width: width - m.l - m.r, height: height - m.t - m.b, fill: 'transparent' });
   const guide = s('line', { y1: m.t, y2: height - m.b, stroke: 'var(--ink)', 'stroke-width': 1, opacity: 0 });
   svg.append(guide, hover);

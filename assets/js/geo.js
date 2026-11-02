@@ -14,6 +14,6 @@ export function loadGeo(url) {
 
 export const cachedGeo = (url) => cache.get(url);
 
-export const COUNTY_BASE_URL = 'data/geo/counties-2024.json';
+export const COUNTY_BASE_URL = '/data/geo/counties-2024.json';
 export const countyBaseline = () => cache.get(COUNTY_BASE_URL) || null;
 export const loadCountyBaseline = () => loadGeo(COUNTY_BASE_URL);

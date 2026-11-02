@@ -15,6 +15,13 @@ class NoCache(http.server.SimpleHTTPRequestHandler):
         self.send_header('Cache-Control', 'no-store')
         super().end_headers()
 
+    def translate_path(self, path):
+        # Like GitHub Pages: /race/GA-SEN is served from race/GA-SEN.html.
+        local = super().translate_path(path)
+        if not os.path.exists(local) and os.path.isfile(local + '.html'):
+            return local + '.html'
+        return local
+
     def send_error(self, code, message=None, explain=None):
         # Like GitHub Pages: paths that are not files get the site's own 404 page.
         page = os.path.join(ROOT, '404.html')

@@ -10,6 +10,7 @@ const topojson = window.topojson;
 // ------------------------------------------------------------------------------------------- loading
 
 import { loadGeo, cachedGeo, COUNTY_BASE_URL } from './geo.js';
+import { navigate } from './nav.js';
 export { loadGeo };
 
 /** Build immediately when the files are cached; otherwise show a placeholder and swap the map in on arrival. */
@@ -115,8 +116,8 @@ export function houseMap({ id = 'house', caption = true, fill = raceFill, tip = 
   const draw = () => {
     seg.querySelectorAll('button').forEach((b, i) => b.classList.toggle('on', opts[i][0] === VIEW.mode));
     body.replaceChildren(VIEW.mode === 'hex'
-      ? withGeo(['data/geo/house-hex.json'], (hex) => hexMap(hex, { fill, tip }), 420)
-      : withGeo(['data/geo/districts-2026.json'], (topo) => geoMap(topo, id, { fill, tip }), 420));
+      ? withGeo(['/data/geo/house-hex.json'], (hex) => hexMap(hex, { fill, tip }), 420)
+      : withGeo(['/data/geo/districts-2026.json'], (topo) => geoMap(topo, id, { fill, tip }), 420));
   };
   for (const [k, label] of opts) {
     seg.appendChild(h('button', { type: 'button', onclick: () => { VIEW.mode = k; pref('houseMapMode', k); draw(); } }, label));
@@ -146,7 +147,7 @@ function geoMap(topo, key, { fill = raceFill, tip: tipFn = raceTip } = {}) {
         tip.hide();
         // First click zooms to the state; once zoomed in, a click opens the race.
         if (api && api.k < 2.2 && shapes.stateBounds[f.st] && (shapes.stateBounds[f.st][1][0] - shapes.stateBounds[f.st][0][0]) < 600) api.to(shapes.stateBounds[f.st], 9);
-        else location.hash = r.url;
+        else navigate(r.url);
       });
     }
     layer.appendChild(p);
@@ -192,7 +193,7 @@ function hexMap(hex, { fill = raceFill, tip: tipFn = raceTip } = {}) {
     const poly = s('polygon', { points: hexPoints(x, y, hex.r * 0.93), fill: fill(r), class: 'hex' });
     if (r) {
       const tip = hoverable(poly, r, tipFn);
-      poly.addEventListener('click', () => { tip.hide(); location.hash = r.url; });
+      poly.addEventListener('click', () => { tip.hide(); navigate(r.url); });
     }
     svg.appendChild(poly);
   }
@@ -207,7 +208,7 @@ function hexMap(hex, { fill = raceFill, tip: tipFn = raceTip } = {}) {
 
 /** One state's districts, coloured by forecast. highlight = race id to spotlight (race-page locator). */
 export function stateDistrictMap(code, { highlight = null, width = 720, maxHeight = 560, zoomKey = null } = {}) {
-  return withGeo([`data/geo/cd/${code}.json`], (topo) => buildStateMap(code, topo, { highlight, width, maxHeight, zoomKey }), Math.min(maxHeight, 360));
+  return withGeo([`/data/geo/cd/${code}.json`], (topo) => buildStateMap(code, topo, { highlight, width, maxHeight, zoomKey }), Math.min(maxHeight, 360));
 }
 
 /** Conformal conic projection framed on a state (or, with focus, on part of it). */
@@ -252,7 +253,7 @@ function buildStateMap(code, topo, { highlight, width: W, maxHeight, zoomKey }) 
     const p = s('path', { d: path(f), fill, class: `district${isTarget ? ' target' : ''}` });
     if (r) {
       const tip = hoverable(p, r);
-      p.addEventListener('click', () => { tip.hide(); if (!isTarget) location.hash = r.url; });
+      p.addEventListener('click', () => { tip.hide(); if (!isTarget) navigate(r.url); });
     }
     layer.appendChild(p);
     const area = path.area(f);
@@ -297,7 +298,7 @@ export const COUNTY_LEGEND = [
  */
 export function countyMap(code, { raceId = null, width = 720, maxHeight = 540, compact = false, zoomKey = null } = {}) {
   if (code === 'AK') return h('div', { class: 'empty small' }, 'Alaska reports results by state House district rather than by county, so there is no county map.');
-  return withGeo([`data/geo/counties/${code}.json`, COUNTY_BASE_URL], (topo, base) => buildCountyMap(code, topo, base, { raceId, width, maxHeight, compact, zoomKey }), compact ? 200 : 360);
+  return withGeo([`/data/geo/counties/${code}.json`, COUNTY_BASE_URL], (topo, base) => buildCountyMap(code, topo, base, { raceId, width, maxHeight, compact, zoomKey }), compact ? 200 : 360);
 }
 
 function buildCountyMap(code, topo, base, { raceId, width: W, maxHeight, compact, zoomKey }) {

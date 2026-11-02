@@ -6,6 +6,7 @@ import { stateGrid } from './home.js';
 import { usMap, mapLegend, probMini, currentLegend } from '../charts.js';
 import { stateDistrictMap, countyMap, countyResults, COUNTY_LEGEND } from '../maps.js';
 import { nightMode } from '../store.js';
+import { navigate } from '../nav.js';
 
 // Projected Democratic share of a state's House seats: the neutral toss-up shade when even, darker toward a
 // sweep. Blending toward a fixed light colour (not the page background) keeps darker = safer in dark mode too.
@@ -27,7 +28,7 @@ export function renderIndex(root) {
   root.append(electionBanner() || '',
     h('header', { class: 'page-head' }, h('div', { class: 'eyebrow' }, 'States'), h('h1', null, 'Every state on the 2026 ballot'),
       h('p', { class: 'dek' }, 'Pick a state for its Senate, House and governor races, down-ballot statewide offices, legislative chambers and ballot measures.')),
-    h('div', { class: 'card' }, h('div', { class: 'card-title' }, 'Projected share of each state’s House delegation'), usMap({ fill, onClick: (c) => { location.hash = `#/state/${c}`; }, tip }),
+    h('div', { class: 'card' }, h('div', { class: 'card-title' }, 'Projected share of each state’s House delegation'), usMap({ fill, onClick: (c) => { navigate(`/state/${c}`); }, tip }),
       mapLegend([[shareFill(1), 'All D'], [shareFill(0.75), 'Mostly D'], ['var(--toss)', 'Even split'], [shareFill(0.25), 'Mostly R'], [shareFill(0), 'All R']])),
     h('section', { class: 'section' }, stateGrid()));
 }
@@ -55,7 +56,7 @@ export function renderState(root, code) {
   const expD = house.reduce((s, r) => s + dWin(r), 0);
 
   root.append(electionBanner() || '',
-    h('div', { class: 'eyebrow' }, h('a', { href: '#/states' }, 'States'), h('span', null, '›'), h('span', null, st.name)),
+    h('div', { class: 'eyebrow' }, h('a', { href: '/states' }, 'States'), h('span', null, '›'), h('span', null, st.name)),
     h('header', { class: 'page-head' },
       h('h1', null, st.name),
       h('p', { class: 'dek' }, `Cook partisan lean ${pviText} · Polls close at ${pollCloseText(code)} · ${house.length} House seat${house.length === 1 ? '' : 's'} · ${statewide.length} statewide race${statewide.length === 1 ? '' : 's'}`)));
@@ -71,7 +72,7 @@ export function renderState(root, code) {
         h('div', null, h('h2', null, 'U.S. House'),
           h('p', null, `Now: ${holdNow.D} D · ${holdNow.R} R${holdNow.I ? ` · ${holdNow.I} I` : ''}${holdNow.new ? ` · ${holdNow.new} new or vacant` : ''}. Projected: ${expD.toFixed(1)} D · ${(house.length - expD).toFixed(1)} R (expected seats).`))),
       stateMapCard(st, house, statewide),
-      sortableTable(raceColumns({ type: 'house' }), house, { sortKey: 'race', desc: false, onRow: r => { location.hash = r.url; }, stateKey: `state-${code}` })));
+      sortableTable(raceColumns({ type: 'house' }), house, { sortKey: 'race', desc: false, onRow: r => { navigate(r.url); }, stateKey: `state-${code}` })));
   }
 
   const legis = store.base.legislatures.filter(l => l.state === code);

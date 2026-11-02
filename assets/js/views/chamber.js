@@ -6,6 +6,7 @@ import { houseMap } from '../maps.js';
 import { chamberCard, raceColumns, electionBanner, CHAMBERS } from './common.js';
 import { stateFill, stateTip } from './home.js';
 import { calledSeats } from '../live.js';
+import { navigate } from '../nav.js';
 
 const VIEW_STATE = {};
 
@@ -85,7 +86,7 @@ export function renderChamber(root, type) {
       h('div', { class: 'card-title' }, 'House forecast map', h('span', { class: 'muted', style: { textTransform: 'none', letterSpacing: 0 } }, '2026 district lines')),
       houseMap({ id: 'house' })));
   } else {
-    const go = (code) => { const r = races.find(x => x.state === code && !x.special) || races.find(x => x.state === code); if (r) location.hash = r.url; };
+    const go = (code) => { const r = races.find(x => x.state === code && !x.special) || races.find(x => x.state === code); if (r) navigate(r.url); };
     root.append(h('section', { class: 'section card' },
       h('div', { class: 'card-title' }, `${C.name} map`),
       usMap({ fill: stateFill(type), onClick: go, tip: stateTip(type) }), mapLegend(currentLegend())));
@@ -97,7 +98,7 @@ export function renderChamber(root, type) {
   const bar = filterBar(state, () => draw(), { house: type === 'house' });
   function draw() {
     const rows = applyFilter(races, state);
-    tableHolder.replaceChildren(sortableTable(raceColumns({ type }), rows, { sortKey: state.filter === 'all' && type !== 'house' ? 'race' : 'p', desc: !(state.filter === 'all' && type !== 'house'), onRow: r => { location.hash = r.url; }, stateKey: `chamber-${type}` }));
+    tableHolder.replaceChildren(sortableTable(raceColumns({ type }), rows, { sortKey: state.filter === 'all' && type !== 'house' ? 'race' : 'p', desc: !(state.filter === 'all' && type !== 'house'), onRow: r => { navigate(r.url); }, stateKey: `chamber-${type}` }));
     bar.querySelectorAll('.seg button').forEach((b, i) => b.classList.toggle('on', ['competitive', 'all', 'D', 'R', 'flips'][i] === state.filter));
   }
   draw();

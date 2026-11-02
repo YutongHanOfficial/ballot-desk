@@ -12,11 +12,12 @@ import * as downballot from './views/downballot.js';
 import * as method from './views/method.js';
 import * as simulate from './views/simulate.js';
 import { START, END, clockLabel, togglePlay, setSpeed, seek, stopSim } from './sim.js';
+import { navigate, currentPath, upgradeHashLink, tidyAddress } from './nav.js';
 
 const main = document.getElementById('main');
 const statusEl = document.getElementById('status');
 
-// On election night the front page is the live dashboard; the forecast overview moves to #/forecast.
+// On election night the front page is the live dashboard; the forecast overview moves to /forecast.
 const ROUTES = [
   { re: /^\/?$/, nav: () => liveFrontPage() ? 'live' : 'home',
     render: (root) => liveFrontPage() ? liveView.render(root) : home.render(root),
@@ -29,12 +30,12 @@ const ROUTES = [
   { re: /^\/state\/([A-Z]{2})$/, nav: 'states', render: (root, m) => states.renderState(root, m[1]), title: (m) => states.title(m[1]) },
   { re: /^\/race\/([A-Z0-9-]+)$/, nav: null, render: (root, m) => race.render(root, m[1]), title: (m) => race.title(m[1]) },
   { re: /^\/live$/, nav: 'live', render: (root) => liveView.render(root), title: () => liveView.title() },
-  { re: /^\/downballot(?:\/(\w+))?$/, nav: 'downballot', render: (root, m) => downballot.render(root, { tab: m[1] }), title: () => downballot.title() },
+  { re: /^\/downballot$/, nav: 'downballot', render: (root) => downballot.render(root, { tab: new URLSearchParams(location.search).get('tab') }), title: () => downballot.title() },
   { re: /^\/methodology$/, nav: 'methodology', render: (root) => method.render(root), title: () => method.title() },
   { re: /^\/simulate$/, nav: 'simulate', render: (root) => simulate.render(root), title: () => simulate.title() },
 ];
 
-// Unknown #/ links get a proper not-found page instead of silently showing the front page.
+// Unknown addresses inside the app get a proper not-found page instead of silently showing the front page.
 const NOT_FOUND = {
   nav: null, title: () => 'Page not found',
   render: (root) => root.append(h('div', { class: 'card not-found' },
@@ -42,11 +43,11 @@ const NOT_FOUND = {
     h('h1', null, 'We couldn’t find that page'),
     h('p', { class: 'dek' }, 'The link may be mistyped, or the page may have moved. Try one of these instead:'),
     h('div', { class: 'nf-links' },
-      liveFrontPage() ? h('a', { class: 'btn primary', href: '#/' }, h('span', { class: 'live-dot' }), 'Live results') : h('a', { class: 'btn primary', href: '#/' }, 'Forecast overview'),
-      liveFrontPage() ? h('a', { class: 'btn', href: '#/forecast' }, 'Forecast') : h('a', { class: 'btn', href: '#/live' }, 'Election night'),
-      h('a', { class: 'btn', href: '#/senate' }, 'Senate'), h('a', { class: 'btn', href: '#/house' }, 'House'),
-      h('a', { class: 'btn', href: '#/governors' }, 'Governors'), h('a', { class: 'btn', href: '#/states' }, 'States'),
-      h('a', { class: 'btn', href: '#/simulate' }, 'Simulator')))),
+      liveFrontPage() ? h('a', { class: 'btn primary', href: '/' }, h('span', { class: 'live-dot' }), 'Live results') : h('a', { class: 'btn primary', href: '/' }, 'Forecast overview'),
+      liveFrontPage() ? h('a', { class: 'btn', href: '/forecast' }, 'Forecast') : h('a', { class: 'btn', href: '/live' }, 'Election night'),
+      h('a', { class: 'btn', href: '/senate' }, 'Senate'), h('a', { class: 'btn', href: '/house' }, 'House'),
+      h('a', { class: 'btn', href: '/governors' }, 'Governors'), h('a', { class: 'btn', href: '/states' }, 'States'),
+      h('a', { class: 'btn', href: '/simulate' }, 'Simulator')))),
 };
 
 let current = null;
@@ -62,7 +63,7 @@ function setupNav() {
   const liveLink = nav.querySelector('[data-nav="live"]');
   const overview = nav.querySelector('[data-nav="home"]');
   overview.textContent = live ? 'Forecast' : 'Overview';
-  overview.setAttribute('href', live ? '#/forecast' : '#/');
+  overview.setAttribute('href', live ? '/forecast' : '/');
   if (live) nav.prepend(liveLink);
   else nav.querySelector('[data-nav="downballot"]').after(liveLink);
   return true;
@@ -89,7 +90,7 @@ function drawSimBar() {
         h('div', { class: 'sim-track' }, range, h('div', { class: 'sim-ticks' },
           [[0, '6 PM'], [360, 'Midnight'], [600, '4 AM'], [END, 'Days later']].map(([t, label]) => h('span', { style: { left: `${((t - START) / (END - START)) * 100}%` } }, label)))),
         h('button', { type: 'button', class: 'sim-btn', title: 'Skip to the final result', onclick: () => seek(END) }, '⏭'),
-        h('a', { class: 'sim-link', href: '#/live' }, 'Dashboard'),
+        h('a', { class: 'sim-link', href: '/live' }, 'Dashboard'),
         h('button', { type: 'button', class: 'sim-btn sim-exit', title: 'Exit the simulation', onclick: () => stopSim() }, '✕')) };
     host.replaceChildren(simBar.el);
   }
@@ -100,7 +101,7 @@ function drawSimBar() {
 }
 
 function route() {
-  const path = decodeURIComponent((location.hash || '#/').slice(1)).split('?')[0];
+  const path = currentPath();
   for (const r of ROUTES) {
     const m = path.match(r.re);
     if (m) return { r, m, path };
@@ -118,14 +119,14 @@ function render({ keepScroll = false } = {}) {
     r.render(root, m);
   } catch (e) {
     console.error(e);
-    root.replaceChildren(h('div', { class: 'card empty' }, 'Something went wrong drawing this page. ', h('a', { href: '#/' }, 'Back to the overview')));
+    root.replaceChildren(h('div', { class: 'card empty' }, 'Something went wrong drawing this page. ', h('a', { href: '/' }, 'Back to the front page')));
   }
   main.replaceChildren(root);
   document.title = `${r.title(m)} · ${CONFIG.siteName}`;
   document.querySelectorAll('.nav a').forEach(a => a.classList.toggle('active', a.dataset.nav === navOf(r)));
   if (keepScroll && sameView) window.scrollTo(0, y);
   else if (!sameView) window.scrollTo(0, 0);
-  current = { key };
+  current = { key, loc: location.pathname + location.search };
   drawStatus();
 }
 
@@ -174,7 +175,26 @@ function scheduleRender() {
   }, store.sim ? 700 : 250);
 }
 
+// In-site links change the page without a reload, so live feeds and a running simulation carry on.
+function onLinkClick(e) {
+  if (e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+  const a = e.target.closest('a[href]');
+  if (!a || a.target || a.hasAttribute('download')) return;
+  const href = a.getAttribute('href');
+  if (!href.startsWith('/') || href.startsWith('//')) return;
+  e.preventDefault();
+  navigate(href);
+}
+
+// Back/forward and navigate(): redraw unless only an in-page #anchor changed.
+function onLocationChange() {
+  if (current && current.loc === location.pathname + location.search) return;
+  render();
+}
+
 async function boot() {
+  upgradeHashLink();
+  tidyAddress();
   initTheme();
   setupNav();
   try {
@@ -185,7 +205,9 @@ async function boot() {
     return;
   }
   render();
-  window.addEventListener('hashchange', () => render());
+  window.addEventListener('popstate', onLocationChange);
+  window.addEventListener('bd:navigate', onLocationChange);
+  document.addEventListener('click', onLinkClick);
   subscribe((reason) => {
     if (reason === 'sim') drawSimBar();
     if (reason === 'markets' && !isMarketView()) { drawStatus(); return; }

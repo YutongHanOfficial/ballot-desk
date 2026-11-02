@@ -1,8 +1,9 @@
-import { h, pct, num, timeAgo, probColor, partyVar, lastName, esc } from '../ui.js';
+import { h, pct, num, timeAgo, probColor, partyVar, lastName, esc, fmtDate } from '../ui.js';
 import { store, cur, chamber, racesOf, raceFill } from '../store.js';
 import { usMap, mapLegend, currentLegend, historyChart, raceTip } from '../charts.js';
 import { houseMap } from '../maps.js';
 import { chamberCard, raceCard, headline, electionBanner, CHAMBERS } from './common.js';
+import { navigate } from '../nav.js';
 
 export function competitive(type, n) {
   return racesOf(type).filter(r => r.left && r.right && cur(r).p !== null)
@@ -38,7 +39,7 @@ export function render(root) {
       h('h1', null, headline()),
       h('p', { class: 'dek' }, `We combine ${num(nPolls)} polls, the ratings of ${nRated} forecasters, Polymarket prices and each race's partisan lean, then simulate the election ${num(f.sims)} times. On election night, counted votes take over from the forecast.`)),
     h('div', { class: 'grid g3' }, chamberCard('senate'), chamberCard('house'), chamberCard('gov')),
-    h('a', { class: 'card sim-cta', href: '#/simulate' },
+    h('a', { class: 'card sim-cta', href: '/simulate' },
       h('span', { class: 'sim-cta-icon' }, '🎲'),
       h('span', { class: 'grow' }, h('b', null, 'Run the election yourself. '), h('span', { class: 'muted' }, 'Simulate one outcome in a click, or replay a whole election night as polls close and races get called.')),
       h('span', { class: 'btn small primary' }, 'Open the simulator →')),
@@ -53,18 +54,23 @@ export function render(root) {
     for (const [t, v] of arr || []) { const o = byT.get(t) || { t }; o[key] = v; byT.set(t, o); }
   }
   const hist = [...byT.values()].sort((a, b) => a.t.localeCompare(b.t));
+  // Polymarket's daily prices go back months; our own forecast history only starts when the model went live,
+  // so it is drawn on top and always ends in a labeled dot, however short its line is.
+  const firstModel = (store.history.points || []).find(p => p.sen !== undefined && p.sen !== null);
   const histCard = h('div', { class: 'card span2' },
     h('div', { class: 'card-title' }, 'Chance of Democratic control over time'),
     historyChart(hist, [
-      { key: 'sen', label: 'Senate (model)', color: 'var(--dem)' },
-      { key: 'house', label: 'House (model)', color: 'var(--ink-2)' },
-      { key: 'mSen', label: 'Senate (Polymarket)', color: 'var(--dem)', dash: '4 4', width: 1.5 },
-      { key: 'mHouse', label: 'House (Polymarket)', color: 'var(--ink-2)', dash: '4 4', width: 1.5 },
+      { key: 'mSen', label: 'Senate (Polymarket)', color: 'var(--dem)', width: 1.75 },
+      { key: 'mHouse', label: 'House (Polymarket)', color: 'var(--ink-2)', width: 1.75 },
+      { key: 'sen', label: 'Senate (our forecast)', color: 'var(--dem)', width: 3, marker: true },
+      { key: 'house', label: 'House (our forecast)', color: 'var(--ink-2)', width: 3, marker: true },
     ]),
     h('div', { class: 'legend' },
       h('span', null, h('i', { style: { background: 'var(--dem)' } }), 'Senate'),
       h('span', null, h('i', { style: { background: 'var(--ink-2)' } }), 'House'),
-      h('span', null, '— model   - - Polymarket')));
+      h('span', null, h('i', { class: 'lg-line' }), 'Polymarket, daily'),
+      h('span', null, h('i', { class: 'lg-dot' }), 'Our forecast')),
+    firstModel ? h('p', { class: 'xs muted', style: { margin: '6px 0 0' } }, `Our forecast’s own history starts ${fmtDate(firstModel.t)}, so its line is short; the dots mark where it stands now.`) : null);
 
   const gb = env.generic;
   const ap = env.approval;
@@ -84,9 +90,9 @@ export function render(root) {
 
   // Races to watch
   const groups = [
-    ['Senate', competitive('senate', 8), '#/senate'],
-    ['Governor', competitive('gov', 6), '#/governors'],
-    ['House', competitive('house', 9), '#/house'],
+    ['Senate', competitive('senate', 8), '/senate'],
+    ['Governor', competitive('gov', 6), '/governors'],
+    ['House', competitive('house', 9), '/house'],
   ];
   const watch = h('section', { class: 'section' },
     h('div', { class: 'section-head' }, h('div', null, h('h2', null, 'Races to watch'), h('p', null, 'The closest contests in our forecast, live when counting begins.'))));
@@ -99,15 +105,15 @@ export function render(root) {
   // Maps
   const go = (type) => (code) => {
     const r = store.races.find(x => x.type === type && x.state === code);
-    if (r) location.hash = r.url;
+    if (r) navigate(r.url);
   };
   root.append(h('section', { class: 'section card' },
-    h('div', { class: 'card-title' }, 'House forecast, district by district', h('a', { class: 'more', href: '#/house' }, 'Details →')),
+    h('div', { class: 'card-title' }, 'House forecast, district by district', h('a', { class: 'more', href: '/house' }, 'Details →')),
     houseMap({ id: 'home' })));
   root.append(h('section', { class: 'section grid g2' },
-    h('div', { class: 'card' }, h('div', { class: 'card-title' }, 'Senate forecast', h('a', { class: 'more', href: '#/senate' }, 'Details →')),
+    h('div', { class: 'card' }, h('div', { class: 'card-title' }, 'Senate forecast', h('a', { class: 'more', href: '/senate' }, 'Details →')),
       usMap({ fill: stateFill('senate'), onClick: go('senate'), tip: stateTip('senate') }), mapLegend(currentLegend())),
-    h('div', { class: 'card' }, h('div', { class: 'card-title' }, 'Governor forecast', h('a', { class: 'more', href: '#/governors' }, 'Details →')),
+    h('div', { class: 'card' }, h('div', { class: 'card-title' }, 'Governor forecast', h('a', { class: 'more', href: '/governors' }, 'Details →')),
       usMap({ fill: stateFill('gov'), onClick: go('gov'), tip: stateTip('gov') }), mapLegend(currentLegend()))));
 
   // Tipping point
@@ -151,7 +157,7 @@ export function stateGrid() {
   return h('div', { class: 'state-list' }, store.states.map(st => {
     const rs = store.byState[st.code] || [];
     const top = rs.filter(r => r.type === 'senate' || r.type === 'gov');
-    return h('a', { class: 'state-link', href: `#/state/${st.code}` }, h('span', null, st.name),
+    return h('a', { class: 'state-link', href: `/state/${st.code}` }, h('span', null, st.name),
       h('span', { class: 'badges' }, top.map(r => h('i', { title: r.title, style: { background: probColor(cur(r).p ?? (r.left ? 1 : 0), r.leftParty, r.rightParty) } }))));
   }));
 }

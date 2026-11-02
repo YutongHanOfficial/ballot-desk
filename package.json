@@ -7,7 +7,8 @@
     "races": "python3 pipeline/build_races.py",
     "refresh": "node pipeline/refresh.mjs",
     "serve": "python3 pipeline/serve.py 8026",
-    "geo": "node pipeline/build_geo.mjs"
+    "geo": "node pipeline/build_geo.mjs",
+    "pages": "node pipeline/build_pages.mjs"
   },
   "devDependencies": {
     "d3": "7.9.0",

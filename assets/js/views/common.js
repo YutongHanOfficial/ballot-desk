@@ -6,9 +6,9 @@ import { calledSeats, resultsEnabled } from '../live.js';
 import { CONFIG, pollCloseDate } from '../config.js';
 
 export const CHAMBERS = {
-  senate: { name: 'Senate', url: '#/senate', need: 51, total: 100, needR: 50, unit: 'seats' },
-  house: { name: 'House', url: '#/house', need: 218, total: 435, needR: 218, unit: 'seats' },
-  gov: { name: 'Governors', url: '#/governors', need: 26, total: 50, needR: 25, unit: 'governorships' },
+  senate: { name: 'Senate', url: '/senate', need: 51, total: 100, needR: 50, unit: 'seats' },
+  house: { name: 'House', url: '/house', need: 218, total: 435, needR: 218, unit: 'seats' },
+  gov: { name: 'Governors', url: '/governors', need: 26, total: 50, needR: 25, unit: 'governorships' },
 };
 
 const VERB = (q) => q >= 0.95 ? 'are near-certain to win' : q >= 0.85 ? 'are clear favorites to win' : q >= 0.7 ? 'are favored to win' : q >= 0.58 ? 'are slightly favored to win' : null;
@@ -132,7 +132,7 @@ export function electionBanner() {
     const t = Object.values(store.live.resultsAt || {}).sort().pop();
     return h('div', { class: 'banner live' }, h('span', { class: 'live-dot' }),
       h('div', { class: 'grow' }, h('b', null, 'Results are coming in. '), 'Projections update as votes are counted. ', h('span', { class: 'muted' }, t ? `Last update ${timeAgo(t)}.` : '')),
-      h('a', { class: 'pill live', href: '#/live' }, 'Open live dashboard →'));
+      h('a', { class: 'pill live', href: '/live' }, 'Open live dashboard →'));
   }
   if (now < first) {
     const today = new Date().toLocaleDateString('en-CA', { timeZone: 'America/New_York' });
@@ -143,7 +143,7 @@ export function electionBanner() {
   if (resultsEnabled()) {
     return h('div', { class: 'banner live' }, h('span', { class: 'live-dot' }),
       h('div', { class: 'grow' }, h('b', null, 'Polls are closing. '), 'Waiting for the first votes to be reported.'),
-      h('a', { class: 'pill live', href: '#/live' }, 'Live dashboard →'));
+      h('a', { class: 'pill live', href: '/live' }, 'Live dashboard →'));
   }
   return null;
 }

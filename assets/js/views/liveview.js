@@ -8,6 +8,7 @@ import { eventsSoFar, clockLabel } from '../sim.js';
 import { competitive, stateFill, stateTip } from './home.js';
 import { usMap, mapLegend, splitBar, probMini, probCell, RESULT_LEGEND, BAND_LEGEND } from '../charts.js';
 import { houseMap, countyMap } from '../maps.js';
+import { navigate } from '../nav.js';
 
 /** The side a probability favours: { party, tag: 'D' / 'R' / an independent's surname, q: its chance }. */
 function favOdds(r, p) {
@@ -142,7 +143,7 @@ function heroMap() {
     const legend = night && !odds ? RESULT_LEGEND : BAND_LEGEND.slice(0, 8);
     if (type === 'house') body.replaceChildren(houseMap({ id: 'live-house', caption: false, fill, legend }));
     else {
-      const go = (code) => { const r = store.races.find(x => x.type === type && x.state === code && !x.special) || store.races.find(x => x.type === type && x.state === code); if (r) location.hash = r.url; };
+      const go = (code) => { const r = store.races.find(x => x.type === type && x.state === code && !x.special) || store.races.find(x => x.type === type && x.state === code); if (r) navigate(r.url); };
       body.replaceChildren(usMap({ fill: stateFill(type, fill), tip: stateTip(type), onClick: go }), mapLegend(legend));
     }
     hint.textContent = !night ? 'Colored by our forecast until results arrive' : odds ? 'Each race’s live chance of winning' : 'Solid = projected winner · light = leading';
@@ -285,7 +286,7 @@ function resultsSection() {
     filterSeg.querySelectorAll('button').forEach((b, i) => b.classList.toggle('on', FILTERS[i][0] === RES.filter));
     const q = RES.q.trim().toLowerCase();
     const rows = racesOf(RES.type).filter(r => matches(r, RES.filter, q));
-    holder.replaceChildren(sortableTable(resultColumns(), rows, { sortKey: 'race', desc: false, onRow: r => { location.hash = r.url; }, stateKey: `live-${RES.type}`, limit: 50 }));
+    holder.replaceChildren(sortableTable(resultColumns(), rows, { sortKey: 'race', desc: false, onRow: r => { navigate(r.url); }, stateKey: `live-${RES.type}`, limit: 50 }));
   };
   types.forEach(([k, label]) => typeSeg.appendChild(h('button', { type: 'button', onclick: () => { RES.type = k; draw(); } }, label)));
   FILTERS.forEach(([k, label]) => filterSeg.appendChild(h('button', { type: 'button', onclick: () => { RES.filter = k; draw(); } }, label)));
@@ -312,7 +313,7 @@ function timeline() {
     return h('div', { class: `tl-row${past ? ' past' : ''}` },
       h('div', { class: 't' }, fmtTimeET(d).replace(' ET', '')),
       h('div', null,
-        h('div', { class: 'chips' }, states.map(s => h('a', { href: `#/state/${s}` }, s))),
+        h('div', { class: 'chips' }, states.map(s => h('a', { href: `/state/${s}` }, s))),
         key.length ? h('div', { class: 'xs muted', style: { marginTop: '5px' } }, 'Watch: ', key.map((r, i) => [i ? ', ' : '', h('a', { href: r.url }, `${r.stateName} ${r.office.toLowerCase()}`)])) : null));
   }));
 }
@@ -338,7 +339,7 @@ export function render(root) {
           : enabled
             ? 'Polls are closing. Counts will appear here automatically; this page refreshes itself.'
             : 'Results start flowing after the first polls close at 6 p.m. Eastern on Tuesday, Nov. 3. Leave this page open: it updates on its own.',
-      ' ', live.demo ? null : h('a', { href: '#/forecast' }, 'See the pre-election forecast'), live.demo || live.active ? null : [' or ', h('a', { href: '#/simulate' }, 'simulate election night')], live.demo ? null : '.')));
+      ' ', live.demo ? null : h('a', { href: '/forecast' }, 'See the pre-election forecast'), live.demo || live.active ? null : [' or ', h('a', { href: '/simulate' }, 'simulate election night')], live.demo ? null : '.')));
 
   if (beforePolls) {
     root.append(h('div', { class: 'banner' }, h('div', { class: 'grow' }, h('b', null, 'First polls close in'), h('div', { class: 'xs muted' }, 'Indiana and Kentucky at 6 p.m. Eastern; the last, in Alaska, at 1 a.m.')), countdown(first)));

@@ -4,11 +4,12 @@ import { store } from '../store.js';
 import { histogram, usMap, mapLegend } from '../charts.js';
 import { houseMap } from '../maps.js';
 import { makeScenario, startNight, stopSim, randomSeed, simFill, clockLabel, ensureSimData } from '../sim.js';
+import { navigate } from '../nav.js';
 
 const OPTS = { errMode: 'random', err: 0 };   // the polling-error choice survives live re-renders
 const CACHE = new Map();
 
-function query() { return new URLSearchParams(location.hash.split('?')[1] || ''); }
+function query() { return new URLSearchParams(location.search); }
 
 function scenarioFor(seed, err) {
   const key = `${seed}|${err}`;
@@ -20,7 +21,7 @@ function scenarioFor(seed, err) {
 function playNight(seed, err) {
   ensureSimData().then(() => {
     startNight(makeScenario({ seed: seed ?? randomSeed(), nat: err }), { speed: 3 });
-    location.hash = '#/live';
+    navigate('/live');
   });
 }
 
@@ -29,8 +30,8 @@ function errText(x) {
   return `${x > 0 ? 'Democrats' : 'Republicans'} beat their polls by ${Math.abs(x).toFixed(1)} point${Math.abs(x) === 1 ? '' : 's'}`;
 }
 
-function newQuickHash(seed = randomSeed()) {
-  return `#/simulate?seed=${seed}${OPTS.errMode === 'custom' ? `&err=${OPTS.err}` : ''}`;
+function newQuickLink(seed = randomSeed()) {
+  return `/simulate?seed=${seed}${OPTS.errMode === 'custom' ? `&err=${OPTS.err}` : ''}`;
 }
 
 export function render(root) {
@@ -56,7 +57,7 @@ export function render(root) {
       type: 'button', class: OPTS.errMode === k ? 'on' : '',
       onclick: (e) => { OPTS.errMode = k; custom.style.display = k === 'custom' ? '' : 'none'; e.target.parentNode.querySelectorAll('button').forEach(b => b.classList.toggle('on', b === e.target)); },
     }, label)));
-  const quickBtn = h('button', { type: 'button', class: 'btn primary', onclick: () => { location.hash = newQuickHash(); } }, '🎲  Quick simulation');
+  const quickBtn = h('button', { type: 'button', class: 'btn primary', onclick: () => { navigate(newQuickLink()); } }, '🎲  Quick simulation');
   const nightBtn = h('button', { type: 'button', class: 'btn', onclick: () => playNight(seed, OPTS.errMode === 'custom' ? OPTS.err : null) },
     seed !== null ? '▶  Play this result as election night' : '▶  Simulate election night');
   root.append(h('div', { class: 'card sim-controls' },
@@ -69,7 +70,7 @@ export function render(root) {
   if (store.sim) {
     root.append(h('div', { class: 'banner live' }, h('span', { class: 'live-dot' }),
       h('div', { class: 'grow' }, h('b', null, 'An election-night simulation is running. '), `It's ${clockLabel(store.sim.t)} in the simulation.`),
-      h('a', { class: 'btn small', href: '#/live' }, 'Watch it'), h('button', { type: 'button', class: 'btn small', onclick: () => stopSim() }, 'Stop')));
+      h('a', { class: 'btn small', href: '/live' }, 'Watch it'), h('button', { type: 'button', class: 'btn small', onclick: () => stopSim() }, 'Stop')));
   }
 
   if (seed === null) {
@@ -105,9 +106,9 @@ function resultView(sc, seed, err) {
     h('div', { class: 'eyebrow' }, 'In this simulation'),
     h('h2', null, head + '.'),
     h('p', { class: 'muted', style: { margin: '8px 0 0' } }, `${errText(sc.nat)}${sc.natFixed ? ' (your setting)' : ''}. In Congress and governor races, Democrats flip ${keyFlips('D')} seats and Republicans flip ${keyFlips('R')}. `,
-      h('span', { class: 'xs' }, `Simulation #${seed}. `), h('a', { href: location.hash, class: 'xs' }, 'Link to this result')),
+      h('span', { class: 'xs' }, `Simulation #${seed}. `), h('a', { href: location.pathname + location.search, class: 'xs' }, 'Link to this result')),
     h('div', { class: 'sim-buttons', style: { marginTop: '14px' } },
-      h('button', { type: 'button', class: 'btn primary', onclick: () => { location.hash = newQuickHash(); } }, '🎲  Simulate again'),
+      h('button', { type: 'button', class: 'btn primary', onclick: () => { navigate(newQuickLink()); } }, '🎲  Simulate again'),
       h('button', { type: 'button', class: 'btn', onclick: () => playNight(seed, err) }, '▶  Play this as election night'))));
 
   const card = (type, label, total, need) => {
@@ -139,7 +140,7 @@ function resultView(sc, seed, err) {
   const fillFor = (r) => simFill(sc, r);
   const stateFill = (type) => (code) => { const r = store.races.find(x => x.type === type && x.state === code); return r ? fillFor(r) : null; };
   const stateTip = (type) => (code) => { const r = store.races.find(x => x.type === type && x.state === code); return r ? tip(r) : `<div class="tt-title">${esc(store.stateByCode[code]?.name)}</div><div class="muted">No race</div>`; };
-  const go = (type) => (code) => { const r = store.races.find(x => x.type === type && x.state === code); if (r) location.hash = r.url; };
+  const go = (type) => (code) => { const r = store.races.find(x => x.type === type && x.state === code); if (r) navigate(r.url); };
   wrap.append(
     h('div', { class: 'card section' }, h('div', { class: 'card-title' }, 'House results in this simulation'), houseMap({ id: 'sim', fill: fillFor, tip, caption: false }),
       mapLegend(LEGEND)),

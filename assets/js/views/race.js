@@ -33,7 +33,7 @@ function candBlock(r, side, p, live) {
 
 export function render(root, id) {
   const r = store.byId[id];
-  if (!r) { root.append(h('div', { class: 'empty' }, 'Race not found. ', h('a', { href: '#/' }, 'Back to the overview'))); return; }
+  if (!r) { root.append(h('div', { class: 'empty' }, 'Race not found. ', h('a', { href: '/' }, 'Back to the overview'))); return; }
   const c = cur(r);
   const inc = r.incumbent;
   const statusLine = r.type === 'house' && !inc
@@ -41,7 +41,7 @@ export function render(root, id) {
     : inc ? `${inc.name} (${inc.party || '?'}) · ${r.status || ''}` : r.status || '';
 
   root.append(electionBanner() || '',
-    h('div', { class: 'eyebrow' }, h('a', { href: '#/states' }, 'States'), h('span', null, '›'), h('a', { href: `#/state/${r.state}` }, r.stateName), h('span', null, '›'), h('span', null, r.office)),
+    h('div', { class: 'eyebrow' }, h('a', { href: '/states' }, 'States'), h('span', null, '›'), h('a', { href: `/state/${r.state}` }, r.stateName), h('span', null, '›'), h('span', null, r.office)),
     h('header', { class: 'page-head' }, h('h1', null, r.title), h('p', { class: 'dek' }, statusLine)));
 
   // Live results first on election night
@@ -80,7 +80,7 @@ export function render(root, id) {
   const comps = r.components || {};
   const sig = h('div', { class: 'card' }, h('div', { class: 'card-title' }, 'What’s behind the forecast'),
     signalRows(r, comps),
-    h('p', { class: 'xs muted', style: { margin: '10px 0 0' } }, 'Each signal is converted to an expected margin and weighted by how precise it is. ', h('a', { href: '#/methodology' }, 'Methodology')));
+    h('p', { class: 'xs muted', style: { margin: '10px 0 0' } }, 'Each signal is converted to an expected margin and weighted by how precise it is. ', h('a', { href: '/methodology' }, 'Methodology')));
   root.append(h('section', { class: 'section grid g2' }, sig, marketCard(r, c)));
 
   // Polls
@@ -97,7 +97,7 @@ export function render(root, id) {
   root.append(h('section', { class: 'section grid g2' }, ratingsCard(r), context(r)));
 
   const others = (store.byState[r.state] || []).filter(x => x.id !== r.id && (x.type !== 'house' || r.type !== 'house' || Math.abs((x.district || 0) - (r.district || 0)) <= 2)).slice(0, 8);
-  if (others.length) root.append(h('section', { class: 'section' }, h('div', { class: 'section-head' }, h('h2', null, `More in ${r.stateName}`), h('a', { class: 'small', href: `#/state/${r.state}` }, 'State page →')),
+  if (others.length) root.append(h('section', { class: 'section' }, h('div', { class: 'section-head' }, h('h2', null, `More in ${r.stateName}`), h('a', { class: 'small', href: `/state/${r.state}` }, 'State page →')),
     h('div', { class: 'race-cards' }, others.map(x => raceCard(x)))));
 }
 

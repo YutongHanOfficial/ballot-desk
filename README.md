@@ -77,11 +77,21 @@ python3 pipeline/serve.py            # open http://localhost:8026
 
 Requires Python 3.9+ and Node 20+. No packages to install.
 
-Useful URL switches:
+Useful addresses and switches:
 
-- `#/simulate`: the simulator (quick outcomes, or a full election-night replay with playback controls)
+- `/simulate`: the simulator (quick outcomes, or a full election-night replay with playback controls)
 - `?demo=live`: starts a simulated election night immediately
-- `?results=on` / `?results=off`: force the live results feed on or off
+- `?results=on` / `?results=off`: force the live results feed on or off (`?results=on` also shows the
+  election-night front page)
+
+## Addresses
+
+Pages have plain addresses (`/live`, `/state/PA`, `/race/GA-SEN`). The app is one page that switches views
+with the History API; so that every address also loads directly, `pipeline/build_pages.mjs` writes a copy of
+`index.html` for each one (`live.html`, `state/PA.html`, `race/GA-SEN.html`, …) with its own title and
+link-preview text, plus `sitemap.xml`. **After editing `index.html`, run `npm run pages`** and commit the
+result. `404.html` sends other spellings (`/pennsylvania`, `/pa-07`) to the right page and shows a not-found
+page for anything else. Old `/#/…` links are rewritten to plain addresses when they load.
 
 ## Deploying (GitHub Pages)
 

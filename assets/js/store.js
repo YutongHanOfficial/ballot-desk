@@ -36,7 +36,7 @@ export const OFFICE = {
   sos: { label: 'Secretary of State', plural: 'Secretary of state races', order: 5 },
 };
 
-function titleFor(r, stateName) {
+export function titleFor(r, stateName) {
   switch (r.type) {
     case 'senate': return `${stateName} Senate${r.special ? ' (special)' : ''}`;
     case 'house': return r.district ? `${stateName}'s ${ordinal(r.district)} District` : `${stateName} At-Large District`;
@@ -59,10 +59,10 @@ function shortFor(r) {
 
 export async function loadData({ first = false } = {}) {
   const [base, forecast, polls, markets, history] = await Promise.all([
-    getJSON('data/races.json'), getJSON('data/forecast.json'), getJSON('data/polls.json'),
-    getJSON('data/markets.json'), getJSON('data/history.json').catch(() => ({ points: [] })),
+    getJSON('/data/races.json'), getJSON('/data/forecast.json'), getJSON('/data/polls.json'),
+    getJSON('/data/markets.json'), getJSON('/data/history.json').catch(() => ({ points: [] })),
   ]);
-  if (first) store.geo = await getJSON('data/geo/states-albers-10m.json', false);
+  if (first) store.geo = await getJSON('/data/geo/states-albers-10m.json', false);
   Object.assign(store, { base, forecast, polls, markets, history, loadedAt: new Date().toISOString() });
   store.states = base.states;
   store.stateByCode = Object.fromEntries(base.states.map(s => [s.code, s]));
@@ -85,7 +85,7 @@ function buildRace(r) {
     leftCand: find(left), rightCand: find(right),
     stateName: st.name, region: st.region,
     title: titleFor(r, st.name), short: shortFor(r), office: OFFICE[r.type]?.label || r.type,
-    url: `#/race/${r.id}`,
+    url: `/race/${r.id}`,
     p: f.pLeft ?? null, mu: f.mu ?? null, sd: f.sd ?? null, components: f.components || {}, settled: !!f.settled,
     market: store.markets.races[r.id] || null,
     pollData: store.polls.races[r.id] || null,
