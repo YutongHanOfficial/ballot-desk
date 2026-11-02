@@ -1,6 +1,7 @@
 // Building blocks shared by several pages.
 import { h, pct, partyChip, partyVar, lastName, marginText, num, oddsText, ratingChip, fmtTimeET, PARTY_NAME, timeAgo } from '../ui.js';
 import { store, cur, chamber, marketControl, duelNow } from '../store.js';
+import { avatar } from '../photos.js';
 import { splitBar, probCell } from '../charts.js';
 import { calledSeats, resultsEnabled } from '../live.js';
 import { CONFIG, pollCloseDate, supportLinks } from '../config.js';
@@ -60,7 +61,7 @@ export function raceCard(r, { showType = true } = {}) {
   const p = c.p ?? 0.5;
   const rows = [];
   const cand = (name, party, val, lead, winner, votes) => h('div', { class: `rc-cand${lead ? ' lead' : ''}` },
-    partyChip(party), h('span', { class: 'nm' }, name || '—', winner ? h('span', { class: 'winner-check', style: { marginLeft: '6px' }, title: 'Winner' }, '✓') : null),
+    avatar(r, name, party, { size: 28, fallback: 'chip', badge: true }), h('span', { class: 'nm' }, name || '—', winner ? h('span', { class: 'winner-check', style: { marginLeft: '6px' }, title: 'Winner' }, '✓') : null),
     votes !== undefined ? h('span', { class: 'rc-votes' }, num(votes)) : null,
     h('span', { class: 'pv', style: { color: lead ? partyVar(party) : 'var(--ink-2)' } }, val));
   const card = (foot) => h('a', { class: 'race-card', href: r.url },

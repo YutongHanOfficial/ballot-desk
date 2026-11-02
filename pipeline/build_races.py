@@ -14,6 +14,7 @@ import os
 import re
 import sys
 import time
+import unicodedata
 import urllib.parse
 import urllib.request
 from datetime import datetime, timezone
@@ -174,7 +175,37 @@ def forecaster(header):
 CAND_RE = re.compile(r'^(?P<name>.+?)\s*\((?P<party>[^()]*)\)\s*(?P<rest>.*)$')
 
 
-def candidates(text):
+def article_links(anchors):
+    """A cell's links to English Wikipedia articles: [(text, title)]. Red links, files and other namespaces are
+    left out, and so are links into a section (a name without its own article is often piped to the race's)."""
+    out = []
+    for a in anchors or ():
+        href = a.get('href') or ''
+        if not href.startswith('/wiki/') or '#' in href or 'new' in (a.get('cls') or '').split():
+            continue
+        title = urllib.parse.unquote(href[6:].split('#')[0]).replace('_', ' ')
+        if ':' in title.split(' (')[0]:   # File:, Help:, Category: ...
+            continue
+        out.append((re.sub(r'\s+', ' ', a.get('text') or '').strip(), title))
+    return out
+
+
+def name_key(s):
+    s = unicodedata.normalize('NFKD', s or '').encode('ascii', 'ignore').decode().lower()
+    return ' '.join(re.sub(r'[^a-z0-9\s-]', ' ', s).split())
+
+
+def anchors_of(table, ri, ci):
+    try:
+        cell = table['cells'][ri][ci]
+    except IndexError:
+        return []
+    return (cell or {}).get('anchors') or []
+
+
+def candidates(text, anchors=()):
+    """Candidates from a cell, each with `wiki` (its article title) when the cell links the name itself."""
+    links = article_links(anchors)
     out = []
     for line in (text or '').split('\n'):
         line = line.replace('▌', '').strip()
@@ -190,8 +221,10 @@ def candidates(text):
             continue
         write_in = 'write-in' in ptxt.lower() or 'write-in' in m.group('rest').lower()
         ptxt_clean = re.sub(r',?\s*write-in', '', ptxt, flags=re.I).strip()
+        # Only a link whose text is this exact name: a cell can also link parties, predecessors or a namesake.
+        hits = {t for txt, t in links if name_key(txt) == name_key(name)}
         out.append({'name': name, 'party': party_code(ptxt_clean) or 'O', 'partyName': ptxt_clean or 'Write-in',
-                    **({'writeIn': True} if write_in else {})})
+                    **({'writeIn': True} if write_in else {}), **({'wiki': hits.pop()} if len(hits) == 1 else {})})
     return out
 
 
@@ -268,7 +301,7 @@ def parse_statewide(tabs, office, summary_heading, header_has, pred_heading='Pre
     races = {}
     for t in find_tables(tabs, summary_heading, header_has):
         hdr = [h.split('\n')[0] for h in t['rows'][0]]
-        for row in t['rows'][1:]:
+        for ri, row in enumerate(t['rows'][1:], 1):
             st = state_from(row[0])
             if not st or len(row) < 6:
                 continue
@@ -276,7 +309,7 @@ def parse_statewide(tabs, office, summary_heading, header_has, pred_heading='Pre
             holder_name = row[1].split('\n')[0]
             holder_party = party_code(row[2])
             status = row[col.get('Status', 5)] if col.get('Status', 5) < len(row) else ''
-            cands = candidates(row[-1])
+            cands = candidates(row[-1], anchors_of(t, ri, len(row) - 1))
             races[st] = {
                 'id': f'{st}-{office.upper()}', 'type': office, 'state': st,
                 'incumbent': {'name': holder_name, 'party': holder_party},
@@ -307,7 +340,7 @@ def parse_senate(html):
     tabs = tables(html)
     races = {}
     regular = find_tables(tabs, 'Elections leading to the next Congress')[0]
-    for row in regular['rows'][2:]:
+    for ri, row in enumerate(regular['rows'][2:], 2):
         st = state_from(row[0])
         if not st:
             continue
@@ -316,10 +349,10 @@ def parse_senate(html):
             'id': f'{st}-SEN', 'type': 'senate', 'state': st, 'special': False, 'class': 2,
             'pvi': lean(row[1]), 'incumbent': {'name': row[2].split('\n')[0], 'party': party_code(row[3])},
             'holder': party_code(row[3]), 'status': status.replace('\n', ' '), 'open': status_flags(status),
-            'lastResult': row[5], 'candidates': candidates(row[7]),
+            'lastResult': row[5], 'candidates': candidates(row[7], anchors_of(regular, ri, 7)),
         }
     for t in find_tables(tabs, 'Special elections during the preceding Congress'):
-        for row in t['rows'][2:]:
+        for ri, row in enumerate(t['rows'][2:], 2):
             st = state_from(row[0])
             if not st:
                 continue
@@ -328,7 +361,7 @@ def parse_senate(html):
                 'id': f'{st}-SEN', 'type': 'senate', 'state': st, 'special': True, 'class': 3,
                 'pvi': lean(row[1]), 'incumbent': {'name': row[2].split('\n')[0], 'party': party_code(row[3])},
                 'holder': party_code(row[3]), 'status': status.replace('\n', ' '), 'open': status_flags(status),
-                'lastResult': None, 'candidates': candidates(row[6]),
+                'lastResult': None, 'candidates': candidates(row[6], anchors_of(t, ri, 6)),
             }
     pred = find_tables(tabs, 'Predictions', ['Ratings'])[0]
     names = ratings_from(pred, 4)
@@ -386,7 +419,7 @@ def parse_house(html, ratings_html):
         c_first, c_status, c_cand = col('First'), col('Status'), col('Candidates')
         if c_loc is None or c_cand is None:
             continue
-        for row in t['rows'][2:]:
+        for ri, row in enumerate(t['rows'][2:], 2):
             st, d = district_id(row[c_loc])
             if not st:
                 continue
@@ -412,7 +445,7 @@ def parse_house(html, ratings_html):
                 **({'vacant': True} if vacated else {}),
                 'firstElected': row[c_first].replace('\n', ' ') if c_first is not None else None,
                 'status': status, 'open': new_seat or status_flags(status),
-                'candidates': candidates(row[c_cand]),
+                'candidates': candidates(row[c_cand], anchors_of(t, ri, c_cand)),
             }
     rt = find_tables(tables(ratings_html), 'Latest published ratings for competitive seats')[0]
     names = ratings_from(rt, 4)

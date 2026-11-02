@@ -7,6 +7,7 @@ import { mapLegend } from '../charts.js';
 import { nightMode } from '../store.js';
 import { wantCounties } from '../live.js';
 import { electionBanner, pollCloseText, raceCard } from './common.js';
+import { avatar, photoCredits } from '../photos.js';
 
 function winsText(name, q) {
   if (q >= 0.995) return `${name} wins virtually every simulation`;
@@ -14,17 +15,12 @@ function winsText(name, q) {
   return `${name} wins ${oddsText(q)} simulations`;
 }
 
-function initials(name) {
-  const parts = String(name || '?').replace(/\b(Jr\.?|Sr\.?|III|II|IV)\b/g, '').trim().split(/\s+/);
-  return ((parts[0] || '?')[0] + (parts.length > 1 ? parts[parts.length - 1][0] : '')).toUpperCase();
-}
-
 function candBlock(r, side, p, live) {
   const name = side === 'left' ? r.left : r.right;
   const party = side === 'left' ? r.leftParty : r.rightParty;
   const c = side === 'left' ? r.leftCand : r.rightCand;
   return h('div', { class: `cand ${side}` },
-    h('div', { class: 'avatar', style: { background: partyVar(party) } }, initials(name)),
+    avatar(r, name, party, { size: 76 }),
     h('div', { class: 'cname' }, name || '—'),
     h('div', { class: 'cmeta' }, `${PARTY_NAME[party] || c?.partyName || 'Other'}${c?.incumbent ? ' · Incumbent' : ''}`),
     h('div', { class: 'cprob', style: { color: partyVar(party) } }, pct(side === 'left' ? p : 1 - p)),
@@ -72,7 +68,8 @@ export function render(root, id) {
     h('div', { class: 'card-title' }, c.live ? 'Live projection' : 'Our forecast', h('span', { class: 'pill', style: { textTransform: 'none', letterSpacing: 0 } }, bandLabel(p, r))),
     h('div', { class: 'matchup' }, candBlock(r, 'left', p, c.live), h('div', { class: 'vs' }, 'VS'), candBlock(r, 'right', p, c.live)),
     h('div', { style: { margin: '16px 0 10px' } }, splitBar(r.leftParty === 'D' || r.leftParty === 'I' ? p : p, 1 - p, { height: 14 })),
-    h('p', { class: 'small', style: { margin: 0 } }, h('b', null, winsText(lastName(favName), Math.max(p, 1 - p))), `${c.live ? ', given the votes counted so far' : ''}. Projected margin ${marginText(c.mu, r)}, with an 80% chance it lands between ${marginText(c.mu - 1.2816 * c.sd, r)} and ${marginText(c.mu + 1.2816 * c.sd, r)}.`));
+    h('p', { class: 'small', style: { margin: 0 } }, h('b', null, winsText(lastName(favName), Math.max(p, 1 - p))), `${c.live ? ', given the votes counted so far' : ''}. Projected margin ${marginText(c.mu, r)}, with an 80% chance it lands between ${marginText(c.mu - 1.2816 * c.sd, r)} and ${marginText(c.mu + 1.2816 * c.sd, r)}.`),
+    photoCredits(r, [r.left, r.right]));
   hero.querySelector('.split-bar').firstChild.style.background = partyVar(r.leftParty);
   hero.querySelector('.split-bar').lastChild.style.background = partyVar(r.rightParty);
 
@@ -115,7 +112,7 @@ function duelHero(r) {
   const block = (name, q, side, level) => {
     const k = (r.candidates || []).find(x => x.name === name);
     return h('div', { class: `cand ${side}` },
-      h('div', { class: 'avatar', style: { background: partyVar(d.party, level) } }, initials(name)),
+      avatar(r, name, d.party, { size: 76, color: partyVar(d.party, level) }),
       h('div', { class: 'cname' }, name),
       h('div', { class: 'cmeta' }, `${partyName}${k?.incumbent ? ' · Incumbent' : ''}`),
       h('div', { class: 'cprob', style: { color: partyVar(d.party, level) } }, pct(q)),
@@ -137,7 +134,8 @@ function duelHero(r) {
     h('div', { class: 'split-bar', style: { height: '14px', margin: '16px 0 10px' } },
       h('span', { style: { width: `${p * 100}%`, background: partyVar(d.party, 1) } }),
       h('span', { style: { width: `${(1 - p) * 100}%`, background: partyVar(d.party, 2), marginLeft: 'auto' } })),
-    h('p', { class: 'small', style: { margin: 0 } }, h('b', null, lead), ` Both advanced from California’s top-two primary as ${partyName}s, so the seat stays ${adj} whoever wins.${why}`));
+    h('p', { class: 'small', style: { margin: 0 } }, h('b', null, lead), ` Both advanced from California’s top-two primary as ${partyName}s, so the seat stays ${adj} whoever wins.${why}`),
+    photoCredits(r, [d.a, d.b]));
 }
 
 /** Statewide races: county map, live on election night, otherwise the 2024 presidential vote. */
@@ -161,7 +159,7 @@ function resultsCard(r, c) {
   const res = c.result;
   const tot = res.total || 0;
   const rows = res.cands.slice(0, 8).map(k => h('tr', null,
-    h('td', null, h('div', { class: 'cand-line' }, partyChip(k.party), h('span', { class: 'nm', style: { fontWeight: k.winner ? 750 : 550 } }, k.name), k.winner ? h('span', { class: 'winner-check', title: 'Winner' }, '✓') : null),
+    h('td', null, h('div', { class: 'cand-line' }, avatar(r, k.name, k.party, { size: 30, fallback: 'chip', badge: true }), h('span', { class: 'nm', style: { fontWeight: k.winner ? 750 : 550 } }, k.name), k.winner ? h('span', { class: 'winner-check', title: 'Winner' }, '✓') : null),
       h('div', { class: 'vote-bar' }, h('i', { style: { width: `${(k.pct * 100).toFixed(1)}%`, background: partyVar(k.party) } }))),
     h('td', { class: 'votes' }, num(k.votes)),
     h('td', { class: 'votes', style: { fontWeight: 700 } }, `${(k.pct * 100).toFixed(1)}%`)));

@@ -14,6 +14,8 @@ import * as simulate from './views/simulate.js';
 import * as support from './views/support.js';
 import * as broadcast from './views/broadcast.js';
 import * as stream from './views/stream.js';
+import * as credits from './views/credits.js';
+import { loadPhotos } from './photos.js';
 import { START, END, clockLabel, togglePlay, setSpeed, seek, stopSim } from './sim.js';
 import { navigate, currentPath, upgradeHashLink, tidyAddress } from './nav.js';
 
@@ -39,6 +41,7 @@ const ROUTES = [
   { re: /^\/support$/, nav: 'support', render: (root) => support.render(root), title: () => support.title() },
   { re: /^\/broadcast$/, nav: 'broadcast', render: (root) => broadcast.render(root), title: () => broadcast.title() },
   { re: /^\/stream$/, nav: 'stream', render: (root) => stream.render(root), title: () => stream.title() },
+  { re: /^\/credits$/, nav: 'credits', render: (root) => credits.render(root), title: () => credits.title() },
 ];
 
 // Unknown addresses inside the app get a proper not-found page instead of silently showing the front page.
@@ -221,6 +224,7 @@ async function boot() {
     return;
   }
   render();
+  loadPhotos();   // after the first paint: pages redraw with headshots when it lands
   window.addEventListener('popstate', onLocationChange);
   window.addEventListener('bd:navigate', onLocationChange);
   document.addEventListener('click', onLinkClick);

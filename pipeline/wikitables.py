@@ -2,6 +2,7 @@
 
 Every <table> becomes a list of rows; each row is a list of cells with rowspans and colspans
 expanded, so column N always means the same thing. Footnote markers and hidden sort keys are dropped.
+Each cell also keeps its links as `anchors`: [{'href', 'cls', 'text'}].
 """
 import re
 from html.parser import HTMLParser
@@ -18,6 +19,7 @@ class _TableParser(HTMLParser):
         self._in_heading = False
         self._heading_text = ''
         self._skip_depth = 0
+        self._anchor = None
 
     def _should_skip(self, tag, cls, style):
         if tag in ('style', 'script'):
@@ -59,6 +61,8 @@ class _TableParser(HTMLParser):
         elif t['cell'] is not None:
             if tag == 'a':
                 t['cell']['links'].append(a.get('href', ''))
+                self._anchor = {'href': a.get('href', ''), 'cls': cls, 'text': ''}
+                t['cell'].setdefault('anchors', []).append(self._anchor)
             elif tag in ('br', 'li', 'p', 'div'):
                 t['cell']['text'] += '\n'
 
@@ -68,6 +72,8 @@ class _TableParser(HTMLParser):
         if self._skip_depth:
             self._skip_depth -= 1
             return
+        if tag == 'a':
+            self._anchor = None
         if tag in ('h2', 'h3', 'h4') and self._in_heading:
             self._in_heading = False
             self.heading = self._heading_text.strip()
@@ -94,6 +100,8 @@ class _TableParser(HTMLParser):
             self._heading_text += data
         if self.stack and self.stack[-1]['cell'] is not None:
             self.stack[-1]['cell']['text'] += data
+            if self._anchor is not None:
+                self._anchor['text'] += data
 
 
 def _grid(table):

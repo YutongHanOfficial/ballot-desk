@@ -29,6 +29,7 @@ const pages = [
   ['/support', 'Support', 'Ballot Desk is free and independent, with no ads and no paywall. Chip in to help keep it running.'],
   ['/stream', 'Stream kit', 'Live election-night scenes and overlays for OBS and Streamlabs: balance of power, maps, key races, a ticker and projection alerts.', { noindex: true }],
   ['/broadcast', 'Broadcast', 'Ballot Desk election-night broadcast scene.', { noindex: true }],
+  ['/credits', 'Photo credits', 'Authors and licenses of the candidate photos on Ballot Desk, from the candidates’ Wikipedia articles.'],
 ];
 
 const OFFICES = { senate: 'Senate', gov: 'governor', ltgov: 'lieutenant governor', ag: 'attorney general', sos: 'secretary of state' };

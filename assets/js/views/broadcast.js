@@ -16,6 +16,7 @@ import { usMap, mapLegend, resultScale, BAND_LEGEND } from '../charts.js';
 import { houseHex } from '../maps.js';
 import { loadGeo } from '../geo.js';
 import { clockLabel } from '../sim.js';
+import { avatar, photoOf, licenseText } from '../photos.js';
 
 const PANELS = ['senate', 'house', 'gov', 'races', 'calls'];
 const PANEL_TITLE = { senate: 'Senate', house: 'House', gov: 'Governors', races: 'Key races', calls: 'Latest projections' };
@@ -66,7 +67,8 @@ function start(stage, o, W, H) {
     const main = h('div', { class: 'bc-main' }, parts.panel, parts.alert);
     if (o.vertical) {
       stage.append(parts.header, parts.stats, parts.score, main, parts.ticker.el,
-        h('footer', { class: 'bc-foot' }, h('b', null, 'ballotdesk.org'), h('span', null, 'Live results and projections for every race')));
+        h('footer', { class: 'bc-foot' }, h('b', null, 'ballotdesk.org'), h('span', null, 'Live results and projections for every race'),
+          h('span', { class: 'bc-foot-credit' }, 'Candidate photos via Wikipedia · credits at ballotdesk.org/credits')));
     } else {
       stage.append(parts.header, parts.stats, h('div', { class: 'bc-body' }, main, parts.score), parts.ticker.el);
     }
@@ -296,7 +298,10 @@ function panel(kind, o, index) {
             h('div', { class: 'bc-sum' }, h('span', null, h('b', null, called), ` of ${races.length} projected`), night ? h('span', null, h('b', null, counting), ' counting') : null))),
         watchList(kind, o.vertical ? 2 : 4)));
   }
-  if (kind === 'races') return h('div', { class: 'bc-p' }, head('Key races', night ? 'Share of the vote counted so far, and each race’s live chance of winning' : 'Chance of winning, before any votes are counted'), keyRaces(o));
+  if (kind === 'races') {
+    const photos = store.photos && !o.vertical ? ' · Photos: Wikipedia, credits at ballotdesk.org/credits' : '';   // vertical: in the footer
+    return h('div', { class: 'bc-p' }, head('Key races', (night ? 'Share of the vote counted so far, and each race’s live chance of winning' : 'Chance of winning, before any votes are counted') + photos), keyRaces(o));
+  }
   return h('div', { class: 'bc-p' }, ...latestCalls(o, head));
 }
 
@@ -322,8 +327,8 @@ function watchRow(r) {
   return h('div', { class: `bc-wrow${tot ? '' : ' pre'}` },
     h('div', { class: 'bc-wtop' }, h('b', null, r.type === 'house' ? r.short : r.stateName), status),
     h('div', { class: 'bc-wnames' },
-      h('span', null, h('i', { class: `party-chip ${r.leftParty}` }, r.leftParty), lastName(r.left), h('b', { style: { color: partyVar(r.leftParty) } }, val(lp))),
-      h('span', { class: 'right' }, h('b', { style: { color: partyVar(r.rightParty) } }, val(rp)), lastName(r.right), h('i', { class: `party-chip ${r.rightParty}` }, r.rightParty))),
+      h('span', null, avatar(r, r.left, r.leftParty, { size: 36, fallback: 'chip', badge: true }), lastName(r.left), h('b', { style: { color: partyVar(r.leftParty) } }, val(lp))),
+      h('span', { class: 'right' }, h('b', { style: { color: partyVar(r.rightParty) } }, val(rp)), lastName(r.right), avatar(r, r.right, r.rightParty, { size: 36, fallback: 'chip', badge: true }))),
     h('div', { class: 'bc-wbar' }, h('i', { style: { width: `${lp * 100}%`, background: partyVar(r.leftParty) } }), h('i', { style: { width: `${rp * 100}%`, background: partyVar(r.rightParty), marginLeft: 'auto' } })),
     h('div', { class: 'bc-wfoot' }, h('span', null, tot ? `${num(res.left)} · ${num(res.right)}` : 'Chance of winning'),
       !res?.called ? h('span', { style: { color: partyVar(f.party) } }, `${f.tag} ${pct(f.q)} ${night ? 'live odds' : 'to win'}`) : null));
@@ -350,7 +355,7 @@ function raceCard(r) {
     const share = tot ? v / tot : (side === 'left' ? p : 1 - p);
     const won = res?.called === side;
     return h('div', { class: `bc-cline${won ? ' won' : ''}` },
-      h('i', { class: `party-chip ${party}` }, party),
+      avatar(r, name, party, { size: 36, fallback: 'chip', badge: true }),
       h('span', { class: 'nm' }, lastName(name), won ? h('em', null, '✓') : null),
       h('span', { class: 'bc-cbar' }, h('i', { style: { width: `${Math.min(100, share * 100)}%`, background: partyVar(party) } })),
       h('b', { style: { color: partyVar(party) } }, tot ? `${(share * 100).toFixed(1)}%` : pct(share)),
@@ -488,11 +493,16 @@ function alertQueue(slot) {
           item.calls.length > 8 ? h('span', null, `+${item.calls.length - 8} more`) : null)];
     } else {
       const c = item.call, tot = c.res.total || 0, eevp = c.res.eevp || 0;
+      const pic = photoOf(c.r, c.name);
       body = [h('div', { class: 'bc-a-label' }, h('span', { class: 'bc-a-check' }, '✓'), 'Projected winner', c.flip ? h('span', { class: 'bc-flip' }, `${c.party} pickup`) : null),
         h('div', { class: 'bc-a-big' }, c.name, h('i', { class: `party-chip ${c.party}` }, c.party)),
         h('div', { class: 'bc-a-race' }, `${c.r.title}`,
           tot && eevp >= 1 ? ` · ${((c.res.left / tot) * 100).toFixed(1)}% to ${((c.res.right / tot) * 100).toFixed(1)}%, ${Math.round(eevp)}% in` : ' · as polls closed',
           store.sim ? ' · simulated' : ' · AP projection')];
+      if (pic) {
+        body = [h('div', { class: 'bc-a-row' }, avatar(c.r, c.name, c.party, { size: 150 }), h('div', { class: 'bc-a-text' }, body)),
+          h('div', { class: 'bc-a-credit' }, `Photo: ${pic.by}, ${licenseText(pic)}, via Wikipedia`)];
+      }
     }
     const box = h('div', { class: `bc-alert ${item.kind}` }, body);
     box.style.setProperty('--party', party ? partyVar(party) : 'var(--gold)');

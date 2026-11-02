@@ -51,6 +51,16 @@ turns them into:
 
 They are built once and committed. To rebuild: `npm install && npm run geo` (needs `unzip`).
 
+### Candidate photos
+
+Headshots are the lead images of the candidates' English Wikipedia articles. The article comes from the link on
+the candidate's name in the race's own Wikipedia table (`wiki` on each candidate in `races.json`), never from a
+name search, and must be about a person (Wikidata: instance of human). Only freely licensed images are used
+(public domain, CC0, CC BY, CC BY-SA). `pipeline/facecrop.swift` (macOS Vision) crops a square around the face
+and rejects anything without exactly one clear, large enough face, so a logo or group photo never stands in for
+a candidate. Output: `assets/img/people/*.jpg` (192px) and `data/photos.json`; every photo is credited on its
+race page, on `/credits` and, on the broadcast, on screen. Rebuild on a Mac: `python3 pipeline/build_photos.py`.
+
 ### The model
 
 Each race comes down to the expected margin between its two leading candidates. Four signals estimate
@@ -135,6 +145,7 @@ Polymarket prices without vote counts.
 | County boundaries | U.S. Census Bureau cartographic boundaries, 2025 | Public domain |
 | 2024 presidential vote by county | [tonmcg/US_County_Level_Election_Results_08-24](https://github.com/tonmcg/US_County_Level_Election_Results_08-24) | MIT |
 | Election-night county results | AP via each race's NYT results file (fetched in the browser) | Unofficial; see above |
+| Candidate photos | Lead images of the candidates' Wikipedia articles (Wikimedia Commons / Wikipedia), cropped | Each file's own: public domain, CC0, CC BY or CC BY-SA (listed on `/credits`) |
 | State shapes | us-atlas (U.S. Census Bureau) | ISC / public domain |
 
 This is an independent project, not affiliated with any campaign, party or news organization.
