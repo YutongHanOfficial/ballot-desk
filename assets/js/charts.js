@@ -341,24 +341,57 @@ export function pollChart(race, { width = 640, height = 240 } = {}) {
 // ------------------------------------------------------------------------------------- outcome curve
 
 /** Distribution of the final margin (normal approximation), shaded by winner. */
-export function marginCurve(race, mu, sd, { width = 440, height = 170 } = {}) {
+export function marginCurve(race, mu, sd, { width = 440, height = 184 } = {}) {
   const svg = s('svg', { viewBox: `0 0 ${width} ${height}`, role: 'img', 'aria-label': 'Range of likely margins' });
-  const m = { t: 14, r: 12, b: 28, l: 12 };
-  const span = Math.max(Math.abs(mu) + 3 * sd, 12);
-  const x = d3.scaleLinear().domain([-span, span]).range([m.l, width - m.r]);
+  const m = { t: 24, r: 12, b: 52, l: 12 };
+  sd = Math.max(sd || 0, 0.5);
+  // A close race gets an axis centred on a tie; a lopsided one is fitted to its likely outcomes, keeping the tie in view.
+  let lo = mu - 3 * sd, hi = mu + 3 * sd;
+  if (lo < 0 && hi > 0) { const span = Math.max(Math.abs(mu) + 3 * sd, 12); lo = -span; hi = span; }
+  else { lo = Math.min(lo, 0); hi = Math.max(hi, 0); const pad = (hi - lo) * 0.06; lo -= pad; hi += pad; }
+  const x = d3.scaleLinear().domain([lo, hi]).range([m.l, width - m.r]);
+  const base = height - m.b;
   const pdf = (v) => Math.exp(-0.5 * ((v - mu) / sd) ** 2);
-  const y = d3.scaleLinear().domain([0, 1.05]).range([height - m.b, m.t]);
-  const xs = d3.range(-span, span + 0.001, span / 120);
-  const area = d3.area().x(v => x(v)).y0(y(0)).y1(v => y(pdf(v))).curve(d3.curveBasis);
-  svg.appendChild(s('path', { d: area(xs.filter(v => v >= 0)), fill: partyVar(race.leftParty), opacity: 0.85 }));
-  svg.appendChild(s('path', { d: area(xs.filter(v => v <= 0)), fill: partyVar(race.rightParty), opacity: 0.85 }));
-  svg.appendChild(s('line', { x1: x(0), x2: x(0), y1: m.t - 4, y2: height - m.b, stroke: 'var(--ink)', 'stroke-width': 1.25 }));
-  const lo = mu - 1.2816 * sd, hi = mu + 1.2816 * sd;
-  svg.appendChild(s('line', { x1: x(lo), x2: x(hi), y1: height - m.b + 8, y2: height - m.b + 8, stroke: 'var(--ink-2)', 'stroke-width': 2 }));
-  svg.appendChild(s('circle', { cx: x(mu), cy: height - m.b + 8, r: 4, fill: 'var(--ink)' }));
-  svg.appendChild(s('text', { x: x(-span) + 2, y: height - 2 }, `${lastName(race.right)} +${Math.round(span)}`));
-  svg.appendChild(s('text', { x: x(span) - 2, y: height - 2, 'text-anchor': 'end' }, `${lastName(race.left)} +${Math.round(span)}`));
-  svg.appendChild(s('text', { x: x(mu), y: height - 2, 'text-anchor': 'middle', class: 'label-strong' }, marginText(mu, race)));
+  const y = d3.scaleLinear().domain([0, 1.05]).range([base, m.t]);
+  const xs = d3.range(lo, hi + 1e-9, (hi - lo) / 160).concat(0).sort((a, b) => a - b);
+  const area = d3.area().x(v => x(v)).y0(base).y1(v => y(pdf(v))).curve(d3.curveBasis);
+  const right = xs.filter(v => v >= 0), left = xs.filter(v => v <= 0);
+  if (right.length > 1) svg.appendChild(s('path', { d: area(right), fill: partyVar(race.leftParty), opacity: 0.85 }));
+  if (left.length > 1) svg.appendChild(s('path', { d: area(left), fill: partyVar(race.rightParty), opacity: 0.85 }));
+  svg.appendChild(s('line', { x1: x(lo), x2: x(hi), y1: base, y2: base, stroke: 'var(--line-2)' }));
+  svg.appendChild(s('line', { x1: x(0), x2: x(0), y1: m.t - 8, y2: base, stroke: 'var(--ink)', 'stroke-width': 1.25 }));
+
+  // Who wins on each side of the tie line, where there is room for it.
+  const textW = (t) => t.length * 6.3 + 4;
+  const sideLabel = (name, party, toLeft) => {
+    const t = toLeft ? `← ${name} wins` : `${name} wins →`;
+    const room = toLeft ? x(0) - 6 - m.l : width - m.r - (x(0) + 6);
+    if (textW(t) > room) return;
+    svg.appendChild(s('text', { x: toLeft ? x(0) - 6 : x(0) + 6, y: m.t - 10, 'text-anchor': toLeft ? 'end' : 'start', style: `fill:${partyVar(party)};font-weight:650` }, t));
+  };
+  sideLabel(lastName(race.right), race.rightParty, true);
+  sideLabel(lastName(race.left), race.leftParty, false);
+
+  // The middle 80% of outcomes, with the projected margin beside the bar (not under it, where the axis labels go).
+  const p10 = mu - 1.2816 * sd, p90 = mu + 1.2816 * sd, by = base + 13;
+  svg.appendChild(s('line', { x1: x(p10), x2: x(p90), y1: by, y2: by, stroke: 'var(--ink-2)', 'stroke-width': 2 }));
+  svg.appendChild(s('circle', { cx: x(mu), cy: by, r: 4, fill: 'var(--ink)' }));
+  const label = marginText(mu, race);
+  const after = x(p90) + 8, before = x(p10) - 8;
+  if (after + textW(label) <= width - m.r) svg.appendChild(s('text', { x: after, y: by + 4, class: 'label-strong' }, label));
+  else if (before - textW(label) >= m.l) svg.appendChild(s('text', { x: before, y: by + 4, 'text-anchor': 'end', class: 'label-strong' }, label));
+  else svg.appendChild(s('text', { x: x(mu), y: by - 8, 'text-anchor': 'middle', class: 'label-strong' }, label));
+
+  // Axis: margins in points, 'Even' at the tie.
+  const tag = (party, name) => party === 'D' || party === 'R' ? party : lastName(name);
+  const tickText = (v) => v === 0 ? 'Even' : `${v > 0 ? tag(race.leftParty, race.left) : tag(race.rightParty, race.right)}+${Math.abs(v)}`;
+  const named = !['D', 'R'].includes(race.leftParty) || !['D', 'R'].includes(race.rightParty);
+  for (const v of x.ticks(named ? 3 : 5)) {
+    const px = x(v), t = tickText(v), w = textW(t) / 2;
+    const anchor = px - w < m.l ? 'start' : px + w > width - m.r ? 'end' : 'middle';
+    svg.appendChild(s('line', { x1: px, x2: px, y1: base, y2: base + 4, stroke: 'var(--line-2)' }));
+    svg.appendChild(s('text', { x: anchor === 'start' ? m.l : anchor === 'end' ? width - m.r : px, y: height - 6, 'text-anchor': anchor }, t));
+  }
   return h('div', { class: 'chart' }, svg);
 }
 
