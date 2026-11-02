@@ -1,5 +1,5 @@
 import { h, pct, num, timeAgo, probColor, partyVar, lastName, esc } from '../ui.js';
-import { store, cur, chamber, racesOf } from '../store.js';
+import { store, cur, chamber, racesOf, awaiting } from '../store.js';
 import { usMap, mapLegend, BAND_LEGEND, historyChart, raceTip } from '../charts.js';
 import { houseMap } from '../maps.js';
 import { chamberCard, raceCard, headline, electionBanner, CHAMBERS } from './common.js';
@@ -14,6 +14,7 @@ export function stateFill(type) {
     const r = store.races.find(x => x.type === type && x.state === code && (type !== 'senate' || !x.special)) ||
       store.races.find(x => x.type === type && x.state === code);
     if (!r) return null;
+    if (awaiting(r)) return 'var(--none)';
     const c = cur(r);
     if (!r.left || !r.right) return probColor(r.left ? 1 : 0, r.leftParty, r.rightParty);
     return probColor(c.p, r.leftParty, r.rightParty);
@@ -41,6 +42,10 @@ export function render(root) {
       h('h1', null, headline()),
       h('p', { class: 'dek' }, `We combine ${num(nPolls)} polls, the ratings of ${nRated} forecasters, Polymarket prices and each race's partisan lean, then simulate the election ${num(f.sims)} times. On election night, counted votes take over from the forecast.`)),
     h('div', { class: 'grid g3' }, chamberCard('senate'), chamberCard('house'), chamberCard('gov')),
+    h('a', { class: 'card sim-cta', href: '#/simulate' },
+      h('span', { class: 'sim-cta-icon' }, '🎲'),
+      h('span', { class: 'grow' }, h('b', null, 'Run the election yourself. '), h('span', { class: 'muted' }, 'Simulate one outcome in a click, or replay a whole election night as polls close and races get called.')),
+      h('span', { class: 'btn small primary' }, 'Open the simulator →')),
   );
 
   // Over time + national environment

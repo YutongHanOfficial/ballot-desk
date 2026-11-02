@@ -123,10 +123,7 @@ export function shortName(r, side) {
 export function electionBanner() {
   const now = Date.now();
   const first = Date.parse(CONFIG.firstPollsClose);
-  if (store.live.demo) {
-    return h('div', { class: 'banner live' }, h('span', { class: 'live-dot' }),
-      h('div', { class: 'grow' }, h('b', null, 'Demo mode: '), 'these are simulated results generated from the forecast to preview election night. ', h('a', { href: location.pathname + location.hash }, 'Exit demo')));
-  }
+  if (store.sim) return null;   // the simulation bar in the header says it all
   if (store.live.active) {
     const t = Object.values(store.live.resultsAt || {}).sort().pop();
     return h('div', { class: 'banner live' }, h('span', { class: 'live-dot' }),

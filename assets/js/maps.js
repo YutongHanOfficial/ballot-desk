@@ -1,7 +1,7 @@
 // District maps: the national House map (geographic or equal-size hexagons) and per-state district maps.
 // Boundaries are the Census Bureau's 2026 (120th Congress) districts, built by pipeline/build_geo.mjs.
 import { h, s, probColor, partyVar, tooltip } from './ui.js';
-import { store, cur } from './store.js';
+import { store, cur, awaiting } from './store.js';
 import { raceTip, mapLegend, BAND_LEGEND } from './charts.js';
 
 const d3 = window.d3;
@@ -36,14 +36,14 @@ function withGeo(urls, build, height) {
 // ------------------------------------------------------------------------------------------- colour
 
 export function raceFill(r) {
-  if (!r) return 'var(--none)';
+  if (!r || awaiting(r)) return 'var(--none)';
   if (!r.left || !r.right) return partyVar((r.left ? r.leftParty : r.rightParty) || r.samePartyGeneral, 1);
   return probColor(cur(r).p, r.leftParty, r.rightParty);
 }
 
-function hoverable(el, r) {
+function hoverable(el, r, tipFn = raceTip) {
   const tip = tooltip();
-  el.addEventListener('mousemove', (e) => tip.show(raceTip(r), e));
+  el.addEventListener('mousemove', (e) => tip.show(tipFn(r), e));
   el.addEventListener('mouseleave', () => tip.hide());
   return tip;
 }
@@ -120,7 +120,7 @@ function pref(key, val) {
 }
 
 /** National House map with a Geographic / Equal-size toggle. */
-export function houseMap({ id = 'house', caption = true } = {}) {
+export function houseMap({ id = 'house', caption = true, fill = raceFill, tip = raceTip } = {}) {
   VIEW.mode = VIEW.mode || pref('houseMapMode') || 'geo';
   const wrap = h('div', { class: 'house-map' });
   const body = h('div', { class: 'map-body' });
@@ -129,8 +129,8 @@ export function houseMap({ id = 'house', caption = true } = {}) {
   const draw = () => {
     seg.querySelectorAll('button').forEach((b, i) => b.classList.toggle('on', opts[i][0] === VIEW.mode));
     body.replaceChildren(VIEW.mode === 'hex'
-      ? withGeo(['data/geo/house-hex.json'], (hex) => hexMap(hex), 420)
-      : withGeo(['data/geo/districts-2026.json'], (topo) => geoMap(topo, id), 420));
+      ? withGeo(['data/geo/house-hex.json'], (hex) => hexMap(hex, { fill, tip }), 420)
+      : withGeo(['data/geo/districts-2026.json'], (topo) => geoMap(topo, id, { fill, tip }), 420));
   };
   for (const [k, label] of opts) {
     seg.appendChild(h('button', { type: 'button', onclick: () => { VIEW.mode = k; pref('houseMapMode', k); draw(); } }, label));
@@ -144,7 +144,7 @@ export function houseMap({ id = 'house', caption = true } = {}) {
   return wrap;
 }
 
-function geoMap(topo, key) {
+function geoMap(topo, key, { fill = raceFill, tip: tipFn = raceTip } = {}) {
   const W = 975, H = 610;
   const shapes = nationalShapes(topo);
   const svg = s('svg', { viewBox: `0 0 ${W} ${H}`, class: 'district-map', role: 'img', 'aria-label': 'Map of all 435 House districts' });
@@ -153,9 +153,9 @@ function geoMap(topo, key) {
   let api = null;
   for (const f of shapes.feats) {
     const r = store.byId[f.id];
-    const p = s('path', { d: f.d, fill: raceFill(r), class: 'district' });
+    const p = s('path', { d: f.d, fill: fill(r), class: 'district' });
     if (r) {
-      const tip = hoverable(p, r);
+      const tip = hoverable(p, r, tipFn);
       p.addEventListener('click', () => {
         tip.hide();
         // First click zooms to the state; once zoomed in, a click opens the race.
@@ -199,13 +199,13 @@ function hexPoints(x, y, r) {
   return out.trim();
 }
 
-function hexMap(hex) {
+function hexMap(hex, { fill = raceFill, tip: tipFn = raceTip } = {}) {
   const svg = s('svg', { viewBox: `0 0 ${hex.width} ${hex.height}`, class: 'hex-map', role: 'img', 'aria-label': 'Equal-size map of all 435 House districts' });
   for (const [id, [x, y]] of Object.entries(hex.cells)) {
     const r = store.byId[id];
-    const poly = s('polygon', { points: hexPoints(x, y, hex.r * 0.93), fill: raceFill(r), class: 'hex' });
+    const poly = s('polygon', { points: hexPoints(x, y, hex.r * 0.93), fill: fill(r), class: 'hex' });
     if (r) {
-      const tip = hoverable(poly, r);
+      const tip = hoverable(poly, r, tipFn);
       poly.addEventListener('click', () => { tip.hide(); location.hash = r.url; });
     }
     svg.appendChild(poly);

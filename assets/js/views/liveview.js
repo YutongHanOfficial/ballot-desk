@@ -4,6 +4,7 @@ import { store, cur, chamber, marketControl, racesOf } from '../store.js';
 import { calledSeats, resultsEnabled } from '../live.js';
 import { CONFIG, POLL_CLOSE_ET, pollCloseDate } from '../config.js';
 import { raceCard, CHAMBERS } from './common.js';
+import { eventsSoFar, clockLabel } from '../sim.js';
 import { competitive } from './home.js';
 
 function calledBar(type) {
@@ -32,7 +33,7 @@ function calledBar(type) {
       type === 'gov'
         ? h('span', null, 'Projected: ', h('b', null, `${Math.round(ch.dSeats.mean)} D · ${50 - Math.round(ch.dSeats.mean)} R`))
         : h('span', null, 'Chance of control: ', h('b', { class: 'c-dem' }, `D ${pct(ch.pD)}`), ' · ', h('b', { class: 'c-rep' }, `R ${pct(ch.pR)}`)),
-      mk && mk.pD !== null ? h('span', null, 'Polymarket: ', h('b', null, `D ${pct(mk.pD)}`)) : h('span', null, `${und} uncalled`)));
+      mk && mk.pD !== null && !store.sim ? h('span', null, 'Polymarket: ', h('b', null, `D ${pct(mk.pD)}`)) : h('span', null, `${und} uncalled`)));
 }
 
 function timeline() {
@@ -58,7 +59,7 @@ export function render(root) {
   const last = Object.values(live.resultsAt || {}).sort().pop();
   root.append(h('header', { class: 'page-head' },
     h('div', { class: 'eyebrow' }, live.active ? h('span', { class: 'live-dot' }) : null, 'Election night', h('span', null, '·'),
-      live.demo ? 'Demo data' : last ? `Results updated ${timeAgo(last)}` : 'Waiting for results'),
+      live.demo ? 'Simulated results' : last ? `Results updated ${timeAgo(last)}` : 'Waiting for results'),
     h('h1', null, live.active ? 'Live results and projections' : 'Election night: live results'),
     h('p', { class: 'dek' }, live.demo
       ? 'Simulated returns generated from the forecast, replaying an election night so you can see how this page behaves. None of these numbers are real.'
@@ -66,13 +67,18 @@ export function render(root) {
       ? 'Vote counts from the Associated Press (via The New York Times), with our projection of each race updating as ballots are counted. Calls are the AP’s.'
       : enabled
         ? 'Polls are closing. Counts will appear here automatically; this page refreshes itself.'
-        : `Results start flowing after the first polls close at 6 p.m. Eastern on Tuesday, Nov. 3. Leave this page open: it updates on its own. Want a preview? Try the `, live.active ? null : h('a', { href: '?demo=live#/live' }, 'simulated election night'), live.active ? null : '.')));
+        : `Results start flowing after the first polls close at 6 p.m. Eastern on Tuesday, Nov. 3. Leave this page open: it updates on its own. Want a preview? `, live.active ? null : h('a', { href: '#/simulate' }, 'Simulate election night'), live.active ? null : '.')));
 
+  if (store.sim && !live.active) {
+    root.append(h('div', { class: 'banner live' }, h('span', { class: 'live-dot' }), h('div', { class: 'grow' }, h('b', null, `${clockLabel(store.sim.t)}. `), 'Polls are about to close. The first results arrive shortly after 6 p.m.')));
+  }
   if (live.resultsOk === false && enabled && !live.demo) {
     root.append(h('div', { class: 'banner' }, h('div', { class: 'grow' }, h('b', null, 'The results feed is not reachable right now. '), 'Showing the pre-election forecast and live Polymarket prices; counts will appear when the feed responds.')));
   }
 
   root.append(h('div', { class: 'grid g3' }, calledBar('senate'), calledBar('house'), calledBar('gov')));
+  const feed = eventFeed();
+  if (feed) root.append(feed);
 
   if (live.active && live.swing && live.swing.n >= 3) {
     const sw = live.swing.swing;
@@ -108,6 +114,43 @@ export function render(root) {
         h('p', null, h('b', null, 'Calls'), ' come from the Associated Press. Close races, ranked-choice tabulation in Alaska and Maine, and Georgia’s 50% runoff rule can delay outcomes for days.'),
         h('p', { class: 'muted', style: { marginBottom: 0 } }, `Results refresh every ${CONFIG.results.refreshSec.senate} seconds (House every ${Math.round(CONFIG.results.refreshSec.house / 60)} minutes); markets every minute.`)))));
   void lastName; void marginText;
+}
+
+const FEED = { all: false };
+
+/** Election-night ticker: poll closings, projections and chamber calls, newest first. */
+function eventFeed() {
+  let items;
+  if (store.sim) {
+    items = eventsSoFar().map(e => ({ ...e, when: clockLabel(e.t, { short: true }) }));
+  } else if (store.live.active) {
+    const now = Date.now();
+    const closes = {};
+    for (const [st, t] of Object.entries(POLL_CLOSE_ET)) if (store.stateByCode[st]) (closes[t] ||= []).push(st);
+    items = Object.values(closes).map(sts => ({ d: pollCloseDate(sts[0]), kind: 'close', text: `Polls close in ${sts.map(s => store.stateByCode[s].name).sort().join(', ')}.` }))
+      .filter(e => e.d <= now);
+    for (const r of store.races) {
+      const res = store.live.results[r.id];
+      if (!res || !res.called || !res.calledAt || !r.left || !r.right) continue;
+      const party = res.called === 'left' ? r.leftParty : r.rightParty;
+      const name = res.called === 'left' ? r.left : r.right;
+      items.push({ d: new Date(res.calledAt), kind: 'call', party, id: r.id, text: `AP: ${name} (${party}) wins ${r.title}${r.holder && party !== r.holder ? ', a pickup' : ''}.` });
+    }
+    items.sort((a, b) => b.d - a.d);
+    items = items.map(e => ({ ...e, when: fmtTimeET(e.d).replace(' ET', '') }));
+  } else return null;
+  if (!items.length) return null;
+  const shown = FEED.all ? items : items.slice(0, 12);
+  const icon = (k, party) => {
+    const sym = { close: '◷', call: '✓', batch: '✓', control: '★', info: 'ℹ', final: '■' }[k] || '•';
+    return h('span', { class: `feed-icon ${k}`, style: party ? { background: partyVar(party), color: '#fff' } : null }, sym);
+  };
+  return h('section', { class: 'section card feed' },
+    h('div', { class: 'card-title' }, store.sim ? 'Election night, as it happens (simulated)' : 'Election night, as it happens',
+      items.length > 12 ? h('button', { type: 'button', class: 'linkish', onclick: () => { FEED.all = !FEED.all; const p = document.querySelector('.feed'); if (p) p.replaceWith(eventFeed()); } }, FEED.all ? 'Show fewer' : `Show all ${items.length}`) : null),
+    h('ol', { class: 'feed-list' }, shown.map(e => h('li', { class: `feed-item ${e.kind}${e.big || e.kind === 'control' ? ' big' : ''}` },
+      h('span', { class: 'feed-time' }, e.when), icon(e.kind, e.party),
+      h('span', { class: 'feed-text' }, e.id ? h('a', { href: store.byId[e.id]?.url }, e.text) : e.text)))));
 }
 
 export const title = () => 'Live results';

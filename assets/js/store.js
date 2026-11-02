@@ -1,5 +1,6 @@
 // Loads the precomputed data files and exposes merged race objects to the views.
 import { ordinal } from './ui.js';
+import { pollCloseDate } from './config.js';
 
 export const store = {
   base: null, forecast: null, polls: null, markets: null, history: null, geo: null,
@@ -10,6 +11,7 @@ export const store = {
     est: null, sim: null, swing: null, active: false, demo: false,
   },
   loadedAt: null,
+  sim: null,          // a running election-night simulation (sim.js)
 };
 
 const listeners = new Set();
@@ -115,6 +117,14 @@ export function marketControl(type) {
 }
 
 export function racesOf(type) { return store.races.filter(r => r.type === type); }
+
+/** On election night (real or simulated), true for races whose polls have not closed yet. */
+export function awaiting(r) {
+  if (store.sim) return !store.live.results[r.id];
+  if (!store.live.active) return false;
+  const d = pollCloseDate(r.state);
+  return d ? Date.now() < d : false;
+}
 
 export function leftWinsParty(race, p) {
   return p >= 0.5 ? race.leftParty : race.rightParty;

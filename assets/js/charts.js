@@ -1,6 +1,7 @@
 // SVG charts (D3 is loaded globally from assets/vendor).
 import { h, s, pct, partyVar, probColor, tooltip, esc, lastName, marginText, fmtDate, compact, PARTY_NAME } from './ui.js';
-import { store, cur } from './store.js';
+import { store, cur, awaiting } from './store.js';
+import { pollCloseDate } from './config.js';
 
 const d3 = window.d3;
 const topojson = window.topojson;
@@ -37,7 +38,7 @@ export function probCell(race, c = cur(race)) {
 // ------------------------------------------------------------------------------------- histogram
 
 /** Seat distribution. hist = { start, p: [...] } of Democratic seats; threshold = seats for a D majority. */
-export function histogram(hist, { threshold, total, width = 640, height = 220, xLabel = 'Democratic seats' } = {}) {
+export function histogram(hist, { threshold, total, width = 640, height = 220, xLabel = 'Democratic seats', mark = null, markLabel = 'This simulation' } = {}) {
   const tip = tooltip();
   const xs = hist.p.map((_, i) => hist.start + i);
   const lo = Math.max(0, Math.min(xs[0], threshold - 3)), hi = Math.min(total, Math.max(xs[xs.length - 1], threshold + 3));
@@ -67,6 +68,13 @@ export function histogram(hist, { threshold, total, width = 640, height = 220, x
   }
   svg.appendChild(s('line', { x1: m.l, x2: width - m.r, y1: y(0), y2: y(0), stroke: 'var(--line-2)' }));
   svg.appendChild(s('text', { x: width / 2, y: height - 4, 'text-anchor': 'middle' }, xLabel));
+  if (mark !== null && mark >= lo && mark <= hi) {
+    const mx = x(mark) + x.bandwidth() / 2;
+    svg.appendChild(s('line', { x1: mx, x2: mx, y1: m.t + 10, y2: y(0), stroke: 'var(--gold)', 'stroke-width': 3 }));
+    svg.appendChild(s('circle', { cx: mx, cy: m.t + 10, r: 4.5, fill: 'var(--gold)' }));
+    const leftSide = mark < threshold;   // keep clear of the majority label, which sits right of its line
+    svg.appendChild(s('text', { x: mx + (leftSide ? -8 : 8), y: m.t + 14, 'text-anchor': leftSide ? 'end' : 'start', style: 'fill:var(--gold);font-weight:700' }, markLabel));
+  }
   return h('div', { class: 'chart' }, svg);
 }
 
@@ -158,6 +166,10 @@ function dProb(r, p) {
 }
 
 export function raceTip(r) {
+  if (awaiting(r)) {
+    const d = store.sim ? null : pollCloseDate(r.state);
+    return `<div class="tt-title">${esc(r.title)}</div><div class="muted">Polls have not closed yet${d ? ` (${d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', timeZone: 'America/New_York' })} ET)` : ''}.</div>`;
+  }
   const c = cur(r);
   const p = c.p ?? 0.5;
   const rows = [];

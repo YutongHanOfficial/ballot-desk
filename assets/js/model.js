@@ -467,6 +467,27 @@ function flipStats(arr) {
   return { median: q(0.5), p10: q(0.1), p90: q(0.9) };
 }
 
+/**
+ * One correlated draw of every race's final margin, with the same error structure as simulate().
+ * nat: fix the national polling error (left-positive points) instead of drawing it.
+ */
+export function drawMargins(races, ests, R, { nat = null } = {}) {
+  const natErr = nat !== null && nat !== undefined ? nat : MODEL.natSd * R.normal();
+  const reg = {}, st = {};
+  const shared = MODEL.natSd ** 2 + MODEL.regSd ** 2 + MODEL.stateSd ** 2;
+  const margins = {};
+  for (const r of races) {
+    const e = ests[r.id];
+    if (!e) continue;
+    if (e.settled) { margins[r.id] = e.mu; continue; }
+    if (reg[r.region] === undefined) reg[r.region] = MODEL.regSd * R.normal();
+    if (st[r.state] === undefined) st[r.state] = MODEL.stateSd * R.normal();
+    const resid = Math.sqrt(Math.max(0.25, e.sd ** 2 - shared));
+    margins[r.id] = e.mu + natErr + reg[r.region] + st[r.state] + resid * R.normal();
+  }
+  return { margins, nat: natErr };
+}
+
 // ----------------------------------------------------------------------------------------------- display helpers
 
 export const RATING_BANDS = [

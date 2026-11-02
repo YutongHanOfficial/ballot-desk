@@ -1,7 +1,8 @@
 // Live layer: Polymarket prices every minute, vote counts on election night, and the live projection model.
-import { CONFIG } from './config.js';
+import { CONFIG, pollCloseDate } from './config.js';
 import { store, notify, loadData } from './store.js';
-import { liveEstimate, estimateSwing, simulate, samePerson, rng } from './model.js';
+import { liveEstimate, estimateSwing, simulate, samePerson } from './model.js';
+import { makeScenario, startNight, registerSimHooks } from './sim.js';
 
 const AT_LARGE = new Set(['AK', 'DE', 'ND', 'SD', 'VT', 'WY']);
 const params = new URLSearchParams(location.search);
@@ -26,13 +27,16 @@ export function startLive() {
     refreshMarkets();
     timers.push(setInterval(() => visible() && refreshMarkets(), CONFIG.markets.refreshSec * 1000));
   }
+  registerSimHooks({
+    recompute: () => recomputeNow({ sims: 2500 }),
+    onStop: () => { recomputeNow(); if (resultsEnabled() && !isDemo()) ['senate', 'gov', 'house'].forEach(refreshResults); },
+  });
   if (isDemo()) {
-    runDemo();
-    timers.push(setInterval(runDemo, 8000));
+    startNight(makeScenario(), { speed: 3 });
   } else if (resultsEnabled()) {
     for (const office of ['senate', 'gov', 'house']) {
       refreshResults(office);
-      timers.push(setInterval(() => visible() && refreshResults(office), CONFIG.results.refreshSec[office] * 1000));
+      timers.push(setInterval(() => visible() && !store.sim && refreshResults(office), CONFIG.results.refreshSec[office] * 1000));
     }
   }
   timers.push(setInterval(async () => {
@@ -148,6 +152,7 @@ async function refreshResults(office) {
     const res = await fetch(`${CONFIG.results.urls[office]}?t=${Math.floor(Date.now() / 15000)}`, { cache: 'no-store' });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const data = await res.json();
+    if (store.sim) return;   // a simulation owns the results while it runs
     for (const nr of data.races || []) {
       const id = nytRaceId(nr.nyt_id);
       const race = id && store.byId[id];
@@ -173,18 +178,18 @@ export function recompute() {
   recomputeTimer = setTimeout(recomputeNow, 50);
 }
 
-function recomputeNow() {
+export function recomputeNow({ sims = CONFIG.liveSims } = {}) {
   const results = store.live.results;
   const anyVotes = Object.values(results).some(r => r.total > 0 || r.called);
   store.live.active = anyVotes;
   if (!anyVotes) { store.live.est = null; store.live.sim = null; store.live.swing = null; return; }
-  const sims = store.races.filter(r => r.type === 'senate' || r.type === 'house' || r.type === 'gov');
-  const pairs = sims.map(r => ({ r, est: { mu: r.mu, sd: r.sd, pLeft: r.p, settled: r.settled }, live: results[r.id] }));
+  const simRaces = store.races.filter(r => r.type === 'senate' || r.type === 'house' || r.type === 'gov');
+  const pairs = simRaces.map(r => ({ r, est: { mu: r.mu, sd: r.sd, pLeft: r.p, settled: r.settled }, live: results[r.id] }));
   const sw = estimateSwing(pairs.map(x => ({ est: x.est, live: x.live })));
   const est = {};
   for (const x of pairs) est[x.r.id] = liveEstimate(x.est, x.live, sw.swing, sw.sd);
-  const sim = simulate(sims, est, store.base.chambers, { sims: CONFIG.liveSims, natSd: sw.sd, natMu: 0, tipping: false, seed: 7 });
-  for (const r of sims) if (est[r.id] && !est[r.id].settled && !est[r.id].called) est[r.id].pLeft = sim.raceProb[r.id];
+  const sim = simulate(simRaces, est, store.base.chambers, { sims, natSd: sw.sd, natMu: 0, tipping: false, seed: 7 });
+  for (const r of simRaces) if (est[r.id] && !est[r.id].settled && !est[r.id].called) est[r.id].pLeft = sim.raceProb[r.id];
   store.live.est = est;
   store.live.sim = sim;
   store.live.swing = sw;
@@ -200,7 +205,8 @@ export function calledSeats(type) {
     if (r.type !== type) continue;
     const res = store.live.results[r.id];
     let party = null;
-    if (r.settled) party = r.left ? r.leftParty : r.rightParty;
+    // Uncontested seats count once their polls have closed (simulations call them at poll close).
+    if (r.settled && (store.sim ? res && res.called : Date.now() >= (pollCloseDate(r.state) || 0))) party = r.left ? r.leftParty : r.rightParty;
     if (res && res.called === 'left') party = r.leftParty;
     else if (res && res.called === 'right') party = r.rightParty;
     else if (res && res.called === 'other') party = 'O';
@@ -208,37 +214,4 @@ export function calledSeats(type) {
     if (party === 'D' || party === 'R') out[party]++; else out.O++;
   }
   return out;
-}
-
-// ------------------------------------------------------------------------------------------- demo
-
-// ?demo=live replays a synthetic election night from the forecast so the live views can be checked before Nov 3.
-let demoClock = 0;
-function runDemo() {
-  demoClock = Math.min(1, demoClock + 0.07);
-  const R = rng(99);
-  for (const r of store.races) {
-    if (!(r.type === 'senate' || r.type === 'house' || r.type === 'gov') || !r.left || !r.right) continue;
-    const seedShift = (R.uni() - 0.5) * 2;
-    const final = r.mu + seedShift * r.sd * 0.9;
-    const eevp = Math.max(0, Math.min(99, Math.round((demoClock * 1.25 - R.uni() * 0.35) * 100)));
-    const counted = Math.round(2.4e5 * eevp / 100 * (r.type === 'house' ? 1 : 12));
-    const skew = (1 - eevp / 100) * 6 * (R.uni() - 0.4);
-    const m = (final + skew) / 100;
-    const lv = Math.round(counted * (0.5 + m / 2) * 0.98), rv = Math.round(counted * (0.5 - m / 2) * 0.98);
-    const called = eevp >= 75 && Math.abs(final) > 6 ? (final > 0 ? 'left' : 'right') : eevp >= 95 && Math.abs(final) > 1.5 ? (final > 0 ? 'left' : 'right') : null;
-    store.live.results[r.id] = {
-      eevp, total: lv + rv + Math.round(counted * 0.02), left: lv, right: rv, called, demo: true,
-      cands: [
-        { name: r.left, party: r.leftParty, votes: lv, pct: counted ? lv / counted : 0, winner: called === 'left' },
-        { name: r.right, party: r.rightParty, votes: rv, pct: counted ? rv / counted : 0, winner: called === 'right' },
-        { name: 'Others', party: 'O', votes: Math.round(counted * 0.02), pct: 0.02, winner: false },
-      ].sort((a, b) => b.votes - a.votes),
-      status: called ? 'called' : eevp ? 'counting' : 'too_early', updated: new Date().toISOString(),
-    };
-  }
-  store.live.resultsAt = { senate: new Date().toISOString(), house: new Date().toISOString(), gov: new Date().toISOString() };
-  store.live.resultsOk = true;
-  recompute();
-  notify('results');
 }

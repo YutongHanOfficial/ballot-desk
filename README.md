@@ -29,6 +29,15 @@ Browser (index.html + assets/)
 The model code in `assets/js/model.js` runs both in the pipeline (Node) and in the browser, so the
 pre-election forecast and the election-night projection use the same math.
 
+### Simulator
+
+`assets/js/sim.js` draws one correlated outcome from the forecast (`drawMargins` in `model.js`). For the
+election-night replay it also gives every race a turnout, its state's real poll-closing time, a counting
+pace and an early-vote skew (so leads can shift), then projects races the way a decision desk does: safe
+seats at poll close, the rest once the live model is 99.7% sure. Results are a pure function of
+(scenario, time), so the timeline can be scrubbed. While a replay runs, the whole site reads its simulated
+results through the same code path as the real election night.
+
 ### Maps
 
 The House maps use the Census Bureau's TIGER/Line 2026 congressional districts (the 120th Congress lines
@@ -69,7 +78,8 @@ Requires Python 3.9+ and Node 20+. No packages to install.
 
 Useful URL switches:
 
-- `?demo=live`: replays a simulated election night so you can see the live views before Nov 3
+- `#/simulate`: the simulator (quick outcomes, or a full election-night replay with playback controls)
+- `?demo=live`: starts a simulated election night immediately
 - `?results=on` / `?results=off`: force the live results feed on or off
 
 ## Deploying (GitHub Pages)
