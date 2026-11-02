@@ -190,7 +190,7 @@ function hexMap(hex, { fill = raceFill, tip: tipFn = raceTip } = {}) {
   const svg = s('svg', { viewBox: `0 0 ${hex.width} ${hex.height}`, class: 'hex-map', role: 'img', 'aria-label': 'Equal-size map of all 435 House districts' });
   for (const [id, [x, y]] of Object.entries(hex.cells)) {
     const r = store.byId[id];
-    const poly = s('polygon', { points: hexPoints(x, y, hex.r * 0.93), fill: fill(r), class: 'hex' });
+    const poly = s('polygon', { points: hexPoints(x, y, hex.r), fill: fill(r), class: 'hex' });
     if (r) {
       const tip = hoverable(poly, r, tipFn);
       poly.addEventListener('click', () => { tip.hide(); navigate(r.url); });

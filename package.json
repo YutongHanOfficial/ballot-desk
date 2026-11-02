@@ -8,6 +8,7 @@
     "refresh": "node pipeline/refresh.mjs",
     "serve": "python3 pipeline/serve.py 8026",
     "geo": "node pipeline/build_geo.mjs",
+    "hex": "node pipeline/build_hex.mjs",
     "pages": "node pipeline/build_pages.mjs"
   },
   "devDependencies": {

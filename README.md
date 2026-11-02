@@ -46,7 +46,7 @@ turns them into:
 
 - `data/geo/districts-2026.json`: all 435 districts for the national map (zoomable, click a state to zoom in)
 - `data/geo/cd/XX.json`: each state at higher detail, for state pages and the district locator on race pages
-- `data/geo/house-hex.json`: the equal-size hexagon map, laid out automatically from district locations
+- `data/geo/house-hex.json`: the equal-size hexagon map, a cartogram of the states (each sized by its House seats) cut into one hexagon per district (`pipeline/hex_layout.mjs`; `npm run hex` rebuilds just this file)
 - `data/geo/counties/XX.json` + `data/geo/counties-2024.json`: county maps and the 2024 presidential vote by county
 
 They are built once and committed. To rebuild: `npm install && npm run geo` (needs `unzip`).
