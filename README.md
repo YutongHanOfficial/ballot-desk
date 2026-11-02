@@ -5,7 +5,7 @@
 lieutenant governors, attorneys general, secretaries of state, 88 state legislative chambers and
 144 statewide ballot measures.
 
-It runs for free on **GitHub Pages**. A **GitHub Action** refreshes the data, and each visitor's
+Live at **https://ballotdesk.org**. It runs for free on **GitHub Pages**. A **GitHub Action** refreshes the data, and each visitor's
 browser pulls live prediction-market prices and election-night vote counts directly, so the
 site needs no server.
 
