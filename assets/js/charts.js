@@ -182,11 +182,14 @@ export function raceTip(r) {
   const p = c.p ?? 0.5;
   const rows = [];
   const line = (name, party, prob, votes) => `<div class="tt-row"><span><span class="party-chip ${party || 'O'}" style="margin-right:6px">${party || '?'}</span>${esc(name || '—')}</span><b>${votes !== undefined ? votes : pct(prob)}</b></div>`;
-  if (c.result && c.result.total > 0) {
-    const tot = c.result.total;
-    rows.push(line(r.left, r.leftParty, null, `${((c.result.left / tot) * 100).toFixed(1)}%`));
-    rows.push(line(r.right, r.rightParty, null, `${((c.result.right / tot) * 100).toFixed(1)}%`));
-    rows.push(`<div class="tt-row muted"><span>${Math.round(c.eevp)}% of expected vote</span><span>${c.called ? 'Called' : 'Projection ' + pct(Math.max(p, 1 - p))}</span></div>`);
+  // "D 87%" for whichever side a probability favours (names for independents)
+  const fav = (q) => { const party = q >= 0.5 ? r.leftParty : r.rightParty; return `${party === 'D' || party === 'R' ? party : lastName(q >= 0.5 ? r.left : r.right)} ${pct(Math.min(0.999, Math.max(q, 1 - q)))}`; };
+  if (r.left && r.right && c.result && c.result.total > 0) {
+    const res = c.result, tot = res.total;
+    const share = (v) => `${((v / tot) * 100).toFixed(1)}%<span class="tt-sub">${v.toLocaleString('en-US')}</span>`;
+    rows.push(line(r.left, r.leftParty, null, share(res.left)));
+    rows.push(line(r.right, r.rightParty, null, share(res.right)));
+    rows.push(`<div class="tt-row muted"><span>${Math.round(c.eevp)}% of expected vote</span><span>${res.called ? 'Called' : `Live odds ${fav(p)}`}</span></div>`);
   } else if (r.left && r.right) {
     rows.push(line(r.left, r.leftParty, p));
     rows.push(line(r.right, r.rightParty, 1 - p));
@@ -194,6 +197,7 @@ export function raceTip(r) {
   } else {
     rows.push(`<div class="muted">${r.samePartyGeneral ? `Two ${PARTY_NAME[r.samePartyGeneral]}s on the ballot` : 'Uncontested by a major party'}</div>`);
   }
+  if (r.left && r.right && c.marketP !== null && c.marketP !== undefined && !store.sim && !c.result?.called) rows.push(`<div class="tt-row muted"><span>Polymarket</span><span>${fav(c.marketP)}</span></div>`);
   return `<div class="tt-title">${esc(r.title)}</div>${rows.join('')}`;
 }
 

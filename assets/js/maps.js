@@ -106,7 +106,7 @@ function pref(key, val) {
 }
 
 /** National House map with a Geographic / Equal-size toggle. */
-export function houseMap({ id = 'house', caption = true, fill = raceFill, tip = raceTip } = {}) {
+export function houseMap({ id = 'house', caption = true, fill = raceFill, tip = raceTip, legend = null } = {}) {
   VIEW.mode = VIEW.mode || pref('houseMapMode') || 'geo';
   const wrap = h('div', { class: 'house-map' });
   const body = h('div', { class: 'map-body' });
@@ -123,7 +123,7 @@ export function houseMap({ id = 'house', caption = true, fill = raceFill, tip = 
   }
   wrap.append(h('div', { class: 'map-toolbar' }, seg,
     caption ? h('span', { class: 'xs muted map-hint' }, VIEW.mode === 'hex' ? 'Every district the same size' : 'Click a state to zoom · pinch or Ctrl/⌘-scroll') : null),
-    body, mapLegend(currentLegend()));
+    body, mapLegend(legend || currentLegend()));
   draw();
   // keep the hint in sync with the mode
   seg.addEventListener('click', () => { const hint = wrap.querySelector('.map-hint'); if (hint) hint.textContent = VIEW.mode === 'hex' ? 'Every district the same size' : 'Click a state to zoom · pinch or Ctrl/⌘-scroll'; });

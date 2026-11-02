@@ -59,8 +59,9 @@ export function raceCard(r, { showType = true } = {}) {
   const counting = res && (res.total > 0 || res.called);
   const p = c.p ?? 0.5;
   const rows = [];
-  const cand = (name, party, val, lead, winner) => h('div', { class: `rc-cand${lead ? ' lead' : ''}` },
+  const cand = (name, party, val, lead, winner, votes) => h('div', { class: `rc-cand${lead ? ' lead' : ''}` },
     partyChip(party), h('span', { class: 'nm' }, name || '—', winner ? h('span', { class: 'winner-check', style: { marginLeft: '6px' }, title: 'Winner' }, '✓') : null),
+    votes !== undefined ? h('span', { class: 'rc-votes' }, num(votes)) : null,
     h('span', { class: 'pv', style: { color: lead ? partyVar(party) : 'var(--ink-2)' } }, val));
   if (!r.left || !r.right) {
     const w = r.left ? r.leftCand : r.rightCand;
@@ -69,16 +70,19 @@ export function raceCard(r, { showType = true } = {}) {
   } else if (counting) {
     const tot = res.total || 1;
     const lp = res.left / tot, rp = res.right / tot;
-    rows.push(cand(r.left, r.leftParty, `${(lp * 100).toFixed(1)}%`, lp >= rp, res.called === 'left'));
-    rows.push(cand(r.right, r.rightParty, `${(rp * 100).toFixed(1)}%`, rp > lp, res.called === 'right'));
+    rows.push(cand(r.left, r.leftParty, `${(lp * 100).toFixed(1)}%`, lp >= rp, res.called === 'left', res.left));
+    rows.push(cand(r.right, r.rightParty, `${(rp * 100).toFixed(1)}%`, rp > lp, res.called === 'right', res.right));
     rows.push(h('div', { class: 'eevp-bar', title: `${Math.round(c.eevp)}% of expected vote counted` }, h('i', { style: { width: `${Math.min(100, c.eevp)}%` } })));
   } else {
     const shown = Math.min(0.999, Math.max(0.001, p));
     rows.push(cand(r.left, r.leftParty, pct(shown), p >= 0.5));
     rows.push(cand(r.right, r.rightParty, pct(1 - shown), p < 0.5));
   }
+  const fav = p >= 0.5 ? r.leftParty : r.rightParty;
   const foot = counting
-    ? h('div', { class: 'rc-foot' }, h('span', null, `${Math.round(c.eevp)}% counted`), h('span', null, c.called ? 'Called' : `Proj. ${marginText(c.mu, r)}`))
+    ? h('div', { class: 'rc-foot' }, h('span', null, `${Math.round(c.eevp)}% counted`), res.called || !r.left || !r.right
+      ? h('span', null, 'Called')
+      : h('span', { style: { color: partyVar(fav), fontWeight: 650 } }, `${shortName(r, p >= 0.5 ? 'left' : 'right')} ${pct(Math.min(0.999, Math.max(p, 1 - p)))} to win`))
     : h('div', { class: 'rc-foot' }, h('span', null, r.left && r.right ? `Proj. ${marginText(c.mu, r)}` : ''), flipTag(r, p));
   return h('a', { class: 'race-card', href: r.url },
     h('div', { class: 'rc-head' }, h('span', { class: 'rc-title' }, r.type === 'house' ? r.short : r.stateName + (r.special ? ' (special)' : '')),
@@ -131,17 +135,10 @@ export function electionBanner() {
       h('a', { class: 'pill live', href: '#/live' }, 'Open live dashboard →'));
   }
   if (now < first) {
-    const box = h('div', { class: 'countdown' });
-    const tick = () => {
-      const d = Math.max(0, first - Date.now());
-      const parts = [[Math.floor(d / 864e5), 'days'], [Math.floor(d / 36e5) % 24, 'hrs'], [Math.floor(d / 6e4) % 60, 'min'], [Math.floor(d / 1e3) % 60, 'sec']];
-      box.replaceChildren(...parts.map(([v, l]) => h('div', null, h('b', null, String(v).padStart(2, '0')), h('span', null, l))));
-    };
-    tick();
-    const iv = setInterval(() => { if (!document.body.contains(box)) clearInterval(iv); else tick(); }, 1000);
+    const today = new Date().toLocaleDateString('en-CA', { timeZone: 'America/New_York' });
     return h('div', { class: 'banner' },
-      h('div', { class: 'grow' }, h('b', null, 'Election Day is Tuesday, November 3. '), 'The first polls close at 6 p.m. Eastern; live results and projections start then.'),
-      box);
+      h('div', { class: 'grow' }, h('b', null, today === CONFIG.electionDay ? 'Today is Election Day. ' : 'Election Day is Tuesday, November 3. '), 'The first polls close at 6 p.m. Eastern; live results and projections start then.'),
+      countdown(first));
   }
   if (resultsEnabled()) {
     return h('div', { class: 'banner live' }, h('span', { class: 'live-dot' }),
@@ -149,6 +146,19 @@ export function electionBanner() {
       h('a', { class: 'pill live', href: '#/live' }, 'Live dashboard →'));
   }
   return null;
+}
+
+/** Days, hours, minutes and seconds until a time, ticking while it is on the page. */
+export function countdown(target) {
+  const box = h('div', { class: 'countdown' });
+  const tick = () => {
+    const d = Math.max(0, target - Date.now());
+    const parts = [[Math.floor(d / 864e5), 'days'], [Math.floor(d / 36e5) % 24, 'hrs'], [Math.floor(d / 6e4) % 60, 'min'], [Math.floor(d / 1e3) % 60, 'sec']];
+    box.replaceChildren(...parts.map(([v, l]) => h('div', null, h('b', null, String(v).padStart(2, '0')), h('span', null, l))));
+  };
+  tick();
+  const iv = setInterval(() => { if (!document.body.contains(box)) clearInterval(iv); else tick(); }, 1000);
+  return box;
 }
 
 export function pollCloseText(state) {

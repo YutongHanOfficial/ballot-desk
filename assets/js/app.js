@@ -2,7 +2,7 @@
 import { CONFIG } from './config.js';
 import { h, timeAgo } from './ui.js';
 import { store, loadData, subscribe } from './store.js';
-import { startLive, recompute, resultsEnabled } from './live.js';
+import { startLive, recompute, resultsEnabled, liveFrontPage } from './live.js';
 import * as home from './views/home.js';
 import * as chamberView from './views/chamber.js';
 import * as states from './views/states.js';
@@ -16,8 +16,12 @@ import { START, END, clockLabel, togglePlay, setSpeed, seek, stopSim } from './s
 const main = document.getElementById('main');
 const statusEl = document.getElementById('status');
 
+// On election night the front page is the live dashboard; the forecast overview moves to #/forecast.
 const ROUTES = [
-  { re: /^\/?$/, nav: 'home', render: (root) => home.render(root), title: () => home.title() },
+  { re: /^\/?$/, nav: () => liveFrontPage() ? 'live' : 'home',
+    render: (root) => liveFrontPage() ? liveView.render(root) : home.render(root),
+    title: () => liveFrontPage() ? liveView.title() : home.title() },
+  { re: /^\/forecast$/, nav: 'home', render: (root) => home.render(root), title: () => home.title() },
   { re: /^\/senate$/, nav: 'senate', render: (root) => chamberView.renderChamber(root, 'senate'), title: () => chamberView.title('senate') },
   { re: /^\/house$/, nav: 'house', render: (root) => chamberView.renderChamber(root, 'house'), title: () => chamberView.title('house') },
   { re: /^\/governors$/, nav: 'governors', render: (root) => chamberView.renderChamber(root, 'gov'), title: () => chamberView.title('gov') },
@@ -30,7 +34,39 @@ const ROUTES = [
   { re: /^\/simulate$/, nav: 'simulate', render: (root) => simulate.render(root), title: () => simulate.title() },
 ];
 
+// Unknown #/ links get a proper not-found page instead of silently showing the front page.
+const NOT_FOUND = {
+  nav: null, title: () => 'Page not found',
+  render: (root) => root.append(h('div', { class: 'card not-found' },
+    h('div', { class: 'eyebrow' }, 'Page not found'),
+    h('h1', null, 'We couldn’t find that page'),
+    h('p', { class: 'dek' }, 'The link may be mistyped, or the page may have moved. Try one of these instead:'),
+    h('div', { class: 'nf-links' },
+      liveFrontPage() ? h('a', { class: 'btn primary', href: '#/' }, h('span', { class: 'live-dot' }), 'Live results') : h('a', { class: 'btn primary', href: '#/' }, 'Forecast overview'),
+      liveFrontPage() ? h('a', { class: 'btn', href: '#/forecast' }, 'Forecast') : h('a', { class: 'btn', href: '#/live' }, 'Election night'),
+      h('a', { class: 'btn', href: '#/senate' }, 'Senate'), h('a', { class: 'btn', href: '#/house' }, 'House'),
+      h('a', { class: 'btn', href: '#/governors' }, 'Governors'), h('a', { class: 'btn', href: '#/states' }, 'States'),
+      h('a', { class: 'btn', href: '#/simulate' }, 'Simulator')))),
+};
+
 let current = null;
+const navOf = (r) => typeof r.nav === 'function' ? r.nav() : r.nav;
+
+/** Election night: Live leads the menu and the overview link becomes the pre-election forecast. */
+let navLive = null;
+function setupNav() {
+  const live = liveFrontPage();
+  if (live === navLive) return false;
+  navLive = live;
+  const nav = document.querySelector('.nav');
+  const liveLink = nav.querySelector('[data-nav="live"]');
+  const overview = nav.querySelector('[data-nav="home"]');
+  overview.textContent = live ? 'Forecast' : 'Overview';
+  overview.setAttribute('href', live ? '#/forecast' : '#/');
+  if (live) nav.prepend(liveLink);
+  else nav.querySelector('[data-nav="downballot"]').after(liveLink);
+  return true;
+}
 
 // ---- simulation playback bar (lives in the sticky header; built once per run, then updated in place)
 let simBar = null;
@@ -69,12 +105,13 @@ function route() {
     const m = path.match(r.re);
     if (m) return { r, m, path };
   }
-  return { r: ROUTES[0], m: [], path: '/' };
+  return { r: NOT_FOUND, m: [], path };
 }
 
 function render({ keepScroll = false } = {}) {
   const { r, m, path } = route();
-  const sameView = current && current.path === path;
+  const key = `${path}|${navOf(r)}`;
+  const sameView = current && current.key === key;
   const y = window.scrollY;
   const root = h('div', { class: 'view' });
   try {
@@ -85,10 +122,10 @@ function render({ keepScroll = false } = {}) {
   }
   main.replaceChildren(root);
   document.title = `${r.title(m)} · ${CONFIG.siteName}`;
-  document.querySelectorAll('.nav a').forEach(a => a.classList.toggle('active', a.dataset.nav === r.nav));
+  document.querySelectorAll('.nav a').forEach(a => a.classList.toggle('active', a.dataset.nav === navOf(r)));
   if (keepScroll && sameView) window.scrollTo(0, y);
   else if (!sameView) window.scrollTo(0, 0);
-  current = { path };
+  current = { key };
   drawStatus();
 }
 
@@ -139,6 +176,7 @@ function scheduleRender() {
 
 async function boot() {
   initTheme();
+  setupNav();
   try {
     await loadData({ first: true });
   } catch (e) {
@@ -156,12 +194,15 @@ async function boot() {
   drawSimBar();
   recompute();
   startLive();
-  setInterval(drawStatus, 30000);
+  setInterval(() => {
+    // Crossing into (or out of) the results window switches the front page and restarts the live feeds.
+    if (setupNav()) { startLive(); render(); } else drawStatus();
+  }, 30000);
 }
 
 function isMarketView() {
   const { r } = route();
-  return ['home', 'senate', 'house', 'governors', 'live', null, 'states'].includes(r.nav);
+  return ['home', 'senate', 'house', 'governors', 'live', null, 'states'].includes(navOf(r));
 }
 
 boot();

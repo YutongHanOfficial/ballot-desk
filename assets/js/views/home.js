@@ -9,11 +9,11 @@ export function competitive(type, n) {
     .sort((a, b) => Math.abs(cur(a).p - 0.5) - Math.abs(cur(b).p - 0.5)).slice(0, n);
 }
 
-export function stateFill(type) {
+export function stateFill(type, fill = raceFill) {
   return (code) => {
     const r = store.races.find(x => x.type === type && x.state === code && (type !== 'senate' || !x.special)) ||
       store.races.find(x => x.type === type && x.state === code);
-    return r ? raceFill(r) : null;
+    return r ? fill(r) : null;
   };
 }
 

@@ -15,6 +15,20 @@ class NoCache(http.server.SimpleHTTPRequestHandler):
         self.send_header('Cache-Control', 'no-store')
         super().end_headers()
 
+    def send_error(self, code, message=None, explain=None):
+        # Like GitHub Pages: paths that are not files get the site's own 404 page.
+        page = os.path.join(ROOT, '404.html')
+        if code != 404 or not os.path.exists(page):
+            return super().send_error(code, message, explain)
+        with open(page, 'rb') as f:
+            body = f.read()
+        self.send_response(404)
+        self.send_header('Content-Type', 'text/html; charset=utf-8')
+        self.send_header('Content-Length', str(len(body)))
+        self.end_headers()
+        if self.command != 'HEAD':
+            self.wfile.write(body)
+
     def log_message(self, fmt, *args):
         pass
 

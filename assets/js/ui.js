@@ -198,10 +198,12 @@ export function tooltip() {
 // Sort choices survive the periodic live re-render (keyed by the caller's stateKey).
 const SORTS = {};
 
-export function sortableTable(columns, rows, { sortKey, desc = true, onRow, rowClass, empty = 'No races match.', stateKey } = {}) {
+export function sortableTable(columns, rows, { sortKey, desc = true, onRow, rowClass, empty = 'No races match.', stateKey, limit = Infinity } = {}) {
   const saved = stateKey ? SORTS[stateKey] : null;
   let key = saved?.key ?? sortKey ?? columns.find(c => c.sort)?.key;
   let dir = saved?.dir ?? (desc ? -1 : 1);
+  let all = !!saved?.all;
+  const save = () => { if (stateKey) SORTS[stateKey] = { key, dir, all }; };
   const table = h('table', { class: 'data' });
   const thead = h('thead');
   const tbody = h('tbody');
@@ -213,7 +215,7 @@ export function sortableTable(columns, rows, { sortKey, desc = true, onRow, rowC
       const th = h('th', { class: [c.num ? 'num' : '', c.sort ? 'sortable' : '', key === c.key ? 'sorted' : '', key === c.key && dir === 1 ? 'asc' : '', c.hideSm ? 'hide-sm' : ''].join(' ') }, c.label);
       if (c.sort) th.addEventListener('click', () => {
         if (key === c.key) dir = -dir; else { key = c.key; dir = c.defaultAsc ? 1 : -1; }
-        if (stateKey) SORTS[stateKey] = { key, dir };
+        save();
         draw();
       });
       tr.appendChild(th);
@@ -229,7 +231,8 @@ export function sortableTable(columns, rows, { sortKey, desc = true, onRow, rowC
       return (va < vb ? -1 : 1) * dir;
     }) : rows;
     if (!sorted.length) tbody.appendChild(h('tr', null, h('td', { colspan: columns.length, class: 'empty' }, empty)));
-    for (const r of sorted) {
+    const shown = all ? sorted : sorted.slice(0, limit);
+    for (const r of shown) {
       const tr2 = h('tr', { class: [onRow ? 'clickable' : '', rowClass ? rowClass(r) : ''].join(' ') });
       if (onRow) tr2.addEventListener('click', (e) => { if (!e.target.closest('a')) onRow(r); });
       for (const c of columns) {
@@ -237,6 +240,11 @@ export function sortableTable(columns, rows, { sortKey, desc = true, onRow, rowC
         tr2.appendChild(h('td', { class: [c.num ? 'num' : '', c.hideSm ? 'hide-sm' : '', c.cls || ''].join(' ') }, v));
       }
       tbody.appendChild(tr2);
+    }
+    if (shown.length < sorted.length) {
+      const more = h('button', { type: 'button', class: 'linkish' }, `Show all ${sorted.length}`);
+      more.addEventListener('click', () => { all = true; save(); draw(); });
+      tbody.appendChild(h('tr', { class: 'more-row' }, h('td', { colspan: columns.length }, more)));
     }
   }
   draw();

@@ -7,12 +7,15 @@ import { usMap, mapLegend, probMini, currentLegend } from '../charts.js';
 import { stateDistrictMap, countyMap, countyResults, COUNTY_LEGEND } from '../maps.js';
 import { nightMode } from '../store.js';
 
+// Projected Democratic share of a state's House seats: the neutral toss-up shade when even, darker toward a
+// sweep. Blending toward a fixed light colour (not the page background) keeps darker = safer in dark mode too.
+const shareFill = (dShare) => `color-mix(in srgb, var(${dShare >= 0.5 ? '--dem' : '--rep'}) ${Math.round(15 + Math.abs(dShare - 0.5) * 170)}%, var(--toss))`;
+
 export function renderIndex(root) {
   const fill = (code) => {
     const rs = (store.byState[code] || []).filter(r => r.type === 'house');
     if (!rs.length) return 'var(--none)';
-    const dShare = rs.reduce((s, r) => s + dWin(r), 0) / rs.length;
-    return dShare >= 0.5 ? `color-mix(in srgb, var(--dem) ${Math.round(30 + (dShare - 0.5) * 140)}%, var(--surface))` : `color-mix(in srgb, var(--rep) ${Math.round(30 + (0.5 - dShare) * 140)}%, var(--surface))`;
+    return shareFill(rs.reduce((s, r) => s + dWin(r), 0) / rs.length);
   };
   const tip = (code) => {
     const st = store.stateByCode[code];
@@ -25,7 +28,7 @@ export function renderIndex(root) {
     h('header', { class: 'page-head' }, h('div', { class: 'eyebrow' }, 'States'), h('h1', null, 'Every state on the 2026 ballot'),
       h('p', { class: 'dek' }, 'Pick a state for its Senate, House and governor races, down-ballot statewide offices, legislative chambers and ballot measures.')),
     h('div', { class: 'card' }, h('div', { class: 'card-title' }, 'Projected share of each state’s House delegation'), usMap({ fill, onClick: (c) => { location.hash = `#/state/${c}`; }, tip }),
-      mapLegend([['var(--dem)', 'More Democratic'], ['var(--rep)', 'More Republican']])),
+      mapLegend([[shareFill(1), 'All D'], [shareFill(0.75), 'Mostly D'], ['var(--toss)', 'Even split'], [shareFill(0.25), 'Mostly R'], [shareFill(0), 'All R']])),
     h('section', { class: 'section' }, stateGrid()));
 }
 

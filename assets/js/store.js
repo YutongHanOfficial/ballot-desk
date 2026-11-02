@@ -10,6 +10,7 @@ export const store = {
     results: {}, resultsAt: {}, resultsOk: null,     // live vote counts by race id
     est: null, sim: null, swing: null, active: false, demo: false,
     counties: {},                                    // live county results by race id (election night)
+    houseVote: null,                                 // national House popular vote from the results feed
   },
   loadedAt: null,
   sim: null,          // a running election-night simulation (sim.js)

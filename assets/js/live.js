@@ -20,12 +20,16 @@ export function resultsEnabled() {
 
 export function isDemo() { return params.get('demo') === 'live'; }
 
+/** From late afternoon on Election Day until the counting is done, the live dashboard is the front page. */
+export const liveFrontPage = () => resultsEnabled();
+
 export function startLive() {
   stopLive();
   store.live.demo = isDemo();
   if (CONFIG.markets.enabled && !isDemo()) {
     refreshMarkets();
-    timers.push(setInterval(() => visible() && refreshMarkets(), CONFIG.markets.refreshSec * 1000));
+    const sec = resultsEnabled() ? CONFIG.markets.nightRefreshSec : CONFIG.markets.refreshSec;
+    timers.push(setInterval(() => visible() && refreshMarkets(), sec * 1000));
   }
   registerSimHooks({
     recompute: () => recomputeNow({ sims: 2500 }),
@@ -154,6 +158,30 @@ function normalizeNyt(race, nr) {
   };
 }
 
+// The House file also carries AP's national popular-vote tally ('US-G-H-…'), with candidates named by party.
+function nationalVote(nr) {
+  const tru = nr.top_reporting_unit || {};
+  const v = Object.fromEntries((tru.candidates || []).map(c => [c.nyt_id, c.votes?.total || 0]));
+  const D = v.democrat || 0, R = v.republican || 0, O = v.other || 0;
+  return { D, R, O, total: tru.total_votes || D + R + O, eevp: tru.eevp || 0 };
+}
+
+/** National House vote so far: AP's tally on the real night, the sum of the districts in a simulation. */
+export function houseVote() {
+  if (!store.sim && store.live.houseVote?.total) return store.live.houseVote;
+  let D = 0, R = 0, O = 0, eevp = 0, n = 0;
+  for (const r of store.races) {
+    if (r.type !== 'house') continue;
+    n++;
+    const res = store.live.results[r.id];
+    if (!res) continue;
+    eevp += res.eevp || 0;
+    for (const c of res.cands || []) { if (c.party === 'D') D += c.votes; else if (c.party === 'R') R += c.votes; else O += c.votes; }
+  }
+  const total = D + R + O;
+  return total ? { D, R, O, total, eevp: n ? eevp / n : 0 } : null;
+}
+
 // ------------------------------------------------------------------------------------------- county results
 
 // County-level results live in each race's own NYT file. They are fetched only for races someone is looking
@@ -214,6 +242,7 @@ async function refreshResults(office) {
     const data = await res.json();
     if (store.sim) return;   // a simulation owns the results while it runs
     for (const nr of data.races || []) {
+      if (nr.coverage === 'national') { if (office === 'house') store.live.houseVote = nationalVote(nr); continue; }
       const id = nytRaceId(nr.nyt_id);
       const race = id && store.byId[id];
       if (!race) continue;
