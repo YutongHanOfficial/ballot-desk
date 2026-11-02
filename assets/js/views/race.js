@@ -1,6 +1,6 @@
 // Individual race page.
 import { h, pct, num, partyChip, partyVar, ratingChip, marginText, lastName, fmtDate, oddsText, compact, timeAgo, PARTY_NAME, bandLabel } from '../ui.js';
-import { store, cur } from '../store.js';
+import { store, cur, duelNow } from '../store.js';
 import { splitBar, pollChart, marginCurve, signalRows } from '../charts.js';
 import { stateDistrictMap, countyMap, countyResults, COUNTY_LEGEND } from '../maps.js';
 import { mapLegend } from '../charts.js';
@@ -46,6 +46,12 @@ export function render(root, id) {
 
   // Live results first on election night
   if (c.result && (c.result.total > 0 || c.result.called)) root.append(resultsCard(r, c));
+
+  if (r.duel) {
+    root.append(duelHero(r));
+    root.append(h('section', { class: 'section grid g2' }, marketCard(r, c), context(r)));
+    return;
+  }
 
   if (!r.left || !r.right) {
     const w = r.left ? r.leftCand : r.rightCand;
@@ -101,6 +107,39 @@ export function render(root, id) {
     h('div', { class: 'race-cards' }, others.map(x => raceCard(x)))));
 }
 
+/** Same-party race (California's top two): both candidates' chances; the seat's party is settled either way. */
+function duelHero(r) {
+  const d = duelNow(r);
+  const p = d.called ? (d.called === 'a' ? 1 : 0) : Math.min(0.999, Math.max(0.001, d.pA));
+  const partyName = PARTY_NAME[d.party] || 'party';
+  const block = (name, q, side, level) => {
+    const k = (r.candidates || []).find(x => x.name === name);
+    return h('div', { class: `cand ${side}` },
+      h('div', { class: 'avatar', style: { background: partyVar(d.party, level) } }, initials(name)),
+      h('div', { class: 'cname' }, name),
+      h('div', { class: 'cmeta' }, `${partyName}${k?.incumbent ? ' · Incumbent' : ''}`),
+      h('div', { class: 'cprob', style: { color: partyVar(d.party, level) } }, pct(q)),
+      h('div', { class: 'xs muted' }, d.live ? 'live chance of winning' : 'chance of winning'));
+  };
+  const fav = p >= 0.5 ? d.a : d.b;
+  const q = Math.max(p, 1 - p);
+  const lead = d.called ? `${fav} won.` : q < 0.55 ? 'It is close to a coin flip.'
+    : q >= 0.95 ? `${lastName(fav)} is a heavy favorite.` : `${lastName(fav)} has about a ${oddsText(q)} chance.`;
+  const incumbent = [d.a, d.b].filter(n => (r.candidates || []).find(x => x.name === n)?.incumbent).length === 1;
+  const why = d.live ? (d.called ? '' : ' The live odds blend the votes counted so far with the pre-election odds.')
+    : d.source === 'market'
+      ? ` The odds come from Polymarket’s market on the two candidates${d.volume ? ` (${compact(d.volume)} traded)` : ''}, ${incumbent ? 'nudged slightly toward the usual edge incumbents have in these races' : 'pulled slightly toward even'}.`
+      : incumbent ? ' With no market or polls on this matchup, the odds reflect the usual edge incumbents have in same-party races.' : ' With no market or polls on this matchup, it is treated as even.';
+  const adj = { D: 'Democratic', R: 'Republican' }[d.party] || partyName;
+  return h('div', { class: 'card' },
+    h('div', { class: 'card-title' }, d.live ? 'Live projection' : 'Our forecast', h('span', { class: 'pill', style: { textTransform: 'none', letterSpacing: 0 } }, `${partyName} vs. ${partyName}`)),
+    h('div', { class: 'matchup' }, block(d.a, p, 'left', 1), h('div', { class: 'vs' }, 'VS'), block(d.b, 1 - p, 'right', 2)),
+    h('div', { class: 'split-bar', style: { height: '14px', margin: '16px 0 10px' } },
+      h('span', { style: { width: `${p * 100}%`, background: partyVar(d.party, 1) } }),
+      h('span', { style: { width: `${(1 - p) * 100}%`, background: partyVar(d.party, 2), marginLeft: 'auto' } })),
+    h('p', { class: 'small', style: { margin: 0 } }, h('b', null, lead), ` Both advanced from California’s top-two primary as ${partyName}s, so the seat stays ${adj} whoever wins.${why}`));
+}
+
 /** Statewide races: county map, live on election night, otherwise the 2024 presidential vote. */
 export function countyCard(r) {
   if (nightMode() && !store.sim) wantCounties([r.id]);
@@ -126,10 +165,12 @@ function resultsCard(r, c) {
       h('div', { class: 'vote-bar' }, h('i', { style: { width: `${(k.pct * 100).toFixed(1)}%`, background: partyVar(k.party) } }))),
     h('td', { class: 'votes' }, num(k.votes)),
     h('td', { class: 'votes', style: { fontWeight: 700 } }, `${(k.pct * 100).toFixed(1)}%`)));
-  const status = res.called ? (res.called === 'other' ? 'Called' : `Called for ${res.called === 'left' ? r.left : r.right}`) : res.runoff ? 'Headed to a runoff' : tot ? 'Counting' : 'Polls closed, no votes yet';
+  const dw = r.duel ? res.duel?.won : null;
+  const status = r.duel ? (dw ? `Called for ${dw === 'a' ? r.duel.a : r.duel.b}` : tot ? 'Counting' : 'Polls closed, no votes yet')
+    : res.called ? (res.called === 'other' ? 'Called' : `Called for ${res.called === 'left' ? r.left : r.right}`) : res.runoff ? 'Headed to a runoff' : tot ? 'Counting' : 'Polls closed, no votes yet';
   return h('section', { class: 'card', style: { marginBottom: '16px' } },
     h('div', { class: 'card-title' }, h('span', { style: { display: 'inline-flex', gap: '8px', alignItems: 'center' } }, h('span', { class: 'live-dot' }), 'Live results'),
-      h('span', { class: res.called ? 'pill called' : 'pill live', style: { textTransform: 'none', letterSpacing: 0 } }, status)),
+      h('span', { class: (r.duel ? dw : res.called) ? 'pill called' : 'pill live', style: { textTransform: 'none', letterSpacing: 0 } }, status)),
     h('div', { class: 'table-wrap', style: { border: 0 } }, h('table', { class: 'data results-table' },
       h('thead', null, h('tr', null, h('th', null, 'Candidate'), h('th', { class: 'num' }, 'Votes'), h('th', { class: 'num' }, 'Pct.'))), h('tbody', null, rows))),
     h('div', { style: { marginTop: '12px' } }, h('div', { class: 'eevp-bar', style: { height: '8px' } }, h('i', { style: { width: `${Math.min(100, c.eevp)}%` } }))),

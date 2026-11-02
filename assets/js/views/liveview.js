@@ -1,6 +1,6 @@
 // Election-night dashboard. From late afternoon on Election Day until the counting is done it is also the front page.
-import { h, pct, num, partyVar, partyChip, probColor, timeAgo, fmtTimeET, lastName, marginText, sortableTable } from '../ui.js';
-import { store, cur, chamber, marketControl, racesOf, nightMode, awaiting, raceFill } from '../store.js';
+import { h, pct, num, partyVar, partyChip, probColor, timeAgo, fmtTimeET, lastName, marginText, sortableTable, PARTY_NAME } from '../ui.js';
+import { store, cur, chamber, marketControl, racesOf, nightMode, awaiting, raceFill, duelNow } from '../store.js';
 import { calledSeats, resultsEnabled, wantCounties, houseVote } from '../live.js';
 import { CONFIG, POLL_CLOSE_ET, pollCloseDate } from '../config.js';
 import { raceCard, CHAMBERS, countdown } from './common.js';
@@ -16,6 +16,12 @@ function favOdds(r, p) {
   const party = left ? r.leftParty : r.rightParty;
   return { party, tag: party === 'D' || party === 'R' ? party : lastName(left ? r.left : r.right), q: Math.min(0.999, Math.max(p, 1 - p)) };
 }
+
+/** The contest's own probability: A against B in a same-party race, else the left side's chance. */
+const contestP = (r) => r.duel ? duelNow(r).pA : cur(r).p;
+
+/** Projected: for a same-party race, once one of the two is (the seat's party is known from the start). */
+const isCalled = (r) => { const res = store.live.results[r.id]; return r.duel ? !!res?.duel?.won : !!res?.called; };
 
 /** Party a race has gone to (called) or is heading to (live favourite); null if unknown. */
 function winnerOrFav(r) {
@@ -83,7 +89,7 @@ function nightStats() {
   const types = ['senate', 'house', 'gov'];
   const called = types.map(t => {
     const rs = racesOf(t).filter(r => r.left || r.right);
-    return [t, rs.filter(r => store.live.results[r.id]?.called).length, rs.length];
+    return [t, rs.filter(isCalled).length, rs.length];
   });
   const pickups = types.map(t => {
     const g = { D: 0, R: 0, O: 0 };
@@ -148,8 +154,8 @@ function heroMap() {
     }
     hint.textContent = !night ? 'Colored by our forecast until results arrive' : odds ? 'Each race’s live chance of winning' : 'Solid = projected winner · light = leading';
     const races = racesOf(type).filter(r => r.left || r.right);
-    const called = races.filter(r => store.live.results[r.id]?.called).length;
-    const counting = races.filter(r => { const x = store.live.results[r.id]; return x && x.total > 0 && !x.called; }).length;
+    const called = races.filter(isCalled).length;
+    const counting = races.filter(r => { const x = store.live.results[r.id]; return x && x.total > 0 && !isCalled(r); }).length;
     const waiting = races.filter(r => awaiting(r)).length;
     summary.replaceChildren(
       h('span', null, h('b', null, called), ` of ${races.length} races projected`),
@@ -208,7 +214,7 @@ const FILTERS = [['all', 'All'], ['close', 'Competitive'], ['counting', 'Countin
 
 function statusKey(r) {
   const res = store.live.results[r.id];
-  if (res?.called) return 4;
+  if (isCalled(r)) return 4;
   if (res?.runoff) return 3.5;
   if (res && res.total > 0) return 2 + (res.eevp || 0) / 100;
   return awaiting(r) || !nightMode() ? 0 : 1;
@@ -216,7 +222,7 @@ function statusKey(r) {
 
 function statusCell(r) {
   const res = store.live.results[r.id];
-  if (res?.called) return h('span', { class: 'pill called' }, 'Called');
+  if (isCalled(r)) return h('span', { class: 'pill called' }, 'Called');
   if (res?.runoff) return h('span', { class: 'pill' }, 'Runoff');
   if (res && res.total > 0) {
     const e = res.eevp || 0;
@@ -228,6 +234,16 @@ function statusCell(r) {
 }
 
 function candResult(r, side) {
+  if (r.duel) {
+    // Same-party race: both candidates in their party's column.
+    if (side !== (r.left ? 'left' : 'right')) return h('span', { class: 'muted' }, '—');
+    const d = duelNow(r), v = d.result, tot = v?.total || 0;
+    const one = (name, votes, other, key) => h('div', { class: 'res-cand' },
+      h('div', { class: 'cand-line' }, partyChip(d.party), h('span', { class: 'nm', style: { fontWeight: d.called === key || (tot && votes > other) ? 700 : 500 } }, name),
+        d.called === key ? h('span', { class: 'winner-check', title: 'Projected winner' }, '✓') : null),
+      tot ? h('div', { class: 'res-votes' }, h('b', { style: { color: partyVar(d.party) } }, `${((votes / tot) * 100).toFixed(1)}%`), h('span', null, num(votes))) : null);
+    return h('div', { class: 'duel-cell' }, one(d.a, v?.a || 0, v?.b || 0, 'a'), one(d.b, v?.b || 0, v?.a || 0, 'b'));
+  }
   const name = side === 'left' ? r.left : r.right;
   if (!name) return h('span', { class: 'muted' }, '—');
   const party = side === 'left' ? r.leftParty : r.rightParty;
@@ -244,8 +260,11 @@ function candResult(r, side) {
 
 function voteMargin(r) {
   const res = store.live.results[r.id];
+  if (r.duel) { const v = res?.duel; return v && v.total > 0 ? ((v.a - v.b) / v.total) * 100 : null; }
   return r.left && r.right && res && res.total > 0 ? ((res.left - res.right) / res.total) * 100 : null;
 }
+
+const marginCell = (r, m) => r.duel ? `${lastName(m >= 0 ? r.duel.a : r.duel.b)} +${Math.abs(m).toFixed(1)}` : marginText(m, r);
 
 function resultColumns() {
   return [
@@ -253,19 +272,24 @@ function resultColumns() {
     { key: 'status', label: 'Counted', render: statusCell, sort: statusKey },
     { key: 'left', label: 'Democrat / Ind.', render: r => candResult(r, 'left') },
     { key: 'right', label: 'Republican', render: r => candResult(r, 'right') },
-    { key: 'margin', label: 'Vote margin', num: true, hideSm: true, render: r => { const m = voteMargin(r); return m === null ? h('span', { class: 'muted' }, '—') : h('span', { class: 'tnum' }, marginText(m, r)); }, sort: voteMargin },
-    { key: 'p', label: 'Chance of winning', num: true, render: r => r.left && r.right ? probCell(r) : h('span', { class: 'muted small' }, 'Uncontested'), sort: r => { const p = cur(r).p; return p === null || !r.left || !r.right ? null : -Math.abs(p - 0.5); } },
-    { key: 'mk', label: 'Polymarket', num: true, hideSm: true, render: r => { const p = cur(r).marketP; if (p === null || p === undefined || !r.left || !r.right || store.sim) return h('span', { class: 'muted' }, '—'); const m = favOdds(r, p); return h('span', { class: 'tnum' }, `${m.tag} ${pct(m.q)}`); }, sort: r => cur(r).marketP },
+    { key: 'margin', label: 'Vote margin', num: true, hideSm: true, render: r => { const m = voteMargin(r); return m === null ? h('span', { class: 'muted' }, '—') : h('span', { class: 'tnum' }, marginCell(r, m)); }, sort: voteMargin },
+    { key: 'p', label: 'Chance of winning', num: true, render: r => (r.left && r.right) || r.duel ? probCell(r) : h('span', { class: 'muted small' }, 'Uncontested'), sort: r => { const p = contestP(r); return p === null || p === undefined || (!(r.left && r.right) && !r.duel) ? null : -Math.abs(p - 0.5); } },
+    { key: 'mk', label: 'Polymarket', num: true, hideSm: true, render: r => {
+      if (store.sim) return h('span', { class: 'muted' }, '—');
+      if (r.duel) { const m = duelNow(r).marketA; return m === null ? h('span', { class: 'muted' }, '—') : h('span', { class: 'tnum' }, `${lastName(m >= 0.5 ? r.duel.a : r.duel.b)} ${pct(Math.max(m, 1 - m))}`); }
+      const p = cur(r).marketP; if (p === null || p === undefined || !r.left || !r.right) return h('span', { class: 'muted' }, '—'); const m = favOdds(r, p); return h('span', { class: 'tnum' }, `${m.tag} ${pct(m.q)}`);
+    }, sort: r => r.duel ? null : cur(r).marketP },
   ];
 }
 
 function matches(r, filter, q) {
   const res = store.live.results[r.id];
-  const p = cur(r).p;
-  if (filter === 'close' && !(r.left && r.right && !res?.called && p > 0.05 && p < 0.95)) return false;
-  if (filter === 'counting' && !(res && res.total > 0 && !res.called)) return false;
-  if (filter === 'called' && !res?.called) return false;
-  if (filter === 'waiting' && (res?.called || (res && res.total > 0))) return false;
+  const p = contestP(r);
+  const called = isCalled(r);
+  if (filter === 'close' && !(((r.left && r.right) || r.duel) && !called && p > 0.05 && p < 0.95)) return false;
+  if (filter === 'counting' && !(res && res.total > 0 && !called)) return false;
+  if (filter === 'called' && !called) return false;
+  if (filter === 'waiting' && (called || (res && res.total > 0))) return false;
   if (filter === 'flips') { const w = winnerOrFav(r); if (!w || !r.holder || w === r.holder) return false; }
   if (q) {
     const hay = `${r.title} ${r.short} ${r.stateName} ${r.state} ${r.left || ''} ${r.right || ''}`.toLowerCase();
@@ -366,8 +390,12 @@ export function render(root) {
   }
 
   if (live.active) {
-    const counting = racesOf('senate').concat(racesOf('gov'), racesOf('house')).filter(r => { const res = live.results[r.id]; return res && res.total > 0 && !res.called && r.left && r.right; });
-    const close = counting.sort((a, b) => Math.abs(cur(a).p - 0.5) - Math.abs(cur(b).p - 0.5)).slice(0, 12);
+    const counting = racesOf('senate').concat(racesOf('gov'), racesOf('house')).filter(r => {
+      const res = live.results[r.id];
+      if (r.duel) return res?.duel?.total > 0 && !res.duel.won;
+      return res && res.total > 0 && !res.called && r.left && r.right;
+    });
+    const close = counting.sort((a, b) => Math.abs(contestP(a) - 0.5) - Math.abs(contestP(b) - 0.5)).slice(0, 12);
     root.append(h('section', { class: 'section' }, h('div', { class: 'section-head' }, h('div', null, h('h2', null, 'Too close to call'), h('p', null, 'Uncalled races with votes counted, closest first: vote share, votes and each race’s live chance of winning.'))),
       close.length ? h('div', { class: 'race-cards' }, close.map(r => raceCard(r))) : h('div', { class: 'card empty' }, 'No uncalled races with votes yet.')));
   } else {
@@ -433,6 +461,12 @@ function eventFeed() {
       .filter(e => e.d <= now);
     for (const r of store.races) {
       const res = store.live.results[r.id];
+      const dw = r.duel && res?.duel?.won;
+      if (dw && res.calledAt) {
+        const [w, l] = dw === 'a' ? [r.duel.a, r.duel.b] : [r.duel.b, r.duel.a];
+        items.push({ d: new Date(res.calledAt), kind: 'call', party: r.duel.party, id: r.id, text: `AP: ${w} defeats ${l} in ${r.title}, a race between two ${PARTY_NAME[r.duel.party]}s.` });
+        continue;
+      }
       if (!res || !res.called || !res.calledAt || !r.left || !r.right) continue;
       const party = res.called === 'left' ? r.leftParty : r.rightParty;
       const name = res.called === 'left' ? r.left : r.right;

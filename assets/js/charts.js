@@ -1,6 +1,6 @@
 // SVG charts (D3 is loaded globally from assets/vendor).
 import { h, s, pct, partyVar, probColor, tooltip, esc, lastName, marginText, fmtDate, compact, PARTY_NAME } from './ui.js';
-import { store, cur, awaiting, raceFill, nightMode } from './store.js';
+import { store, cur, awaiting, raceFill, nightMode, duelNow } from './store.js';
 import { pollCloseDate } from './config.js';
 
 const d3 = window.d3;
@@ -24,6 +24,13 @@ export function probMini(pLeft, race) {
 }
 
 export function probCell(race, c = cur(race)) {
+  if (race.duel) {
+    const d = duelNow(race);
+    const q = d.called ? 1 : Math.min(0.999, Math.max(d.pA, 1 - d.pA));
+    return h('div', { class: 'prob-cell' },
+      h('span', { class: 'pbar', 'aria-hidden': 'true' }, h('i', { style: { left: 0, width: `${q * 100}%`, background: partyVar(d.party) } })),
+      h('span', { class: 'v', style: { color: partyVar(d.party) } }, `${lastName(d.pA >= 0.5 ? d.a : d.b)} ${pct(q)}`));
+  }
   const p = c.p;
   if (p === null || p === undefined) return h('span', { class: 'muted' }, '—');
   const fav = p >= 0.5 ? race.leftParty : race.rightParty;
@@ -147,8 +154,8 @@ export const BAND_LEGEND = [
 /** Every race lined up from safest left to safest right, with the majority marker. */
 export function seatStrip(races, { need, base = 0, height = 34, majorityLabel } = {}) {
   const tip = tooltip();
-  const rows = races.map(r => ({ r, c: cur(r) })).map(x => ({ ...x, dp: dProb(x.r, x.c.p) }))
-    .sort((a, b) => b.dp - a.dp);
+  const rows = races.map(r => ({ r, c: cur(r) })).map(x => ({ ...x, dp: dProb(x.r, x.c.p), dd: dShare(x.r, x.c.p) }))
+    .sort((a, b) => (b.dp - a.dp) || (b.dd - a.dd));
   const strip = h('div', { class: 'seat-strip', style: { height: `${height}px`, gap: rows.length > 120 ? '0' : '2px' } });
   rows.forEach(({ r, c }) => {
     const a = h('a', { href: r.url, style: { background: raceFill(r), borderRadius: rows.length > 120 ? '0' : null }, 'aria-label': r.title });
@@ -166,11 +173,17 @@ export function seatStrip(races, { need, base = 0, height = 34, majorityLabel } 
     h('div', { class: 'strip-labels' }, h('span', null, 'Most likely Democratic'), h('span', null, 'Most likely Republican')));
 }
 
+// Chance the seat does not go Republican. Sorting by it follows the colours: an independent or an unopposed
+// Republican with no real chance sits with the safe Republican seats, not in the middle of the strip.
 function dProb(r, p) {
   if (p === null || p === undefined) return 0.5;
-  if (r.leftParty === 'D') return p;
-  if (r.rightParty === 'D') return 1 - p;
-  return r.rightParty === 'R' ? p * 0.5 + 0.25 : 0.5; // independents sit between
+  return 1 - (r.left && r.leftParty === 'R' ? p : 0) - (r.right && r.rightParty === 'R' ? 1 - p : 0);
+}
+
+// Chance a Democrat wins: breaks ties among the seats Republicans cannot win.
+function dShare(r, p) {
+  if (p === null || p === undefined) return 0.5;
+  return (r.left && r.leftParty === 'D' ? p : 0) + (r.right && r.rightParty === 'D' ? 1 - p : 0);
 }
 
 export function raceTip(r) {
@@ -184,6 +197,20 @@ export function raceTip(r) {
   const line = (name, party, prob, votes) => `<div class="tt-row"><span><span class="party-chip ${party || 'O'}" style="margin-right:6px">${party || '?'}</span>${esc(name || '—')}</span><b>${votes !== undefined ? votes : pct(prob)}</b></div>`;
   // "D 87%" for whichever side a probability favours (names for independents)
   const fav = (q) => { const party = q >= 0.5 ? r.leftParty : r.rightParty; return `${party === 'D' || party === 'R' ? party : lastName(q >= 0.5 ? r.left : r.right)} ${pct(Math.min(0.999, Math.max(q, 1 - q)))}`; };
+  if (r.duel) {
+    // Same-party race: the two candidates' chances, or their share of the count.
+    const d = duelNow(r);
+    const v = d.result, tot = v?.total || 0;
+    const q = (x) => pct(Math.min(0.999, Math.max(0.001, x)));
+    const share = (x) => `${((x / tot) * 100).toFixed(1)}%<span class="tt-sub">${x.toLocaleString('en-US')}</span>`;
+    const favName = d.pA >= 0.5 ? d.a : d.b;
+    rows.push(line(d.a, d.party, null, tot ? share(v.a) : q(d.pA)), line(d.b, d.party, null, tot ? share(v.b) : q(1 - d.pA)));
+    rows.push(tot
+      ? `<div class="tt-row muted"><span>${Math.round(v.eevp)}% of expected vote</span><span>${d.called ? 'Called' : `Live odds ${esc(lastName(favName))} ${q(Math.max(d.pA, 1 - d.pA))}`}</span></div>`
+      : `<div class="tt-row muted"><span>Both ${PARTY_NAME[d.party]}s</span><span>${d.party} hold either way</span></div>`);
+    if (d.marketA !== null && !store.sim && !d.called) rows.push(`<div class="tt-row muted"><span>Polymarket</span><span>${esc(lastName(d.marketA >= 0.5 ? d.a : d.b))} ${q(Math.max(d.marketA, 1 - d.marketA))}</span></div>`);
+    return `<div class="tt-title">${esc(r.title)}</div>${rows.join('')}`;
+  }
   if (r.left && r.right && c.result && c.result.total > 0) {
     const res = c.result, tot = res.total;
     const share = (v) => `${((v / tot) * 100).toFixed(1)}%<span class="tt-sub">${v.toLocaleString('en-US')}</span>`;

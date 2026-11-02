@@ -148,10 +148,17 @@ function normalizeNyt(race, nr) {
   cands.sort((a, b) => b.votes - a.votes || (a.name > b.name ? 1 : -1));
   const L = Lm && cands.find(c => c.id === Lm.id), R = Rm && cands.find(c => c.id === Rm.id);
   let called = null;
-  if (won.size) called = L && won.has(L.id) ? 'left' : R && won.has(R.id) ? 'right' : 'other';
+  // In a same-party race the seat goes to that party whoever wins; who won is kept in `duel`.
+  if (won.size) called = race.samePartyGeneral ? (race.left ? 'left' : 'right') : L && won.has(L.id) ? 'left' : R && won.has(R.id) ? 'right' : 'other';
+  let duel = null;
+  if (race.duel) {
+    const find = (name) => cands.find(c => c.name.toLowerCase() === name.toLowerCase()) || cands.find(c => samePerson(c.name, name));
+    const A = find(race.duel.a), B = find(race.duel.b);
+    if (A || B) duel = { a: A ? A.votes : 0, b: B ? B.votes : 0, total, eevp: tru.eevp || 0, won: A && won.has(A.id) ? 'a' : B && won.has(B.id) ? 'b' : null };
+  }
   const runoff = (nr.outcome?.advanced_to_runoff || []).length > 0;
   return {
-    eevp: tru.eevp || 0, total, cands, left: L ? L.votes : 0, right: R ? R.votes : 0, called, runoff,
+    eevp: tru.eevp || 0, total, cands, left: L ? L.votes : 0, right: R ? R.votes : 0, called, runoff, duel,
     status: nr.race_call_status, updated: tru.provider_updated_at || nr.updated_at, precincts: [tru.precincts_reporting, tru.precincts_total],
     calledAt: (nr.outcome?.winner_accepted_at || [])[0] || null,
     slug: String(nr.url || '').split('/').pop().replace(/\.html$/, '') || null,
@@ -279,6 +286,13 @@ export function recomputeNow({ sims = CONFIG.liveSims } = {}) {
   for (const x of pairs) est[x.r.id] = liveEstimate(x.est, x.live, sw.swing, sw.sd);
   const sim = simulate(simRaces, est, store.base.chambers, { sims, natSd: sw.sd, natMu: 0, tipping: false, seed: 7 });
   for (const r of simRaces) if (est[r.id] && !est[r.id].settled && !est[r.id].called) est[r.id].pLeft = sim.raceProb[r.id];
+  // Same-party races: A against B from the votes counted so far (the national swing says nothing here).
+  for (const r of simRaces) {
+    const d = r.duel, v = results[r.id]?.duel;
+    if (!d || !v || !est[r.id]) continue;
+    const called = v.won === 'a' ? 'left' : v.won === 'b' ? 'right' : null;
+    est[r.id] = { ...est[r.id], duel: liveEstimate({ mu: d.mu, sd: d.sd, pLeft: d.pA }, { eevp: v.eevp, total: v.total, left: v.a, right: v.b, called }, 0, 0) };
+  }
   store.live.est = est;
   store.live.sim = sim;
   store.live.swing = sw;

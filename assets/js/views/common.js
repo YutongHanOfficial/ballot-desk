@@ -1,6 +1,6 @@
 // Building blocks shared by several pages.
 import { h, pct, partyChip, partyVar, lastName, marginText, num, oddsText, ratingChip, fmtTimeET, PARTY_NAME, timeAgo } from '../ui.js';
-import { store, cur, chamber, marketControl } from '../store.js';
+import { store, cur, chamber, marketControl, duelNow } from '../store.js';
 import { splitBar, probCell } from '../charts.js';
 import { calledSeats, resultsEnabled } from '../live.js';
 import { CONFIG, pollCloseDate } from '../config.js';
@@ -63,6 +63,26 @@ export function raceCard(r, { showType = true } = {}) {
     partyChip(party), h('span', { class: 'nm' }, name || '—', winner ? h('span', { class: 'winner-check', style: { marginLeft: '6px' }, title: 'Winner' }, '✓') : null),
     votes !== undefined ? h('span', { class: 'rc-votes' }, num(votes)) : null,
     h('span', { class: 'pv', style: { color: lead ? partyVar(party) : 'var(--ink-2)' } }, val));
+  const card = (foot) => h('a', { class: 'race-card', href: r.url },
+    h('div', { class: 'rc-head' }, h('span', { class: 'rc-title' }, r.type === 'house' ? r.short : r.stateName + (r.special ? ' (special)' : '')),
+      showType ? h('span', { class: 'rc-type' }, r.office) : null),
+    h('div', { class: 'rc-cands' }, rows), foot);
+  if (r.duel) {
+    // Two candidates of one party: the odds (or the count) between them.
+    const d = duelNow(r);
+    const v = d.result, tot = v?.total || 0;
+    const share = (x) => `${((x / tot) * 100).toFixed(1)}%`;
+    const q = (x) => pct(Math.min(0.999, Math.max(0.001, x)));
+    rows.push(cand(d.a, d.party, tot ? share(v.a) : q(d.pA), tot ? v.a >= v.b : d.pA >= 0.5, d.called === 'a', tot ? v.a : undefined));
+    rows.push(cand(d.b, d.party, tot ? share(v.b) : q(1 - d.pA), tot ? v.b > v.a : d.pA < 0.5, d.called === 'b', tot ? v.b : undefined));
+    if (tot) rows.push(h('div', { class: 'eevp-bar', title: `${Math.round(v.eevp)}% of expected vote counted` }, h('i', { style: { width: `${Math.min(100, v.eevp)}%` } })));
+    const favName = d.pA >= 0.5 ? d.a : d.b;
+    return card(h('div', { class: 'rc-foot' },
+      h('span', null, tot ? `${Math.round(v.eevp)}% counted` : `Both ${PARTY_NAME[d.party]}s`),
+      d.called ? h('span', null, 'Called')
+        : tot ? h('span', { style: { color: partyVar(d.party), fontWeight: 650 } }, `${lastName(favName)} ${q(Math.max(d.pA, 1 - d.pA))} to win`)
+        : h('span', null, `${d.party} hold either way`)));
+  }
   if (!r.left || !r.right) {
     const w = r.left ? r.leftCand : r.rightCand;
     rows.push(cand(w?.name, w?.party, '✓', true));
@@ -84,10 +104,7 @@ export function raceCard(r, { showType = true } = {}) {
       ? h('span', null, 'Called')
       : h('span', { style: { color: partyVar(fav), fontWeight: 650 } }, `${shortName(r, p >= 0.5 ? 'left' : 'right')} ${pct(Math.min(0.999, Math.max(p, 1 - p)))} to win`))
     : h('div', { class: 'rc-foot' }, h('span', null, r.left && r.right ? `Proj. ${marginText(c.mu, r)}` : ''), flipTag(r, p));
-  return h('a', { class: 'race-card', href: r.url },
-    h('div', { class: 'rc-head' }, h('span', { class: 'rc-title' }, r.type === 'house' ? r.short : r.stateName + (r.special ? ' (special)' : '')),
-      showType ? h('span', { class: 'rc-type' }, r.office) : null),
-    h('div', { class: 'rc-cands' }, rows), foot);
+  return card(foot);
 }
 
 export function flipTag(r, p) {
@@ -98,6 +115,13 @@ export function flipTag(r, p) {
 }
 
 export function candCell(r, side) {
+  if (r.duel) {
+    // Both candidates share a party: list them together in that party's column.
+    if (side !== (r.left ? 'left' : 'right')) return h('span', { class: 'muted' }, '—');
+    const inc = (name) => (r.candidates || []).find(c => c.name === name)?.incumbent;
+    return h('div', { class: 'duel-cell' }, [r.duel.a, r.duel.b].map(name => h('div', { class: 'cand-line' }, partyChip(r.duel.party), h('span', { class: 'nm' }, name),
+      inc(name) ? h('span', { class: 'inc-star', title: 'Incumbent' }, 'INC') : null)));
+  }
   const name = side === 'left' ? r.left : r.right;
   const party = side === 'left' ? r.leftParty : r.rightParty;
   const c = side === 'left' ? r.leftCand : r.rightCand;
@@ -111,9 +135,12 @@ export function raceColumns({ type } = {}) {
     { key: 'race', label: 'Race', render: r => h('a', { class: 'race-name', href: r.url }, type === 'house' ? r.short : r.stateName + (r.special ? ' (special)' : '')), sort: r => r.type === 'house' ? r.id : r.stateName, defaultAsc: true },
     { key: 'left', label: 'Democrat / Ind.', render: r => candCell(r, 'left') },
     { key: 'right', label: 'Republican', render: r => candCell(r, 'right') },
-    { key: 'p', label: 'Chance of winning', num: true, render: r => r.left && r.right ? probCell(r) : h('span', { class: 'muted small' }, 'Uncontested'), sort: r => { const p = cur(r).p; return p === null ? null : -Math.abs(p - 0.5); } },
-    { key: 'mu', label: 'Proj. margin', num: true, hideSm: true, render: r => r.left && r.right ? h('span', { class: 'tnum' }, marginText(cur(r).mu, r)) : '', sort: r => cur(r).mu },
-    { key: 'mk', label: 'Polymarket', num: true, hideSm: true, render: r => { const p = cur(r).marketP; return p === null || p === undefined ? h('span', { class: 'muted' }, '—') : h('span', { class: 'tnum' }, `${pct(p)} ${shortName(r, 'left')}`); }, sort: r => cur(r).marketP },
+    { key: 'p', label: 'Chance of winning', num: true, render: r => (r.left && r.right) || r.duel ? probCell(r) : h('span', { class: 'muted small' }, 'Uncontested'), sort: r => { const p = r.duel ? duelNow(r).pA : cur(r).p; return p === null ? null : -Math.abs(p - 0.5); } },
+    { key: 'mu', label: 'Proj. margin', num: true, hideSm: true, render: r => r.left && r.right ? h('span', { class: 'tnum' }, marginText(cur(r).mu, r)) : r.duel ? h('span', { class: 'muted small' }, `${r.duel.party} hold`) : '', sort: r => cur(r).mu },
+    { key: 'mk', label: 'Polymarket', num: true, hideSm: true, render: r => {
+      if (r.duel) { const m = duelNow(r).marketA; return m === null ? h('span', { class: 'muted' }, '—') : h('span', { class: 'tnum' }, `${pct(Math.max(m, 1 - m))} ${lastName(m >= 0.5 ? r.duel.a : r.duel.b)}`); }
+      const p = cur(r).marketP; return p === null || p === undefined ? h('span', { class: 'muted' }, '—') : h('span', { class: 'tnum' }, `${pct(p)} ${shortName(r, 'left')}`);
+    }, sort: r => r.duel ? null : cur(r).marketP },
     { key: 'holder', label: 'Held by', hideSm: true, render: r => r.holder ? partyChip(r.holder) : h('span', { class: 'muted xs' }, 'New'), sort: r => r.holder },
   ];
 }

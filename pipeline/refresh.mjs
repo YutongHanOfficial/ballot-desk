@@ -4,7 +4,7 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { estimateRace, simulate, pollAverage, labelAverage, samePerson, MODEL } from '../assets/js/model.js';
+import { estimateRace, simulate, pollAverage, labelAverage, samePerson, normInv, MODEL } from '../assets/js/model.js';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const DATA = path.join(ROOT, 'data');
@@ -72,7 +72,7 @@ function slimPoll(p, race) {
 // --------------------------------------------------------------------------------------------- markets
 
 const PM_QUERIES = [
-  'senate election winner', 'governor election winner', 'house election winner',
+  'senate election winner', 'governor election winner', 'house election winner', 'house election winner individual',
   'attorney general election winner', 'secretary of state election winner', 'lieutenant governor election winner',
   'state senate 2026', 'which party will win the house', 'which party will win the senate',
   'republican senate seats after the 2026', 'republican house seats after the 2026', 'balance of power 2026',
@@ -138,6 +138,10 @@ function mapEvent(e, byName) {
   if ((m = t.match(/^(.+?) Attorney General Election Winner$/)) && byName[m[1]]) return { kind: 'race', id: `${byName[m[1]]}-AG` };
   if ((m = t.match(/^(.+?) Secretary of State Election Winner$/)) && byName[m[1]]) return { kind: 'race', id: `${byName[m[1]]}-SOS` };
   if ((m = t.match(/^(.+?) Lieutenant Governor Election Winner$/)) && byName[m[1]]) return { kind: 'race', id: `${byName[m[1]]}-LTGOV` };
+  // Candidate-level markets, listed for same-party (top-two) races: "CA-11 House Election Winner (Individual)"
+  if ((m = t.match(/^([A-Z]{2})-(\d{2}|AL) House Election Winner \((?:by )?individual\)$/i))) {
+    return { kind: 'duel', id: AT_LARGE.has(m[1]) || m[2] === 'AL' ? `${m[1]}-AL` : `${m[1]}-${m[2]}` };
+  }
   if ((m = t.match(/^([A-Z]{2})-(\d{2}|AL) House Election Winner$/))) {
     return { kind: 'race', id: AT_LARGE.has(m[1]) || m[2] === 'AL' ? `${m[1]}-AL` : `${m[1]}-${m[2]}` };
   }
@@ -276,7 +280,7 @@ async function main() {
   let events = [];
   try { events = await polymarketEvents(); } catch (e) { log('Polymarket failed:', e.message); }
   const prevMarkets = await readJSON('markets.json', null);
-  const mk = { updated: new Date(NOW).toISOString(), source: 'Polymarket (https://polymarket.com)', control: {}, races: {}, legislatures: {}, brackets: {} };
+  const mk = { updated: new Date(NOW).toISOString(), source: 'Polymarket (https://polymarket.com)', control: {}, races: {}, legislatures: {}, brackets: {}, duels: {} };
   for (const e of events) {
     const map = mapEvent(e, byName);
     if (!map) continue;
@@ -290,6 +294,9 @@ async function main() {
       // Several events can map to one race (e.g. re-listed markets): keep the most traded.
       if (mk.races[map.id] && mk.races[map.id].volume >= entry.volume) continue;
       mk.races[map.id] = entry;
+    } else if (map.kind === 'duel') {
+      if (mk.duels[map.id] && mk.duels[map.id].volume >= entry.volume) continue;
+      mk.duels[map.id] = entry;
     } else if (map.kind === 'legis') {
       if (mk.legislatures[map.id] && mk.legislatures[map.id].volume >= entry.volume) continue;
       mk.legislatures[map.id] = entry;
@@ -300,7 +307,7 @@ async function main() {
       mk.brackets[map.id] = entry;
     }
   }
-  if (!events.length && prevMarkets) Object.assign(mk, { control: prevMarkets.control, races: prevMarkets.races, legislatures: prevMarkets.legislatures, brackets: prevMarkets.brackets, stale: true });
+  if (!events.length && prevMarkets) Object.assign(mk, { control: prevMarkets.control, races: prevMarkets.races, legislatures: prevMarkets.legislatures, brackets: prevMarkets.brackets, duels: prevMarkets.duels || {}, stale: true });
   log(`markets: ${events.length} events scanned, ${Object.keys(mk.races).length} races, ${Object.keys(mk.legislatures).length} chambers`);
 
   // Main contenders ---------------------------------------------------------
@@ -317,6 +324,36 @@ async function main() {
     entry.pLeft = left ? left.p : right ? round(1 - right.p, 4) : null;
     entry.pRight = right ? right.p : left ? round(1 - left.p, 4) : null;
   }
+
+  // Same-party generals (California's top two): the seat's party is settled, but which of the two wins is
+  // not. Polymarket's candidate market gives the odds, shrunk a little toward the usual edge for incumbents
+  // (about 3 in 4 in same-party races); with no market, that edge alone.
+  const duels = {};
+  for (const r of races) {
+    if (!r.samePartyGeneral) continue;
+    const pair = (r.candidates || []).filter(c => !c.writeIn && c.party === r.samePartyGeneral);
+    if (pair.length < 2) continue;
+    const m = mk.duels[r.id];
+    const price = (c) => m?.outcomes.find(o => o.name && samePerson(o.name, c.name))?.p ?? null;
+    if (m) pair.sort((x, y) => (price(y) ?? -1) - (price(x) ?? -1));
+    let [a, b] = pair;
+    if (b.incumbent && !a.incumbent) [a, b] = [b, a];         // the incumbent comes first, else the market favorite
+    const prior = a.incumbent && !b.incumbent ? 0.75 : b.incumbent && !a.incumbent ? 0.25 : 0.5;
+    const pa = price(a), pb = price(b);
+    let pA = prior, source = 'incumbency', marketA = null;
+    if (pa !== null && pb !== null && pa + pb > 0) {
+      marketA = pa / (pa + pb);
+      const w = m.volume >= 10000 ? 0.9 : m.volume >= 1000 ? 0.75 : 0.5;
+      pA = w * marketA + (1 - w) * prior;
+      source = 'market';
+    }
+    pA = Math.min(0.99, Math.max(0.01, pA));
+    const sd = 12;   // points; intra-party races are hard to call
+    duels[r.id] = { a: a.name, b: b.name, party: r.samePartyGeneral, pA: round(pA, 4), mu: round(sd * normInv(pA), 2), sd, source,
+      marketA: marketA === null ? undefined : round(marketA, 4), volume: m?.volume };
+    if (m) mk.races[r.id] = m;   // the candidate market says more than "the Democrat wins"
+  }
+  if (Object.keys(duels).length) log(`same-party races: ${Object.entries(duels).map(([id, d]) => `${id} ${d.a} ${Math.round(d.pA * 100)}% (${d.source})`).join('; ')}`);
 
   for (const [id, ps] of Object.entries(pollsByRace)) {
     const race = raceById[id];
@@ -353,6 +390,7 @@ async function main() {
     races: Object.fromEntries(Object.entries(ests).map(([id, e]) => [id, {
       mu: e.mu, sd: e.sd, pLeft: sim.raceProb[id] ?? e.pLeft, settled: e.settled || undefined, components: e.components,
       left: raceById[id].left, right: raceById[id].right, leftParty: raceById[id].leftParty, rightParty: raceById[id].rightParty,
+      duel: duels[id],
     }])),
   };
 

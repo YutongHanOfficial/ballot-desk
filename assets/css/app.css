@@ -482,3 +482,4 @@ tr.more-row td { text-align: center; padding: 12px; }
 .chart text.chart-value { font-size: 12px; font-weight: 750; paint-order: stroke; stroke: var(--surface); stroke-width: 4px; stroke-linejoin: round; }
 .legend i.lg-line { width: 16px; height: 2px; border-radius: 1px; background: var(--ink-2); }
 .legend i.lg-dot { width: 9px; height: 9px; border-radius: 50%; background: var(--ink-2); box-shadow: 0 0 0 2px var(--surface), 0 0 0 3px var(--ink-2); margin: 0 2px; }
+.duel-cell { display: grid; gap: 6px; }

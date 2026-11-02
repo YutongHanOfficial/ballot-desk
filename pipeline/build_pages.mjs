@@ -43,7 +43,10 @@ for (const r of base.races) {
   const left = f.left ?? r.left, right = f.right ?? r.right;
   const lp = f.leftParty ?? r.leftParty, rp = f.rightParty ?? r.rightParty;
   const who = (name, party) => `${name}${PARTY[party] ? ` (${party})` : ''}`;
-  const desc = left && right
+  const both = { D: 'Democrats', R: 'Republicans' }[f.duel?.party];
+  const desc = f.duel
+    ? `${f.duel.a} vs. ${f.duel.b}, both ${both || 'from one party'}: odds, prediction markets and live results on election night.`
+    : left && right
     ? `${who(left, lp)} vs. ${who(right, rp)}: forecast, polls, prediction markets and live results on election night.`
     : left || right
       ? `${who(left || right, left ? lp : rp)} faces no major-party opponent. Forecast and live results on election night.`

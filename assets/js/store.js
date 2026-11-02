@@ -1,6 +1,7 @@
 // Loads the precomputed data files and exposes merged race objects to the views.
 import { ordinal, probColor, partyVar } from './ui.js';
 import { pollCloseDate } from './config.js';
+import { samePerson } from './model.js';
 
 export const store = {
   base: null, forecast: null, polls: null, markets: null, history: null, geo: null,
@@ -87,6 +88,7 @@ function buildRace(r) {
     title: titleFor(r, st.name), short: shortFor(r), office: OFFICE[r.type]?.label || r.type,
     url: `/race/${r.id}`,
     p: f.pLeft ?? null, mu: f.mu ?? null, sd: f.sd ?? null, components: f.components || {}, settled: !!f.settled,
+    duel: f.duel || null,   // same-party general: { a, b, party, pA, mu, sd, source, marketA, volume }
     market: store.markets.races[r.id] || null,
     pollData: store.polls.races[r.id] || null,
   };
@@ -109,6 +111,24 @@ export function cur(race) {
 export function chamber(type) {
   const live = store.live.sim && store.live.active ? store.live.sim[type] : null;
   return { ...(live || store.forecast.control[type]), live: !!live };
+}
+
+/**
+ * Same-party race (California's top two): A's chance against B right now. Called results win, then the live
+ * model once votes are counted, then the live market price folded in like the forecast does, then the forecast.
+ */
+export function duelNow(r) {
+  const d = r.duel;
+  if (!d) return null;
+  const res = store.live.results[r.id]?.duel || null;
+  const est = store.live.est?.[r.id]?.duel;
+  const mk = store.live.markets[r.id] || r.market;
+  const price = (name) => mk?.outcomes?.find(o => o.name && samePerson(o.name, name))?.p ?? null;
+  const pa = price(d.a), pb = price(d.b);
+  const marketA = pa !== null && pb !== null && pa + pb > 0 ? pa / (pa + pb) : d.marketA ?? null;
+  if (res?.won) return { ...d, pA: res.won === 'a' ? 1 : 0, live: true, called: res.won, result: res, marketA };
+  if (est && est.live && res && res.total > 0) return { ...d, pA: est.pLeft, mu: est.mu, sd: est.sd, live: true, called: null, result: res, marketA };
+  return { ...d, live: false, called: null, result: res, marketA };
 }
 
 export function marketControl(type) {

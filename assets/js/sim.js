@@ -8,6 +8,7 @@
 import { store, notify } from './store.js';
 import { MODEL, rng, drawMargins, liveEstimate } from './model.js';
 import { POLL_CLOSE_ET, pollCloseDate } from './config.js';
+import { PARTY_NAME } from './ui.js';
 import { countyBaseline, loadCountyBaseline } from './geo.js';
 
 /** County data the replay needs; resolve this before makeScenario() for county-by-county counting. */
@@ -98,6 +99,9 @@ export function makeScenario({ seed = randomSeed(), nat = null } = {}) {
       p.total = p.counties.reduce((t, c) => t + c.total, 0);
     }
   }
+  // Same-party races: which of the two wins (own stream, so every other draw is unchanged).
+  const RD = rng((seed ^ 0x2c1b3c6d) >>> 0);
+  for (const r of races) if (r.duel && per[r.id]) per[r.id].duel = { margin: r.duel.mu + r.duel.sd * RD.normal() };
   const sc = { seed, nat: natErr, natFixed: nat !== null && nat !== undefined, races: per };
   scheduleCalls(sc);
   sc.events = buildEvents(sc);
@@ -182,7 +186,7 @@ function scheduleCalls(sc) {
   for (const [id, p] of Object.entries(sc.races)) {
     const r = store.byId[id];
     p.side = p.margin > 0 ? 'left' : 'right';
-    if (!p.contested) { p.callT = p.close; continue; }
+    if (!p.contested) { p.callT = p.close; if (p.duel) p.duel.callT = duelCallT(r, p); continue; }
     const prior = { mu: r.mu, sd: r.sd, pLeft: r.p };
     const favoredWins = (r.p >= 0.5) === (p.margin > 0);
     if (favoredWins && Math.max(r.p, 1 - r.p) >= 0.995 && Math.abs(p.margin) > 8) { p.callT = p.close; continue; }
@@ -200,6 +204,20 @@ function scheduleCalls(sc) {
   }
 }
 
+/** Same-party race: called once the live model is sure which of the two is ahead. */
+function duelCallT(r, p) {
+  const d = r.duel, m = p.duel.margin;
+  if (Math.abs(m) < 0.5) return END;
+  for (let t = Math.ceil(p.start); t <= END; t += 3) {
+    const v = votesAt(p, t);
+    if (v.f < 0.12) continue;
+    const a = Math.round(v.counted * (0.5 + m / 200));
+    const est = liveEstimate({ mu: d.mu, sd: d.sd, pLeft: d.pA }, { eevp: v.f * 100, total: v.counted, left: a, right: v.counted - a }, 0, 0);
+    if ((m > 0 && est.pLeft >= 0.997) || (m < 0 && est.pLeft <= 0.003)) return t;
+  }
+  return END;
+}
+
 export function resultsAt(sc, t) {
   const out = {};
   for (const [id, p] of Object.entries(sc.races)) {
@@ -212,6 +230,14 @@ export function resultsAt(sc, t) {
     if (r.left) cands.push({ name: r.left, party: r.leftParty, votes: p.contested ? v.left : v.counted, winner: called === 'left' });
     if (r.right) cands.push({ name: r.right, party: r.rightParty, votes: p.contested ? v.right : v.counted, winner: called === 'right' });
     if (v.others) cands.push({ name: 'Others', party: 'O', votes: v.others, winner: false });
+    let duel;
+    if (p.duel) {
+      const m = p.duel.margin, a = Math.round(v.counted * (0.5 + m / 200));
+      const won = t >= p.duel.callT ? (m > 0 ? 'a' : 'b') : null;
+      duel = { a, b: v.counted - a, total: v.counted, eevp: Math.round(v.f * 1000) / 10, won };
+      cands.length = 0;
+      cands.push({ name: r.duel.a, party: r.duel.party, votes: a, winner: won === 'a' }, { name: r.duel.b, party: r.duel.party, votes: v.counted - a, winner: won === 'b' });
+    }
     const total = v.counted;
     cands.forEach(c => { c.pct = total ? c.votes / total : 0; });
     cands.sort((a, b) => b.votes - a.votes);
@@ -224,7 +250,7 @@ export function resultsAt(sc, t) {
       counties,
       eevp: Math.round(v.f * 1000) / 10, total, left: p.contested ? v.left : (r.left ? v.counted : 0), right: p.contested ? v.right : (r.right ? v.counted : 0),
       called, calledAt: called ? iso(p.callT) : null, runoff, status: called ? 'called' : runoff ? 'runoff' : total ? 'counting' : 'too_early',
-      cands, updated: iso(t), demo: true,
+      cands, duel, updated: iso(t), demo: true,
     };
   }
   return out;
@@ -317,6 +343,12 @@ function buildEvents(sc) {
     const r = store.byId[id];
     if (p.runoff) ev.push({ t: NIGHT_END, kind: 'info', id, text: `${r.title} heads to a Dec. 1 runoff: no candidate cleared 50%.` });
     if (p.recount) ev.push({ t: END, kind: 'info', id, text: `${r.title} is within half a point: ${p.side === 'left' ? r.left : r.right} leads, and a recount is likely.` });
+  }
+  for (const [id, p] of Object.entries(sc.races)) {
+    if (!p.duel || !Number.isFinite(p.duel.callT)) continue;
+    const r = store.byId[id];
+    const [w, l] = p.duel.margin > 0 ? [r.duel.a, r.duel.b] : [r.duel.b, r.duel.a];
+    ev.push({ t: p.duel.callT, kind: 'call', party: r.duel.party, id, text: `${w} defeats ${l} in ${r.title}, a race between two ${PARTY_NAME[r.duel.party]}s.` });
   }
   // Chamber control, replayed from the order of projections.
   const tally = { senate: { ...store.base.chambers.senate.notUp }, house: { D: 0, R: 0 }, gov: Object.values(store.base.chambers.governors.notUp).reduce((a, p) => { a[p] = (a[p] || 0) + 1; return a; }, { D: 0, R: 0 }) };
