@@ -104,6 +104,11 @@ page for anything else. Old `/#/…` links are rewritten to plain addresses when
 
 `assets/js/config.js` holds the poll-closing times, refresh intervals and the results provider.
 
+**Donations:** add your donation pages to `support.links` in `assets/js/config.js` (for example
+`{ name: 'Ko-fi', url: 'https://ko-fi.com/yourname' }`). That turns on a Support button in the header, a line in
+the footer, a dismissible note on the live and forecast pages, and the `/support` page. With no links, none of it
+shows.
+
 `results.provider: 'nyt'` reads the public results JSON that The New York Times publishes (AP data),
 directly in each visitor's browser and only during the election window. It is an undocumented feed,
 not a licensed API: set `provider: 'none'` to turn it off. The site then shows the forecast and live

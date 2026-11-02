@@ -2,7 +2,7 @@ import { h, pct, num, timeAgo, probColor, partyVar, lastName, esc, fmtDate } fro
 import { store, cur, chamber, racesOf, raceFill } from '../store.js';
 import { usMap, mapLegend, currentLegend, historyChart, raceTip } from '../charts.js';
 import { houseMap } from '../maps.js';
-import { chamberCard, raceCard, headline, electionBanner, CHAMBERS } from './common.js';
+import { chamberCard, raceCard, headline, electionBanner, CHAMBERS, supportNote } from './common.js';
 import { navigate } from '../nav.js';
 
 export function competitive(type, n) {
@@ -139,6 +139,8 @@ export function render(root) {
   root.append(h('section', { class: 'section' },
     h('div', { class: 'section-head' }, h('div', null, h('h2', null, 'Every state'), h('p', null, 'Senate, House, governor, down-ballot races, legislatures and ballot measures.'))),
     stateGrid()));
+  const note = supportNote('If you find it useful, chip in to keep it running.');
+  if (note) root.append(note);
 }
 
 function flipsCard() {

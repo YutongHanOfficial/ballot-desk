@@ -28,7 +28,19 @@ export const CONFIG = {
   },
 
   liveSims: 6000,
+
+  // Donations. List your donation pages (the first is the main button) to show a Support button in the header,
+  // a line in the footer, a note on the live page and the /support page. With none, nothing shows.
+  support: {
+    links: [
+      // { name: 'Ko-fi', url: 'https://ko-fi.com/yourname' },
+      // { name: 'GitHub Sponsors', url: 'https://github.com/sponsors/yourname' },
+    ],
+  },
 };
+
+/** Donation pages that are set up (https links only). */
+export const supportLinks = () => (CONFIG.support?.links || []).filter(l => l && l.name && /^https:\/\//.test(l.url || ''));
 
 // When polls close in each state (Eastern time, Nov 3 2026), matching the times in the results feed. States
 // split across time zones mostly use the time when most of the state's polls close (North Dakota: the first).

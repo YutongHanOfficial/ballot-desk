@@ -1,5 +1,5 @@
 // Boot, routing and live re-rendering.
-import { CONFIG } from './config.js';
+import { CONFIG, supportLinks } from './config.js';
 import { h, timeAgo } from './ui.js';
 import { store, loadData, subscribe } from './store.js';
 import { startLive, recompute, resultsEnabled, liveFrontPage } from './live.js';
@@ -11,6 +11,7 @@ import * as liveView from './views/liveview.js';
 import * as downballot from './views/downballot.js';
 import * as method from './views/method.js';
 import * as simulate from './views/simulate.js';
+import * as support from './views/support.js';
 import { START, END, clockLabel, togglePlay, setSpeed, seek, stopSim } from './sim.js';
 import { navigate, currentPath, upgradeHashLink, tidyAddress } from './nav.js';
 
@@ -33,6 +34,7 @@ const ROUTES = [
   { re: /^\/downballot$/, nav: 'downballot', render: (root) => downballot.render(root, { tab: new URLSearchParams(location.search).get('tab') }), title: () => downballot.title() },
   { re: /^\/methodology$/, nav: 'methodology', render: (root) => method.render(root), title: () => method.title() },
   { re: /^\/simulate$/, nav: 'simulate', render: (root) => simulate.render(root), title: () => simulate.title() },
+  { re: /^\/support$/, nav: 'support', render: (root) => support.render(root), title: () => support.title() },
 ];
 
 // Unknown addresses inside the app get a proper not-found page instead of silently showing the front page.
@@ -123,7 +125,7 @@ function render({ keepScroll = false } = {}) {
   }
   main.replaceChildren(root);
   document.title = `${r.title(m)} · ${CONFIG.siteName}`;
-  document.querySelectorAll('.nav a').forEach(a => a.classList.toggle('active', a.dataset.nav === navOf(r)));
+  document.querySelectorAll('.nav a, .support-btn').forEach(a => a.classList.toggle('active', a.dataset.nav === navOf(r)));
   if (keepScroll && sameView) window.scrollTo(0, y);
   else if (!sameView) window.scrollTo(0, 0);
   current = { key, loc: location.pathname + location.search };
@@ -175,6 +177,14 @@ function scheduleRender() {
   }, store.sim ? 700 : 250);
 }
 
+// Donations: a Support button beside the theme toggle and a line in the footer, once a donation page is set.
+function setupSupport() {
+  if (!supportLinks().length) return;
+  const tools = document.querySelector('.header-tools');
+  tools.prepend(h('a', { class: 'support-btn', href: '/support', 'data-nav': 'support', title: 'Support Ballot Desk' }, support.heart(), h('span', null, 'Support')));
+  document.querySelector('.footer-inner > div')?.append(h('p', null, 'Ballot Desk is free, with no ads or paywall. ', h('a', { href: '/support' }, 'Help keep it running'), '.'));
+}
+
 // In-site links change the page without a reload, so live feeds and a running simulation carry on.
 function onLinkClick(e) {
   if (e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
@@ -197,6 +207,7 @@ async function boot() {
   tidyAddress();
   initTheme();
   setupNav();
+  setupSupport();
   try {
     await loadData({ first: true });
   } catch (e) {

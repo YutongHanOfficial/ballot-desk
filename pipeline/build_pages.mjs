@@ -26,6 +26,7 @@ const pages = [
   ['/downballot', 'Down-ballot races', 'Lieutenant governor, attorney general and secretary of state races, state legislatures and ballot measures in 2026.'],
   ['/methodology', 'How the forecast works', 'How Ballot Desk forecasts the 2026 midterms: polls, expert ratings, prediction markets, partisan lean and a simulation model.'],
   ['/simulate', 'Election simulator', 'Simulate the 2026 midterms: draw one outcome in a click, or replay a whole election night as polls close and races are called.'],
+  ['/support', 'Support', 'Ballot Desk is free and independent, with no ads and no paywall. Chip in to help keep it running.'],
 ];
 
 const OFFICES = { senate: 'Senate', gov: 'governor', ltgov: 'lieutenant governor', ag: 'attorney general', sos: 'secretary of state' };

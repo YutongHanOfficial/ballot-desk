@@ -3,7 +3,7 @@ import { h, pct, num, partyVar, partyChip, probColor, timeAgo, fmtTimeET, lastNa
 import { store, cur, chamber, marketControl, racesOf, nightMode, awaiting, raceFill, duelNow } from '../store.js';
 import { calledSeats, resultsEnabled, wantCounties, houseVote } from '../live.js';
 import { CONFIG, POLL_CLOSE_ET, pollCloseDate } from '../config.js';
-import { raceCard, CHAMBERS, countdown } from './common.js';
+import { raceCard, CHAMBERS, countdown, supportNote } from './common.js';
 import { eventsSoFar, clockLabel } from '../sim.js';
 import { competitive, stateFill, stateTip } from './home.js';
 import { usMap, mapLegend, splitBar, probMini, probCell, RESULT_LEGEND, BAND_LEGEND } from '../charts.js';
@@ -404,6 +404,8 @@ export function render(root) {
   }
 
   root.append(resultsSection());
+  const note = supportNote(live.demo ? 'If you find it useful, chip in to keep it running.' : 'If it’s helping you follow the count, chip in to keep it running.');
+  if (note) root.append(note);
 
   root.append(h('section', { class: 'section grid g2' },
     h('div', { class: 'card' }, h('div', { class: 'card-title' }, 'When polls close (Eastern time)'), timeline()),

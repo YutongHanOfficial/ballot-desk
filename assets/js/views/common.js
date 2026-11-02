@@ -3,7 +3,7 @@ import { h, pct, partyChip, partyVar, lastName, marginText, num, oddsText, ratin
 import { store, cur, chamber, marketControl, duelNow } from '../store.js';
 import { splitBar, probCell } from '../charts.js';
 import { calledSeats, resultsEnabled } from '../live.js';
-import { CONFIG, pollCloseDate } from '../config.js';
+import { CONFIG, pollCloseDate, supportLinks } from '../config.js';
 
 export const CHAMBERS = {
   senate: { name: 'Senate', url: '/senate', need: 51, total: 100, needR: 50, unit: 'seats' },
@@ -186,6 +186,20 @@ export function countdown(target) {
   tick();
   const iv = setInterval(() => { if (!document.body.contains(box)) clearInterval(iv); else tick(); }, 1000);
   return box;
+}
+
+/** "Ballot Desk is free…" with a Support button; hidden once dismissed in this browser, or with no donation page. */
+export function supportNote(text) {
+  if (!supportLinks().length) return null;
+  try { if (localStorage.getItem('supportNote') === 'hidden') return null; } catch { /* private mode: show it */ }
+  const note = h('div', { class: 'card support-note' },
+    h('div', { class: 'grow' }, h('b', null, 'Ballot Desk is free, with no ads or paywall. '), text),
+    h('a', { class: 'btn small primary', href: '/support' }, 'Support Ballot Desk'),
+    h('button', { type: 'button', class: 'icon-btn', title: 'Hide this', 'aria-label': 'Hide this note', onclick: () => {
+      try { localStorage.setItem('supportNote', 'hidden'); } catch { /* private mode */ }
+      note.remove();
+    } }, '✕'));
+  return h('section', { class: 'section' }, note);
 }
 
 export function pollCloseText(state) {

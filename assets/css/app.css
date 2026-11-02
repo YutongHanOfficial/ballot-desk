@@ -483,3 +483,15 @@ tr.more-row td { text-align: center; padding: 12px; }
 .legend i.lg-line { width: 16px; height: 2px; border-radius: 1px; background: var(--ink-2); }
 .legend i.lg-dot { width: 9px; height: 9px; border-radius: 50%; background: var(--ink-2); box-shadow: 0 0 0 2px var(--surface), 0 0 0 3px var(--ink-2); margin: 0 2px; }
 .duel-cell { display: grid; gap: 6px; }
+
+/* ------------------------------------------------------------------ support */
+.heart { width: 15px; height: 15px; fill: #e0457b; flex-shrink: 0; }
+.support-btn { display: inline-flex; align-items: center; gap: 6px; height: 34px; padding: 0 12px; border-radius: 8px; border: 1px solid var(--line); background: var(--surface); font-size: 13px; font-weight: 650; text-decoration: none; color: var(--ink-2); white-space: nowrap; }
+.support-btn:hover, .support-btn.active { border-color: #e0457b; color: var(--ink); }
+@media (max-width: 760px) { .support-btn { padding: 0 9px; } .support-btn span { display: none; } }
+.support-note { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; font-size: 14px; }
+.support-note .grow { flex: 1; min-width: 220px; }
+.support-note .icon-btn { width: 30px; height: 30px; font-size: 13px; color: var(--muted); }
+.btn .heart { fill: currentColor; }
+.btn.primary .heart { fill: #ff7aa8; }
+.support-list { margin: 0; padding-left: 18px; display: grid; gap: 6px; font-size: 14px; }
