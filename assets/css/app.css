@@ -536,8 +536,8 @@ html.bc-transparent, html.bc-transparent body { background: transparent !importa
 .bc-stage .avatar.photo { border-width: 3px; background: var(--bc-line); }
 .bc-stage .av-badge { right: -5px; bottom: -4px; min-width: 20px; height: 20px; border-radius: 10px; font-size: 12px; box-shadow: 0 0 0 2px #0c1322; }
 :root[data-theme="light"] .bc-stage .av-badge { box-shadow: 0 0 0 2px #fff; }
-.bc-a-row { display: flex; align-items: center; gap: 28px; }
-.bc-a-row .avatar.photo { border-width: 5px; box-shadow: 0 10px 30px rgba(0, 0, 0, .45); }
+.bc-a-row { display: flex; align-items: center; gap: 24px; }
+.bc-a-row .avatar.photo { border-width: 4px; box-shadow: 0 10px 30px rgba(0, 0, 0, .45); }
 .bc-a-text { min-width: 0; }
 .bc-a-credit { position: absolute; right: 18px; bottom: 10px; font-size: 13px; color: rgba(255, 255, 255, .55); }
 
@@ -601,19 +601,21 @@ html.bc-transparent, html.bc-transparent body { background: transparent !importa
 
 .bc-watch { min-height: 0; display: flex; flex-direction: column; gap: 10px; }
 .bc-w-title { font: 800 16px/1 var(--sans); letter-spacing: .15em; text-transform: uppercase; color: var(--bc-muted); }
-.bc-wrow { padding: 12px 14px; background: var(--bc-soft); border: 1px solid var(--bc-line); border-radius: 12px; }
+.bc-wrow { display: flex; flex-direction: column; gap: 6px; padding: 10px 14px; background: var(--bc-soft); border: 1px solid var(--bc-line); border-radius: 12px; }
 .bc-wtop { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; }
-.bc-wtop b { font: 900 22px/1.1 var(--sans); }
-.bc-wst { font-size: 16px; font-weight: 800; color: var(--bc-muted); }
+.bc-wtop b { font: 900 22px/1.1 var(--sans); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.bc-wst { flex-shrink: 0; font-size: 16px; font-weight: 800; color: var(--bc-muted); }
 .bc-wst.called { color: var(--bc-ink); }
-.bc-wnames { display: flex; justify-content: space-between; gap: 8px; margin-top: 8px; font-size: 18px; font-weight: 700; }
-.bc-wnames span { display: inline-flex; align-items: center; gap: 8px; min-width: 0; white-space: nowrap; }
-.bc-wnames b { font: 900 22px/1 var(--sans); font-variant-numeric: tabular-nums; }
-.bc-stage .bc-wnames .party-chip { min-width: 24px; height: 24px; padding: 0 5px; font-size: 13px; border-radius: 6px; }
-.bc-wbar { display: flex; height: 10px; margin-top: 8px; border-radius: 99px; overflow: hidden; background: var(--bc-line); }
+.bc-wline { display: flex; align-items: center; gap: 10px; min-width: 0; font-size: 19px; font-weight: 800; }
+.bc-wline .nm { flex: 1; min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.bc-wv { flex-shrink: 0; font-size: 15px; font-weight: 700; color: var(--bc-muted); font-variant-numeric: tabular-nums; }
+.bc-wline b { flex-shrink: 0; min-width: 70px; text-align: right; font: 900 22px/1 var(--sans); font-variant-numeric: tabular-nums; }
+.bc-stage .bc-wline .party-chip { min-width: 26px; height: 26px; padding: 0 5px; font-size: 14px; border-radius: 6px; }
+.bc-wbar { display: flex; height: 8px; margin-top: 2px; border-radius: 99px; overflow: hidden; background: var(--bc-line); }
 .bc-wbar i { display: block; height: 100%; }
-.bc-wfoot { display: flex; justify-content: space-between; gap: 8px; margin-top: 6px; font-size: 15px; color: var(--bc-muted); font-variant-numeric: tabular-nums; }
-.bc-wfoot span:last-child { font-weight: 900; }
+.bc-wfoot { display: flex; justify-content: space-between; gap: 8px; font-size: 15px; color: var(--bc-muted); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.bc-wfoot span { overflow: hidden; text-overflow: ellipsis; }
+.bc-wfoot span:last-child { flex-shrink: 0; font-weight: 900; }
 
 /* Three equal rows that can never grow past the column, whatever lines a card carries (the Polymarket line
    appears only with real data, so a rehearsal doesn't show it). */
@@ -659,11 +661,11 @@ html.bc-transparent, html.bc-transparent body { background: transparent !importa
 .bc-in i { display: block; height: 100%; background: var(--bc-muted); }
 
 .bc-calls { flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 9px; }
-.bc-call { display: flex; align-items: center; gap: 16px; padding: 11px 16px; background: var(--bc-soft); border: 1px solid var(--bc-line); border-radius: 12px; font-size: 22px; }
+.bc-call { flex-shrink: 0; display: flex; align-items: center; gap: 16px; padding: 8px 16px; background: var(--bc-soft); border: 1px solid var(--bc-line); border-radius: 12px; font-size: 21px; }
 .bc-t { width: 118px; flex-shrink: 0; font-size: 20px; font-weight: 900; color: var(--bc-muted); font-variant-numeric: tabular-nums; }
-.bc-what { flex: 1; min-width: 0; }
+.bc-what { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .bc-what b { font-weight: 900; }
-.bc-what em { display: block; margin-top: 4px; font-size: 16px; font-style: normal; color: var(--bc-muted); }
+.bc-what em { display: block; margin-top: 2px; overflow: hidden; text-overflow: ellipsis; font-size: 16px; font-style: normal; color: var(--bc-muted); }
 .bc-flip { padding: 6px 12px; border-radius: 7px; font-size: 15px; font-weight: 900; letter-spacing: .08em; text-transform: uppercase; color: #fff; background: var(--party, #596275); }
 
 .bc-ticker { height: 84px; flex-shrink: 0; display: flex; background: rgba(0, 0, 0, .38); border-top: 1px solid var(--bc-line); }
@@ -678,19 +680,22 @@ html.bc-transparent, html.bc-transparent body { background: transparent !importa
 .bc-item b { font-weight: 900; }
 
 .bc-alert-slot { position: absolute; left: 22px; right: 22px; bottom: 22px; pointer-events: none; }
-.bc-alert { position: relative; overflow: hidden; padding: 22px 30px 24px 44px; border-radius: 16px; color: #fff;
+.bc-alert { position: relative; overflow: hidden; padding: 16px 26px 16px 40px; border-radius: 16px; color: #fff;
   background: linear-gradient(90deg, color-mix(in srgb, var(--party) 38%, #0b1222) 0%, #0b1222 62%); border: 1px solid color-mix(in srgb, var(--party) 55%, transparent);
   box-shadow: 0 24px 60px rgba(0, 0, 0, .55); animation: bc-alert .55s cubic-bezier(.2, .8, .2, 1) both; }
 .bc-alert::before { content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 12px; background: var(--party); }
 @keyframes bc-alert { from { opacity: 0; transform: translateY(40px) scale(.98); } to { opacity: 1; transform: none; } }
-.bc-a-label { display: flex; align-items: center; gap: 14px; font: 900 22px/1 var(--sans); letter-spacing: .17em; text-transform: uppercase; color: color-mix(in srgb, var(--party) 45%, #fff); }
+.bc-a-label { display: flex; align-items: center; gap: 14px; font: 900 19px/1 var(--sans); letter-spacing: .17em; text-transform: uppercase; color: color-mix(in srgb, var(--party) 45%, #fff); }
 .bc-a-check { display: inline-grid; place-items: center; width: 34px; height: 34px; border-radius: 50%; font-size: 20px; letter-spacing: 0; color: #fff; background: var(--party); }
 .bc-a-label .bc-flip { background: var(--party); }
-.bc-a-big { display: flex; align-items: center; gap: 18px; margin-top: 12px; font: 900 64px/1.05 var(--sans); letter-spacing: -.01em; }
-.bc-a-big .party-chip { min-width: 52px; height: 52px; font-size: 26px; border-radius: 10px; }
-.bc-a-race { margin-top: 8px; font-size: 24px; color: rgba(255, 255, 255, .82); }
-.bc-alert.control .bc-a-big { font-size: 66px; }
-.bc-a-list { display: flex; flex-wrap: wrap; gap: 10px 22px; margin-top: 14px; font-size: 24px; font-weight: 800; }
+.bc-a-big { display: flex; align-items: center; gap: 16px; margin-top: 8px; font: 900 52px/1.05 var(--sans); letter-spacing: -.01em; white-space: nowrap; }
+.bc-a-big .party-chip { min-width: 44px; height: 44px; font-size: 22px; border-radius: 9px; }
+.bc-a-race { margin-top: 6px; font-size: 21px; color: rgba(255, 255, 255, .82); }
+.bc-alert.control .bc-a-big { font-size: 58px; white-space: normal; }
+/* Calls grouped at poll closing: the label and the list on one line */
+.bc-alert.batch { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 26px; padding-top: 14px; padding-bottom: 14px; }
+.bc-alert.batch .bc-a-list { margin-top: 0; }
+.bc-a-list { display: flex; flex-wrap: wrap; gap: 8px 22px; margin-top: 10px; font-size: 22px; font-weight: 800; }
 .bc-a-list span { display: inline-flex; align-items: center; gap: 8px; }
 
 /* vertical, 1080x1920 for TikTok: the bottom strip is left for the chat overlay */
@@ -717,6 +722,8 @@ html.bc-transparent, html.bc-transparent body { background: transparent !importa
 .bc-stage.vertical .bc-sum { flex-direction: row; gap: 14px; }
 .bc-stage.vertical .bc-main { flex: 1; min-height: 0; padding: 14px 24px; }
 .bc-stage.vertical .bc-panel { padding: 16px 20px; }
+.bc-stage.vertical .bc-watch { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); align-content: start; gap: 8px 14px; }
+.bc-stage.vertical .bc-w-title { grid-column: 1 / -1; }
 .bc-stage.vertical .bc-wrow { padding: 8px 12px; }
 .bc-rcard.pre .bc-cbar i, .bc-wrow.pre .bc-wbar i { opacity: .45; }
 .bc-rcard.pre .bc-cline b { font-size: 20px; opacity: .8; }

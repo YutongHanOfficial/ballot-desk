@@ -106,7 +106,7 @@ function stateMapCard(st, house, statewide) {
     seg.querySelectorAll('button').forEach((b, i) => b.classList.toggle('on', opts[i][0] === view));
     hint.textContent = view === 'districts' ? `${house.length > 1 ? `${house.length} districts` : 'At-large district'} · 2026 lines` : 'Hover a county for details';
     if (view === 'districts') {
-      body.replaceChildren(stateDistrictMap(code, { zoomKey: `state-${code}` }), currentLegendEl());
+      body.replaceChildren(stateDistrictMap(code, { zoomKey: `state-${code}` }), currentLegendEl({ check: false }));
     } else {
       const raceId = view === 'pres24' ? null : view;
       body.replaceChildren(countyMap(code, { raceId, zoomKey: `stcounty-${code}-${view}` }), mapLegend(COUNTY_LEGEND),

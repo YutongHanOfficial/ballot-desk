@@ -99,6 +99,7 @@ function start(stage, o, W, H) {
     if (i === shown && !force) return;
     const fresh = i !== shown;
     parts.panel.replaceChildren(panel(o.panels[i], o, i));
+    parts.panel.querySelectorAll('.bc-watch, .bc-calls').forEach(fitList);
     if (fresh) { parts.panel.classList.remove('enter'); void parts.panel.offsetWidth; parts.panel.classList.add('enter'); }
     shown = i;
   };
@@ -141,6 +142,13 @@ function start(stage, o, W, H) {
 }
 
 // ------------------------------------------------------------------------------------------- helpers
+
+/** Drop trailing rows that would hang off the bottom of a list: names and counts vary, and half a row looks broken. */
+function fitList(list) {
+  const bottom = list.getBoundingClientRect().bottom + 0.5;
+  const rows = [...list.children].filter(e => !e.classList.contains('bc-w-title'));
+  for (let i = rows.length - 1; i > 0 && rows[i].getBoundingClientRect().bottom > bottom; i--) rows[i].remove();
+}
 
 const nowMs = () => store.sim ? SIX_PM + Math.min(store.sim.t, 600) * 60000 : Date.now();
 const callTag = (r) => r.type === 'house' ? r.short : `${r.stateName} ${r.type === 'gov' ? 'Gov.' : 'Sen.'}`;
@@ -290,13 +298,16 @@ function panel(kind, o, index) {
     const races = racesOf(kind).filter(r => r.left || r.right);
     const called = races.filter(r => store.live.results[r.id]?.called).length;
     const counting = races.filter(r => { const x = store.live.results[r.id]; return x && x.total > 0 && !x.called; }).length;
-    const note = !night ? 'Colored by our forecast until results arrive' : results ? 'Projected races carry a check mark; the rest are shaded by the current lead' : 'Colored by each race’s live chance of winning';
+    // 435 check marks would bury the House map: there, projected seats are simply solid.
+    const note = !night ? 'Colored by our forecast until results arrive'
+      : !results ? 'Colored by each race’s live chance of winning'
+      : kind === 'house' ? 'Projected seats are solid; the rest are shaded by the current lead' : 'Projected races carry a check mark; the rest are shaded by the current lead';
     return h('div', { class: `bc-p bc-mapp${o.vertical ? ' stack' : ''}` }, head(PANEL_TITLE[kind], note),
       h('div', { class: 'bc-maprow' },
         h('div', { class: 'bc-mapcol' }, h('div', { class: 'bc-map' }, map),
-          h('div', { class: 'bc-mapfoot' }, results ? resultScale() : mapLegend(BAND_LEGEND.slice(0, 7)),
+          h('div', { class: 'bc-mapfoot' }, results ? resultScale({ check: kind !== 'house' }) : mapLegend(BAND_LEGEND.slice(0, 7)),
             h('div', { class: 'bc-sum' }, h('span', null, h('b', null, called), ` of ${races.length} projected`), night ? h('span', null, h('b', null, counting), ' counting') : null))),
-        watchList(kind, o.vertical ? 2 : 4)));
+        watchList(kind, o.vertical ? 2 : 3)));
   }
   if (kind === 'races') {
     const photos = store.photos && !o.vertical ? ' · Photos: Wikipedia, credits at ballotdesk.org/credits' : '';   // vertical: in the footer
@@ -324,13 +335,19 @@ function watchRow(r) {
   const status = res?.called ? h('span', { class: 'bc-wst called' }, '✓ Projected')
     : awaiting(r) ? h('span', { class: 'bc-wst' }, `Polls close ${closeTime(r)}`)
     : tot ? h('span', { class: 'bc-wst' }, inText(c.eevp)) : h('span', { class: 'bc-wst' }, night ? 'No votes yet' : 'Forecast');
+  // One line per candidate, so long names get the row's full width instead of running into each other.
+  const line = (name, party, share, votes) => h('div', { class: 'bc-wline' },
+    avatar(r, name, party, { size: 30, fallback: 'chip', badge: true }),
+    h('span', { class: 'nm' }, lastName(name)),
+    tot ? h('span', { class: 'bc-wv' }, num(votes)) : null,
+    h('b', { style: { color: partyVar(party) } }, val(share)));
+  const gap = tot ? Math.abs(res.left - res.right) : 0;
   return h('div', { class: `bc-wrow${tot ? '' : ' pre'}` },
     h('div', { class: 'bc-wtop' }, h('b', null, r.type === 'house' ? r.short : r.stateName), status),
-    h('div', { class: 'bc-wnames' },
-      h('span', null, avatar(r, r.left, r.leftParty, { size: 36, fallback: 'chip', badge: true }), lastName(r.left), h('b', { style: { color: partyVar(r.leftParty) } }, val(lp))),
-      h('span', { class: 'right' }, h('b', { style: { color: partyVar(r.rightParty) } }, val(rp)), lastName(r.right), avatar(r, r.right, r.rightParty, { size: 36, fallback: 'chip', badge: true }))),
+    line(r.left, r.leftParty, lp, res?.left), line(r.right, r.rightParty, rp, res?.right),
     h('div', { class: 'bc-wbar' }, h('i', { style: { width: `${lp * 100}%`, background: partyVar(r.leftParty) } }), h('i', { style: { width: `${rp * 100}%`, background: partyVar(r.rightParty), marginLeft: 'auto' } })),
-    h('div', { class: 'bc-wfoot' }, h('span', null, tot ? `${num(res.left)} · ${num(res.right)}` : 'Chance of winning'),
+    h('div', { class: 'bc-wfoot' },
+      h('span', null, tot ? (gap ? `${lastName(res.left > res.right ? r.left : r.right)} +${num(gap)} votes` : 'Tied') : 'Chance of winning'),
       !res?.called ? h('span', { style: { color: partyVar(f.party) } }, `${f.tag} ${pct(f.q)} ${night ? 'live odds' : 'to win'}`) : null));
 }
 
@@ -500,7 +517,7 @@ function alertQueue(slot) {
           tot && eevp >= 1 ? ` · ${((c.res.left / tot) * 100).toFixed(1)}% to ${((c.res.right / tot) * 100).toFixed(1)}%, ${Math.round(eevp)}% in` : ' · as polls closed',
           store.sim ? ' · simulated' : ' · AP projection')];
       if (pic) {
-        body = [h('div', { class: 'bc-a-row' }, avatar(c.r, c.name, c.party, { size: 150 }), h('div', { class: 'bc-a-text' }, body)),
+        body = [h('div', { class: 'bc-a-row' }, avatar(c.r, c.name, c.party, { size: 104 }), h('div', { class: 'bc-a-text' }, body)),
           h('div', { class: 'bc-a-credit' }, `Photo: ${pic.by}, ${licenseText(pic)}, via Wikipedia`)];
       }
     }

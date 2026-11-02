@@ -163,10 +163,12 @@ export function currentLegend() { return nightMode() ? RESULT_LEGEND : BAND_LEGE
  * Election-night key as one scale: projected (with the check), then leads from big to small for each side,
  * then the greys. Shared by the site's maps and the broadcast.
  */
-export function resultScale() {
+export function resultScale({ check = true } = {}) {
+  // check: false for maps that show projections as solid colour alone (House districts: 435 marks would bury the map).
+  const mark = check ? '✓' : '';
   const cells = [
-    ['var(--dem)', '✓', 'Called'], [leadFill('D', 12), '10+'], [leadFill('D', 7), '5–10'], [leadFill('D', 3), '2–5'], [leadFill('D', 1), '<2'],
-    [leadFill('R', 1), '<2'], [leadFill('R', 3), '2–5'], [leadFill('R', 7), '5–10'], [leadFill('R', 12), '10+'], ['var(--rep)', '✓', 'Called'],
+    ['var(--dem)', mark, 'Called'], [leadFill('D', 12), '10+'], [leadFill('D', 7), '5–10'], [leadFill('D', 3), '2–5'], [leadFill('D', 1), '<2'],
+    [leadFill('R', 1), '<2'], [leadFill('R', 3), '2–5'], [leadFill('R', 7), '5–10'], [leadFill('R', 12), '10+'], ['var(--rep)', mark, 'Called'],
   ];
   return h('div', { class: 'rscale' },
     h('div', { class: 'rs-main' },
@@ -177,8 +179,8 @@ export function resultScale() {
       .map(([c, l]) => h('span', null, h('i', { style: { background: c } }), l))));
 }
 
-/** The right key for maps coloured by raceFill right now. */
-export function currentLegendEl() { return nightMode() ? resultScale() : mapLegend(BAND_LEGEND.slice(0, 8)); }
+/** The right key for maps coloured by raceFill right now (opts: resultScale's, for the election-night key). */
+export function currentLegendEl(opts) { return nightMode() ? resultScale(opts) : mapLegend(BAND_LEGEND.slice(0, 8)); }
 
 export const BAND_LEGEND = [
   ['var(--dem)', 'Solid D'], ['var(--dem-2)', 'Likely D'], ['var(--dem-3)', 'Lean D'], ['var(--toss)', 'Toss-up'],
