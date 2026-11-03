@@ -49,9 +49,11 @@ export function avatar(r, name, party, { size = 40, fallback = 'initials', badge
   const p = photoOf(r, name);
   const ring = color || partyVar(party);
   if (p) {
-    return h('span', { class: 'avatar photo', style: { width: `${size}px`, height: `${size}px`, borderColor: ring }, title: `${name}. Photo: ${p.by} (${p.lic})` },
-      h('img', { src: p.src, alt: '', width: size, height: size, loading: 'lazy', decoding: 'async' }),
+    // A photo that fails to load (an outage, a blocked image) falls back like a candidate without one.
+    const el = h('span', { class: 'avatar photo', style: { width: `${size}px`, height: `${size}px`, borderColor: ring }, title: `${name}. Photo: ${p.by} (${p.lic})` },
+      h('img', { src: p.src, alt: '', width: size, height: size, loading: 'lazy', decoding: 'async', onerror: () => el.replaceWith(avatar(null, name, party, { size, fallback, badge, color })) }),
       badge ? h('b', { class: 'av-badge', style: { background: ring }, title: PARTY_NAME[party] || 'Other' }, party || '?') : null);
+    return el;
   }
   if (fallback === 'chip') return h('span', { class: 'avatar-slot', style: { width: `${size}px` } }, partyChip(party));
   return h('span', { class: 'avatar', style: { width: `${size}px`, height: `${size}px`, background: ring, fontSize: `${Math.round(size * 0.36)}px` } }, initials(name));

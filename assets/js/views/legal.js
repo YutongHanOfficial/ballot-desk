@@ -81,6 +81,7 @@ export function renderPrivacy(root) {
       p('Nothing that identifies you. There is no sign-up, no contact form, no cookies and no analytics or advertising code, so we don’t know who visits or what they look at.'),
       h('h2', null, 'What your browser keeps'),
       p(`A few settings are saved in your browser’s local storage so the site remembers them: ${listOf(kept)}. They stay on your device, are never sent to us, and you can clear them at any time in your browser’s settings.`),
+      p('Your browser also keeps a copy of the site’s own pages, code and data, so Ballot Desk still opens if our host has a brief outage. The copy holds nothing about you, is refreshed as you browse, and goes away when you clear the site’s data.'),
       h('h2', null, 'Services your browser connects to'),
       p('To show the site and keep it live, your browser connects directly to these services. As with any website, each one receives your IP address and basic details such as your browser type, and may keep logs under its own privacy policy:'),
       h('ul', null, services),

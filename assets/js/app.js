@@ -238,7 +238,9 @@ async function boot() {
     }
   }
   render();
+  try { sessionStorage.removeItem('bdReloads'); } catch { /* private mode */ }   // index.html's retry count
   loadPhotos();   // after the first paint: pages redraw with headshots when it lands
+  setTimeout(keepCopy, 2000);
   window.addEventListener('popstate', onLocationChange);
   window.addEventListener('bd:navigate', onLocationChange);
   document.addEventListener('click', onLinkClick);
@@ -255,6 +257,19 @@ async function boot() {
     // Crossing into (or out of) the results window switches the front page and restarts the live feeds.
     if (setupNav()) { startLive(); render(); } else drawStatus();
   }, 30000);
+}
+
+// A saved copy of the site (sw.js) that stands in when GitHub Pages briefly answers with an error. The first visit
+// loads before the worker exists, so it is handed what this page already loaded, plus the front page as a shell.
+function keepCopy() {
+  if (!('serviceWorker' in navigator)) return;
+  navigator.serviceWorker.register('/sw.js')
+    .then(() => navigator.serviceWorker.ready)
+    .then((reg) => {
+      const urls = [`${location.origin}/`, location.href, ...performance.getEntriesByType('resource').map(e => e.name)];
+      reg.active?.postMessage({ type: 'save', urls: urls.filter(u => u.startsWith(`${location.origin}/`)) });
+    })
+    .catch(() => { /* not supported, or storage blocked: the site works without it */ });
 }
 
 function isMarketView() {

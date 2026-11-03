@@ -10,9 +10,13 @@ git config user.name "midterms-bot"
 git config user.email "midterms-bot@users.noreply.github.com"
 
 while :; do
-  # Rebuild candidates and ratings from Wikipedia when they are more than 6 hours old.
+  # Rebuild candidates and ratings from Wikipedia when they are more than 6 hours old, until the first polls close
+  # (23:00 UTC). From then on the pre-election data is final: refresh.mjs freezes the forecast and the race list
+  # stays as it is, so the bot commits nothing and the site is not redeployed (each deploy can briefly make GitHub
+  # Pages answer 503) while votes are counted. FORCE=1 overrides, as in refresh.mjs.
   age=$(python3 -c "import json,datetime;d=json.load(open('data/races.json'));g=datetime.datetime.fromisoformat(d['generated']);print(int((datetime.datetime.now(datetime.timezone.utc)-g).total_seconds()))" 2>/dev/null || echo 999999)
-  if [ "$age" -gt 21600 ]; then
+  frozen=$(python3 -c "import datetime;print(int(datetime.datetime.now(datetime.timezone.utc)>=datetime.datetime(2026,11,3,23,tzinfo=datetime.timezone.utc)))")
+  if [ "$age" -gt 21600 ] && { [ "$frozen" = 0 ] || [ -n "${FORCE:-}" ]; }; then
     python3 pipeline/build_races.py --refresh || echo "::warning::race list rebuild failed; keeping the previous one"
   fi
   node pipeline/refresh.mjs || echo "::warning::refresh failed; keeping the previous data"

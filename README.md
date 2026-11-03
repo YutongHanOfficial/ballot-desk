@@ -144,6 +144,14 @@ Polymarket prices without vote counts.
 
 `pipeline/overrides.json` corrects anything the Wikipedia parser gets wrong (e.g. the two Dan Sullivans in Alaska).
 
+## Outage fallback
+
+`sw.js` is a service worker that keeps a copy of the site's own files in each visitor's browser. Requests still go
+to the network first; the copy is used only when GitHub Pages fails or answers with a server error, as it can for a
+few seconds while a deploy spreads (its "unicorn" page). It covers returning visitors, not a first visit. To switch
+it off everywhere, replace `sw.js` with a file that calls `self.registration.unregister()`. The data bot commits
+nothing after the first polls close, so the site is not redeployed overnight unless someone pushes.
+
 ## Terms and privacy
 
 `/terms` and `/privacy` (`assets/js/views/legal.js`) describe what the site actually does: no accounts, cookies or
