@@ -494,10 +494,18 @@ tr.more-row td { text-align: center; padding: 12px; }
 .nf-links { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 18px; }
 .nf-state { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-top: 20px; padding-top: 16px; border-top: 1px solid var(--line); }
 .nf-state select.input { width: auto; min-width: 220px; }
-.chart text.chart-value { font-size: 12px; font-weight: 750; paint-order: stroke; stroke: var(--surface); stroke-width: 4px; stroke-linejoin: round; }
-.legend i.lg-line { width: 16px; height: 2px; border-radius: 1px; background: var(--ink-2); }
-.legend i.lg-dash { width: 18px; height: 0; border-radius: 0; background: none; border-top: 2.5px dashed var(--ink-2); }
-.legend i.lg-dot { width: 9px; height: 9px; border-radius: 50%; background: var(--ink-2); box-shadow: 0 0 0 2px var(--surface), 0 0 0 3px var(--ink-2); margin: 0 2px; }
+.chart text.chart-value { font-size: 12.5px; font-weight: 750; fill: var(--ink); paint-order: stroke; stroke: var(--surface); stroke-width: 4px; stroke-linejoin: round; }
+.chart text.chart-sub, .chart text.chart-note { font-size: 10.5px; fill: var(--muted); }
+.legend i.lg-swatch { width: 10px; height: 10px; border-radius: 50%; }
+.legend i.lg-line { width: 18px; height: 2px; border-radius: 1px; background: var(--ink-2); }
+.legend i.lg-line.bold { height: 3px; border-radius: 2px; }
+.legend i.lg-line.faint { height: 1.5px; opacity: .5; }
+.tooltip .tt-note { color: var(--muted); font-size: 12px; margin: -3px 0 7px; }
+.tooltip .tt-table { border-collapse: collapse; font-variant-numeric: tabular-nums; }
+.tooltip .tt-table th, .tooltip .tt-table td { padding: 2px 0 2px 18px; text-align: right; font-weight: 500; white-space: nowrap; }
+.tooltip .tt-table th:first-child { padding-left: 0; text-align: left; }
+.tooltip .tt-table thead th { font-size: 11px; font-weight: 600; color: var(--muted); padding-bottom: 3px; }
+.tooltip .tt-table tbody th i { display: inline-block; width: 12px; height: 3px; border-radius: 2px; margin-right: 7px; vertical-align: middle; }
 .duel-cell { display: grid; gap: 6px; }
 
 /* ------------------------------------------------------------------ support */

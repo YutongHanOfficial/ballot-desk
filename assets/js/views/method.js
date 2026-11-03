@@ -2,7 +2,7 @@ import { h, num, timeAgo } from '../ui.js';
 import { store } from '../store.js';
 import { MODEL } from '../model.js';
 
-/** How the dashed "re-run" line on the forecast-history chart was made, with the check against the live model. */
+/** How the re-run part of the forecast-history chart was made, with the check against the live model. */
 function backcastText() {
   const b = store.backcast;
   if (!b?.points?.length) return h('p', null, 'The forecast’s history starts when the model went live.');
@@ -11,7 +11,7 @@ function backcastText() {
   const from = day(b.points[0].t);
   const live = day(b.check?.t || store.history.points?.[0]?.t || b.points.at(-1).t);
   return [
-    h('p', null, `The forecast went live on ${live}. To show how it would have moved before then, the same model was re-run for every day back to ${from}, each time using only what had been published by that day: the forecasters’ ratings and the generic-ballot aggregates as Wikipedia listed them then (weekly snapshots from the pages’ edit history), the polls VoteHub had logged by the day before, and each race’s Polymarket price that day. That is the dashed line on the forecast-history chart.`),
+    h('p', null, `The forecast went live on ${live}. To show how it would have moved before then, the same model was re-run for every day back to ${from}, each time using only what had been published by that day: the forecasters’ ratings and the generic-ballot aggregates as Wikipedia listed them then (weekly snapshots from the pages’ edit history), the polls VoteHub had logged by the end of that day, and each race’s Polymarket price at the end of that day. That is the forecast-history chart up to its “Forecast went live” line.`),
     h('p', null, 'Two inputs come from hindsight: the candidates (this fall’s nominees are used throughout, including before some primaries were held) and each market’s total trading volume, which sets how much its price counts. ',
       b.check ? `As a check, re-running it for the moment of the model’s first live run gives ${pc(b.check.sen)} for Democratic control of the Senate and ${pc(b.check.house)} for the House; the live run said ${pc(b.check.liveSen)} and ${pc(b.check.liveHouse)}.` : ''),
   ];
@@ -56,7 +56,7 @@ export function render(root) {
       h('li', null, h('b', null, 'County maps: '), 'Census Bureau 2025 cartographic county boundaries, with the 2024 presidential vote by county from ', a('https://github.com/tonmcg/US_County_Level_Election_Results_08-24', 'tonmcg/US_County_Level_Election_Results_08-24'), ' (MIT licence). On election night, counties switch to live AP counts from each race’s New York Times results file as soon as it is published. Alaska reports by state House district, so it has no county map.'),
       h('li', null, h('b', null, 'State maps: '), a('https://github.com/topojson/us-atlas', 'us-atlas'), ' (U.S. Census Bureau boundaries).')),
     h('h2', null, 'Update schedule'),
-    p('A GitHub Action re-runs the pipeline about every 20 minutes: it pulls polls and markets, recomputes the forecast and publishes the data files. Candidate lists and ratings are rebuilt from Wikipedia every six hours. When the first polls close at 6 p.m. Eastern on Nov. 3, the pre-election forecast is frozen, because markets start reacting to returns and would double count them. From then on your browser does the work: market prices refresh every minute, vote counts every 30 seconds to 2 minutes, and the live model re-runs on every update.'),
+    p('A GitHub Action re-runs the pipeline about every 20 minutes: it pulls polls and markets, recomputes the forecast and publishes the data files, which open pages pick up within a minute. Candidate lists and ratings are rebuilt from Wikipedia every six hours. When the first polls close at 6 p.m. Eastern on Nov. 3, the pre-election forecast is frozen, because markets start reacting to returns and would double count them. From then on your browser does the work: market prices refresh every minute, vote counts every 30 seconds to 2 minutes, and the live model re-runs on every update.'),
     h('h2', null, 'Caveats'),
     p('This is an independent, automated project, not affiliated with any news organization or campaign. Forecasts are probabilities, not predictions: a 75% favorite loses one time in four. Prediction-market prices reflect traders’ money, not voters. Always check official results with your state’s election office.')));
 }

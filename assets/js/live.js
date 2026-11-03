@@ -44,20 +44,52 @@ export function startLive() {
       timers.push(setInterval(() => visible() && !store.sim && refreshResults(office), CONFIG.results.refreshSec[office] * 1000));
     }
   }
-  timers.push(setInterval(async () => {
-    if (!visible()) return;
-    try { await loadData(); recompute(); notify('data'); } catch (e) { console.warn('data refresh failed', e); }
-  }, CONFIG.dataRefreshSec * 1000));
+  timers.push(setInterval(checkData, CONFIG.dataCheckSec * 1000));
   document.addEventListener('visibilitychange', onVisible);
+  window.addEventListener('pageshow', onVisible);
+  window.addEventListener('online', onVisible);
 }
 
+// Browsers skip or pause timers while a page is hidden (another tab, or another app's window over it), so
+// catch up the moment it is back in view.
 function onVisible() {
   if (!visible()) return;
   if (CONFIG.markets.enabled && !isDemo() && (!store.live.marketsAt || Date.now() - Date.parse(store.live.marketsAt) > 45e3)) refreshMarkets();
+  checkData();
 }
 
-export function stopLive() { while (timers.length) clearInterval(timers.pop()); document.removeEventListener('visibilitychange', onVisible); }
+export function stopLive() {
+  while (timers.length) clearInterval(timers.pop());
+  document.removeEventListener('visibilitychange', onVisible);
+  window.removeEventListener('pageshow', onVisible);
+  window.removeEventListener('online', onVisible);
+}
 const visible = () => document.visibilityState !== 'hidden';
+
+// ------------------------------------------------------------------------------------------- data files
+
+let checking = false, lastCheck = 0;
+
+/** Reload the data files when a newer deploy is live: its forecast.json has a new Last-Modified date. */
+async function checkData() {
+  if (checking || !visible() || Date.now() - lastCheck < 15e3) return;
+  checking = true;
+  lastCheck = Date.now();
+  try {
+    let stamp = null;
+    try {
+      const res = await fetch(`/data/forecast.json?v=${Math.floor(Date.now() / 60000)}`, { method: 'HEAD', cache: 'no-store' });
+      if (res.ok) stamp = res.headers.get('last-modified');
+    } catch { /* offline or blocked: fall back to the data's age */ }
+    const stale = stamp && store.dataStamp ? stamp !== store.dataStamp
+      : Date.now() - Date.parse(store.loadedAt) > CONFIG.dataRefreshSec * 1000;
+    if (stale) { await loadData(); recompute(); notify('data'); }
+  } catch (e) {
+    console.warn('data refresh failed', e);
+  } finally {
+    checking = false;
+  }
+}
 
 // ------------------------------------------------------------------------------------------- markets
 

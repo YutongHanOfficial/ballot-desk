@@ -268,58 +268,89 @@ export function raceTip(r) {
 
 // ------------------------------------------------------------------------------------- line chart
 
-/** Forecast history: series = [{ key, label, color, dash }] over points [{ t, ...}] (probabilities 0-1). */
-export function historyChart(points, series, { width = 640, height = 220, yDomain = [0, 1], yFormat = (v) => pct(v), area = false } = {}) {
+/**
+ * Forecast history. rows = [{ t, ...values }]; groups = [{ label, color, main, ref }]: `main` is the key of our line
+ * (bold, labelled at its end), `ref` the key of a comparison drawn thin and faint under it. Every row should carry
+ * every value, so the hover readout always lists all of them for that moment.
+ */
+export function historyChart(rows, groups, { mainLabel = 'Ours', refLabel = 'Polymarket', launch = null, rowNote = () => '' } = {}) {
   const tip = tooltip();
-  const m = { t: 14, r: 50, b: 26, l: 8 };
-  const pts = points.map(p => ({ ...p, d: new Date(p.t) }));
+  // Drawn at about its on-screen width, so the text keeps its CSS size on a phone instead of shrinking to half.
+  const width = Math.round(Math.min(640, Math.max(300, window.innerWidth - 70)));
+  const height = 230;
+  const m = { t: 18, r: 48, b: 26, l: 36 };
+  const pts = rows.map(p => ({ ...p, d: new Date(p.t) }));
   const svg = s('svg', { viewBox: `0 0 ${width} ${height}` });
   if (pts.length < 2) {
     svg.appendChild(s('text', { x: width / 2, y: height / 2, 'text-anchor': 'middle' }, 'The forecast history fills in as the model re-runs.'));
     return h('div', { class: 'chart' }, svg);
   }
   const x = d3.scaleTime().domain(d3.extent(pts, p => p.d)).range([m.l, width - m.r]);
-  const y = d3.scaleLinear().domain(yDomain).range([height - m.b, m.t]);
-  for (const v of y.ticks(4)) {
-    svg.appendChild(s('line', { x1: m.l, x2: width - m.r, y1: y(v), y2: y(v), stroke: 'var(--line)' }));
-    svg.appendChild(s('text', { x: width - m.r + 10, y: y(v) + 4 }, yFormat(v)));
+  const y = d3.scaleLinear().domain([0, 1]).range([height - m.b, m.t]);
+  for (const v of [0, 0.25, 0.5, 0.75, 1]) {
+    svg.appendChild(s('line', { x1: m.l, x2: width - m.r, y1: y(v), y2: y(v), stroke: v === 0.5 ? 'var(--line-2)' : 'var(--line)', 'stroke-dasharray': v === 0.5 ? '3 3' : null }));
+    svg.appendChild(s('text', { x: m.l - 7, y: y(v) + 4, 'text-anchor': 'end' }, pct(v)));
   }
-  if (yDomain[0] === 0 && yDomain[1] === 1) svg.appendChild(s('line', { x1: m.l, x2: width - m.r, y1: y(0.5), y2: y(0.5), stroke: 'var(--line-2)', 'stroke-dasharray': '3 3' }));
   const spanDays = (x.domain()[1] - x.domain()[0]) / 864e5;
   const tickFmt = (t) => spanDays < 2 ? t.toLocaleTimeString('en-US', { hour: 'numeric', timeZone: 'America/New_York' }) : fmtDate(t.toISOString());
-  for (const t of x.ticks(5)) svg.appendChild(s('text', { x: x(t), y: height - 6, 'text-anchor': 'middle' }, tickFmt(t)));
-  // Series with `marker` end in a ringed dot and a value label: a short history still shows its latest value.
-  const labels = [];
-  for (const se of series) {
-    const valid = pts.filter(p => p[se.key] !== null && p[se.key] !== undefined);
-    if (!valid.length || (valid.length < 2 && !se.marker)) continue;
-    if (valid.length >= 2) {
-      const line = d3.line().x(p => x(p.d)).y(p => y(p[se.key])).curve(d3.curveMonotoneX);
-      svg.appendChild(s('path', { d: line(valid), fill: 'none', stroke: se.color, 'stroke-width': se.width || 2.25, 'stroke-dasharray': se.dash || null, 'stroke-opacity': se.opacity || null, 'stroke-linejoin': 'round' }));
-    }
-    const last = valid[valid.length - 1];
-    if (se.marker) {
-      svg.appendChild(s('circle', { cx: x(last.d), cy: y(last[se.key]), r: 5, fill: se.color, stroke: 'var(--surface)', 'stroke-width': 2.5 }));
-      labels.push({ x: x(last.d) - 10, y: y(last[se.key]) + 4, text: yFormat(last[se.key]), color: se.color });
-    }
+  for (const t of x.ticks(width < 420 ? 4 : 5)) svg.appendChild(s('text', { x: x(t), y: height - 6, 'text-anchor': 'middle' }, tickFmt(t)));
+  // Where our published forecast begins (earlier points are the model re-run): a hairline, labelled above the plot.
+  const lx = launch ? x(new Date(launch)) : null;
+  if (lx !== null && lx - m.l > 90) {
+    svg.appendChild(s('line', { x1: lx, x2: lx, y1: m.t - 4, y2: height - m.b, stroke: 'var(--line-2)' }));
+    svg.appendChild(s('text', { x: lx - 5, y: m.t - 6, 'text-anchor': 'end', class: 'chart-note' }, 'Forecast went live'));
   }
-  labels.sort((a, b) => a.y - b.y);
-  for (let i = 1; i < labels.length; i++) labels[i].y = Math.max(labels[i].y, labels[i - 1].y + 14);
-  for (const l of labels) svg.appendChild(s('text', { x: l.x, y: l.y, 'text-anchor': 'end', class: 'chart-value', style: `fill:${l.color}` }, l.text));
-  const hover = s('rect', { x: m.l, y: m.t, width: width - m.l - m.r, height: height - m.t - m.b, fill: 'transparent' });
+  const path = (key) => d3.line().defined(p => p[key] !== null && p[key] !== undefined).x(p => x(p.d)).y(p => y(p[key])).curve(d3.curveMonotoneX)(pts);
+  for (const g of groups) if (g.ref) svg.appendChild(s('path', { d: path(g.ref), fill: 'none', stroke: g.color, 'stroke-width': 1.25, 'stroke-opacity': 0.5, 'stroke-linejoin': 'round' }));
+  const ends = [];
+  for (const g of groups) {
+    svg.appendChild(s('path', { d: path(g.main), fill: 'none', stroke: g.color, 'stroke-width': 2.25, 'stroke-linejoin': 'round', 'stroke-linecap': 'round' }));
+    const last = [...pts].reverse().find(p => p[g.main] !== null && p[g.main] !== undefined);
+    if (!last) continue;
+    svg.appendChild(s('circle', { cx: x(last.d), cy: y(last[g.main]), r: 4.5, fill: g.color, stroke: 'var(--surface)', 'stroke-width': 2 }));
+    ends.push({ x: x(last.d), y: y(last[g.main]), value: pct(last[g.main]), label: g.label });
+  }
+  // End labels in the right margin: value over chamber name, nudged apart if they would touch, with a leader if moved.
+  ends.sort((a, b) => a.y - b.y).forEach((e, i) => { e.ly = i ? Math.max(e.y, ends[i - 1].ly + 26) : e.y; });
+  const over = ends.length ? ends[ends.length - 1].ly - (height - m.b - 6) : 0;
+  if (over > 0) ends.forEach(e => { e.ly -= over; });
+  for (const e of ends) {
+    if (Math.abs(e.ly - e.y) > 3) svg.appendChild(s('line', { x1: e.x + 6, y1: e.y, x2: e.x + 9, y2: e.ly, stroke: 'var(--line-2)' }));
+    svg.appendChild(s('text', { x: e.x + 10, y: e.ly + 1, class: 'chart-value' }, e.value));
+    svg.appendChild(s('text', { x: e.x + 10, y: e.ly + 12, class: 'chart-sub' }, e.label));
+  }
+  // Hover: a crosshair on the nearest moment, a dot on every line, and one readout with all the numbers.
   const guide = s('line', { y1: m.t, y2: height - m.b, stroke: 'var(--ink)', 'stroke-width': 1, opacity: 0 });
-  svg.append(guide, hover);
-  hover.addEventListener('mousemove', (e) => {
+  const dots = groups.flatMap(g => [
+    { key: g.main, el: s('circle', { r: 4, fill: g.color, stroke: 'var(--surface)', 'stroke-width': 2, opacity: 0 }) },
+    g.ref ? { key: g.ref, el: s('circle', { r: 3, fill: 'var(--surface)', stroke: g.color, 'stroke-width': 1.5, opacity: 0 }) } : null,
+  ]).filter(Boolean);
+  // The hit area runs on under the end labels, where the pointer reads the latest moment.
+  const hover = s('rect', { x: m.l, y: 0, width: width - m.l, height, fill: 'transparent' });
+  svg.append(guide, ...dots.map(dt => dt.el), hover);
+  const val = (v, strong) => v === null || v === undefined ? '<td class="muted">—</td>' : `<td>${strong ? `<b>${pct(v)}</b>` : pct(v)}</td>`;
+  const readout = (ev) => {
     const rect = svg.getBoundingClientRect();
-    const px = (e.clientX - rect.left) * (width / rect.width);
-    const t = x.invert(px);
-    const i = d3.bisector(p => p.d).center(pts, t);
-    const p = pts[i];
-    guide.setAttribute('x1', x(p.d)); guide.setAttribute('x2', x(p.d)); guide.setAttribute('opacity', 0.35);
-    tip.show(`<div class="tt-title">${p.d.toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', timeZone: 'America/New_York' })} ET</div>` +
-      series.filter(se => p[se.key] !== null && p[se.key] !== undefined).map(se => `<div class="tt-row"><span style="color:${se.color}">● ${se.label}</span><b>${yFormat(p[se.key])}</b></div>`).join(''), e);
-  });
-  hover.addEventListener('mouseleave', () => { tip.hide(); guide.setAttribute('opacity', 0); });
+    const p = pts[d3.bisector(q => q.d).center(pts, x.invert((ev.clientX - rect.left) * (width / rect.width)))];
+    guide.setAttribute('x1', x(p.d)); guide.setAttribute('x2', x(p.d)); guide.setAttribute('opacity', 0.3);
+    for (const dt of dots) {
+      const v = p[dt.key];
+      if (v === null || v === undefined) { dt.el.setAttribute('opacity', 0); continue; }
+      dt.el.setAttribute('cx', x(p.d)); dt.el.setAttribute('cy', y(v)); dt.el.setAttribute('opacity', 1);
+    }
+    const when = spanDays >= 2 && p.daily ? fmtDate(p.t) : `${p.d.toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', timeZone: 'America/New_York' })} ET`;
+    const note = rowNote(p);
+    tip.show(`<div class="tt-title">${when}</div>${note ? `<div class="tt-note">${esc(note)}</div>` : ''}` +
+      `<table class="tt-table"><thead><tr><th></th><th>${esc(mainLabel)}</th><th>${esc(refLabel)}</th></tr></thead><tbody>` +
+      groups.map(g => `<tr><th><i style="background:${g.color}"></i>${esc(g.label)}</th>${val(p[g.main], true)}${val(p[g.ref])}</tr>`).join('') +
+      '</tbody></table>', ev);
+  };
+  hover.addEventListener('mousemove', readout);
+  hover.addEventListener('click', readout);   // a tap on a phone
+  hover.addEventListener('mouseleave', () => { tip.hide(); guide.setAttribute('opacity', 0); for (const dt of dots) dt.el.setAttribute('opacity', 0); });
+  const now = ends.map(e => `${e.label} ${e.value}`).join(', ');
+  svg.setAttribute('role', 'img');
+  svg.setAttribute('aria-label', `Chance of control over time${now ? `; latest: ${now}` : ''}`);
   return h('div', { class: 'chart' }, svg);
 }
 

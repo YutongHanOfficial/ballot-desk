@@ -5,7 +5,10 @@ export const CONFIG = {
   firstPollsClose: '2026-11-03T23:00:00Z',   // 6 p.m. Eastern (parts of Indiana and Kentucky)
   lastPollsClose: '2026-11-04T06:00:00Z',    // 1 a.m. Eastern (western Aleutians)
 
-  // Precomputed data written by the GitHub Action (pipeline/refresh.mjs). Re-read every few minutes.
+  // Precomputed data written by the GitHub Action (pipeline/refresh.mjs) about every 20 minutes. Open pages ask every
+  // dataCheckSec whether a newer copy is live (a HEAD request) and reload it; dataRefreshSec is the fallback when the
+  // server gives no Last-Modified date.
+  dataCheckSec: 60,
   dataRefreshSec: 300,
 
   // Live prediction-market prices straight from Polymarket's public API (CORS-enabled, no key).

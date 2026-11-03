@@ -1,7 +1,7 @@
 // Boot, routing and live re-rendering.
 import { CONFIG, supportLinks } from './config.js';
-import { h, timeAgo } from './ui.js';
-import { store, loadData, subscribe } from './store.js';
+import { h, timeAgo, fmtTimeET } from './ui.js';
+import { store, loadData, subscribe, forecastFinal } from './store.js';
 import { startLive, recompute, resultsEnabled, liveFrontPage } from './live.js';
 import * as home from './views/home.js';
 import * as chamberView from './views/chamber.js';
@@ -148,7 +148,10 @@ function drawStatus() {
   if (L.demo) items.push(h('span', { style: { display: 'inline-flex', gap: '6px', alignItems: 'center' } }, h('span', { class: 'live-dot' }), h('b', null, 'Simulated election night')));
   else if (L.active) items.push(h('span', { style: { display: 'inline-flex', gap: '6px', alignItems: 'center' } }, h('span', { class: 'live-dot' }), h('b', null, 'Live results')));
   else if (resultsEnabled()) items.push(h('span', { style: { display: 'inline-flex', gap: '6px', alignItems: 'center' } }, h('span', { class: 'live-dot' }), h('b', null, 'Election night: awaiting results')));
-  items.push(h('span', null, 'Forecast updated ', h('b', null, timeAgo(store.forecast?.updated))));
+  const fu = store.forecast?.updated;
+  items.push(forecastFinal() && fu
+    ? h('span', null, 'Final forecast ', h('b', null, fmtTimeET(new Date(fu))))
+    : h('span', null, 'Forecast updated ', h('b', null, timeAgo(fu))));
   if (L.marketsAt) items.push(h('span', null, 'Markets ', h('b', null, timeAgo(L.marketsAt))));
   const res = Object.values(L.resultsAt || {}).sort().pop();
   if (res && !L.demo) items.push(h('span', null, 'Results ', h('b', null, timeAgo(res))));

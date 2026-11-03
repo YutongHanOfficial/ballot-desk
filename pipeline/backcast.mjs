@@ -7,7 +7,7 @@
 // Each day is taken as of its end (23:59 UTC), so it holds every poll logged that day and nothing later.
 // Taken from hindsight: the race list itself (today's nominees and main contenders), and each market's
 // total volume, which sets how much weight its price gets.
-// Writes data/backcast.json, which the history chart draws as a dashed lead-in to the live line.
+// Writes data/backcast.json, which the history chart draws before the live line, up to "Forecast went live".
 // Usage: python3 pipeline/backcast_inputs.py && node pipeline/backcast.mjs
 import fs from 'node:fs/promises';
 import path from 'node:path';
