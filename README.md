@@ -147,7 +147,8 @@ Polymarket prices without vote counts.
 ## Terms and privacy
 
 `/terms` and `/privacy` (`assets/js/views/legal.js`) describe what the site actually does: no accounts, cookies or
-analytics; three settings in local storage; requests to GitHub Pages, Google Fonts, Polymarket and the NYT feed.
+analytics; three settings in local storage; requests to GitHub Pages, Polymarket and the NYT feed (fonts are
+self-hosted).
 The Polymarket, NYT and donation parts follow `config.js`. If the site starts storing or sending anything else (a
 new script, font host or data source), update both pages and their `UPDATED` date in the same change.
 
@@ -165,6 +166,7 @@ new script, font host or data source), update both pages and their `UPDATED` dat
 | Election-night county results | AP via each race's NYT results file (fetched in the browser) | Unofficial; see above |
 | Candidate photos | Lead images of the candidates' Wikipedia articles (Wikimedia Commons / Wikipedia), cropped | Each file's own: public domain, CC0, CC BY or CC BY-SA (listed on `/credits`) |
 | State shapes | us-atlas (U.S. Census Bureau) | ISC / public domain |
+| Fonts (Inter, Source Serif 4) | Google Fonts' files, self-hosted in `assets/fonts` | SIL Open Font License 1.1 (`OFL.txt` beside each) |
 
 This is an independent project, not affiliated with any campaign, party or news organization.
 Forecasts are probabilities, not predictions. Official results come from state election offices.

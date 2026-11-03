@@ -8,7 +8,6 @@ const CONTACT = 'https://github.com/YutongHanOfficial/ballot-desk/issues';
 const POLICIES = {
   pages: 'https://docs.github.com/en/pages/getting-started-with-github-pages/what-is-github-pages#data-collection',
   github: 'https://docs.github.com/en/site-policy/privacy-policies/github-general-privacy-statement',
-  fonts: 'https://developers.google.com/fonts/faq/privacy',
   polymarket: 'https://polymarket.com/privacy',
   nyt: 'https://www.nytimes.com/privacy/privacy-policy',
 };
@@ -73,7 +72,6 @@ export function renderPrivacy(root) {
   const day = (iso, year) => fmtDate(iso, { month: 'long', day: 'numeric', ...(year ? { year: 'numeric' } : {}) });
   const services = [
     h('li', null, h('b', null, 'GitHub Pages'), ' hosts the site. GitHub logs visitors’ IP addresses for security (', ext(POLICIES.pages, 'GitHub’s note'), ', ', ext(POLICIES.github, 'privacy statement'), ').'),
-    h('li', null, h('b', null, 'Google Fonts'), ' serves the site’s typefaces (', ext(POLICIES.fonts, 'Google Fonts privacy'), ').'),
     CONFIG.markets.enabled ? h('li', null, h('b', null, 'Polymarket'), ` supplies live market prices, checked every ${CONFIG.markets.nightRefreshSec} to ${CONFIG.markets.refreshSec} seconds while a page is open (`, ext(POLICIES.polymarket, 'privacy policy'), ').') : null,
     CONFIG.results.provider === 'nyt' ? h('li', null, h('b', null, 'The New York Times'), ` supplies live vote counts from ${day(CONFIG.results.window.start)} to ${day(CONFIG.results.window.end, true)} (`, ext(POLICIES.nyt, 'privacy policy'), ').') : null,
   ];
