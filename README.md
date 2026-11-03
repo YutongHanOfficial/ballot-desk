@@ -144,6 +144,13 @@ Polymarket prices without vote counts.
 
 `pipeline/overrides.json` corrects anything the Wikipedia parser gets wrong (e.g. the two Dan Sullivans in Alaska).
 
+## Terms and privacy
+
+`/terms` and `/privacy` (`assets/js/views/legal.js`) describe what the site actually does: no accounts, cookies or
+analytics; three settings in local storage; requests to GitHub Pages, Google Fonts, Polymarket and the NYT feed.
+The Polymarket, NYT and donation parts follow `config.js`. If the site starts storing or sending anything else (a
+new script, font host or data source), update both pages and their `UPDATED` date in the same change.
+
 ## Data sources and licenses
 
 | Data | Source | License |

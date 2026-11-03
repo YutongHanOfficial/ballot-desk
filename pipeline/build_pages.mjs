@@ -30,6 +30,8 @@ const pages = [
   ['/stream', 'Stream kit', 'Live election-night scenes and overlays for OBS and Streamlabs: balance of power, maps, key races, a ticker and projection alerts.', { noindex: true }],
   ['/broadcast', 'Broadcast', 'Ballot Desk election-night broadcast scene.', { noindex: true }],
   ['/credits', 'Photo credits', 'Authors and licenses of the candidate photos on Ballot Desk, from the candidates’ Wikipedia articles.'],
+  ['/terms', 'Terms of service', 'The terms for using Ballot Desk: forecasts are probabilities, results are unofficial, and nothing here is advice.'],
+  ['/privacy', 'Privacy policy', 'Ballot Desk has no accounts, cookies, analytics or ads, and collects no personal information. What your browser stores and connects to.'],
 ];
 
 const OFFICES = { senate: 'Senate', gov: 'governor', ltgov: 'lieutenant governor', ag: 'attorney general', sos: 'secretary of state' };
