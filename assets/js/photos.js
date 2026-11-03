@@ -4,13 +4,19 @@ import { h, partyVar, partyChip, lastName, PARTY_NAME } from './ui.js';
 import { store, notify } from './store.js';
 import { samePerson } from './model.js';
 
-let loading = null;
-/** Fetch data/photos.json once; pages redraw when it lands. A missing file just means initials everywhere. */
+let loading = null, tries = 0;
+/**
+ * Fetch data/photos.json once; pages redraw when it lands. A missing file just means initials everywhere; a server
+ * error (GitHub Pages can answer 503 for a moment during a deploy) or a dropped connection is retried a few times.
+ */
 export function loadPhotos() {
   loading ||= fetch('/data/photos.json', { cache: 'no-cache' })
-    .then(res => (res.ok ? res.json() : null))
+    .then(res => {
+      if (res.status >= 500) throw new Error(`photos.json: HTTP ${res.status}`);
+      return res.ok ? res.json() : null;
+    })
     .then(d => { if (d?.people) { store.photos = d; notify('photos'); } })
-    .catch(() => null);
+    .catch(() => { loading = null; if (++tries < 4) setTimeout(loadPhotos, 15000 * tries); });
   return loading;
 }
 

@@ -76,8 +76,9 @@ function setupNav() {
   const overview = nav.querySelector('[data-nav="home"]');
   overview.textContent = live ? 'Forecast' : 'Overview';
   overview.setAttribute('href', live ? '/forecast' : '/');
+  // Live is always one of the first two tabs: first while results are coming in, right after Overview before.
   if (live) nav.prepend(liveLink);
-  else nav.querySelector('[data-nav="downballot"]').after(liveLink);
+  else overview.after(liveLink);
   return true;
 }
 
@@ -224,12 +225,17 @@ async function boot() {
   initTheme();
   setupNav();
   setupSupport();
-  try {
-    await loadData({ first: true });
-  } catch (e) {
-    console.error(e);
-    main.replaceChildren(h('div', { class: 'card empty' }, 'Could not load the forecast data. Please refresh in a minute.'));
-    return;
+  // GitHub Pages can answer 503 for a moment while a deploy (one every 20 minutes) spreads: retry before giving up.
+  for (let attempt = 1; ; attempt++) {
+    try {
+      await loadData({ first: true });
+      break;
+    } catch (e) {
+      if (attempt < 4) { await new Promise(r => setTimeout(r, 1500 * attempt)); continue; }
+      console.error(e);
+      main.replaceChildren(h('div', { class: 'card empty' }, 'Could not load the forecast data. Please refresh in a minute.'));
+      return;
+    }
   }
   render();
   loadPhotos();   // after the first paint: pages redraw with headshots when it lands
