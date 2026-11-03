@@ -59,12 +59,13 @@ function shortFor(r) {
 }
 
 export async function loadData({ first = false } = {}) {
-  const [base, forecast, polls, markets, history] = await Promise.all([
+  const [base, forecast, polls, markets, history, backcast] = await Promise.all([
     getJSON('/data/races.json'), getJSON('/data/forecast.json'), getJSON('/data/polls.json'),
     getJSON('/data/markets.json'), getJSON('/data/history.json').catch(() => ({ points: [] })),
+    getJSON('/data/backcast.json').catch(() => null),   // the model re-run on earlier days (pipeline/backcast.mjs)
   ]);
   if (first) store.geo = await getJSON('/data/geo/states-albers-10m.json', false);
-  Object.assign(store, { base, forecast, polls, markets, history, loadedAt: new Date().toISOString() });
+  Object.assign(store, { base, forecast, polls, markets, history, backcast, loadedAt: new Date().toISOString() });
   store.states = base.states;
   store.stateByCode = Object.fromEntries(base.states.map(s => [s.code, s]));
   store.races = base.races.map(r => buildRace(r));

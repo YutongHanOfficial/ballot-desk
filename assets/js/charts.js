@@ -295,7 +295,7 @@ export function historyChart(points, series, { width = 640, height = 220, yDomai
     if (!valid.length || (valid.length < 2 && !se.marker)) continue;
     if (valid.length >= 2) {
       const line = d3.line().x(p => x(p.d)).y(p => y(p[se.key])).curve(d3.curveMonotoneX);
-      svg.appendChild(s('path', { d: line(valid), fill: 'none', stroke: se.color, 'stroke-width': se.width || 2.25, 'stroke-dasharray': se.dash || null, 'stroke-linejoin': 'round' }));
+      svg.appendChild(s('path', { d: line(valid), fill: 'none', stroke: se.color, 'stroke-width': se.width || 2.25, 'stroke-dasharray': se.dash || null, 'stroke-opacity': se.opacity || null, 'stroke-linejoin': 'round' }));
     }
     const last = valid[valid.length - 1];
     if (se.marker) {

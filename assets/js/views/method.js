@@ -2,6 +2,21 @@ import { h, num, timeAgo } from '../ui.js';
 import { store } from '../store.js';
 import { MODEL } from '../model.js';
 
+/** How the dashed "re-run" line on the forecast-history chart was made, with the check against the live model. */
+function backcastText() {
+  const b = store.backcast;
+  if (!b?.points?.length) return h('p', null, 'The forecast’s history starts when the model went live.');
+  const pc = (x) => `${Math.round(x * 100)}%`;
+  const day = (t) => new Date(t).toLocaleDateString('en-US', { month: 'long', day: 'numeric', timeZone: 'America/New_York' });
+  const from = day(b.points[0].t);
+  const live = day(b.check?.t || store.history.points?.[0]?.t || b.points.at(-1).t);
+  return [
+    h('p', null, `The forecast went live on ${live}. To show how it would have moved before then, the same model was re-run for every day back to ${from}, each time using only what had been published by that day: the forecasters’ ratings and the generic-ballot aggregates as Wikipedia listed them then (weekly snapshots from the pages’ edit history), the polls VoteHub had logged by the day before, and each race’s Polymarket price that day. That is the dashed line on the forecast-history chart.`),
+    h('p', null, 'Two inputs come from hindsight: the candidates (this fall’s nominees are used throughout, including before some primaries were held) and each market’s total trading volume, which sets how much its price counts. ',
+      b.check ? `As a check, re-running it for the moment of the model’s first live run gives ${pc(b.check.sen)} for Democratic control of the Senate and ${pc(b.check.house)} for the House; the live run said ${pc(b.check.liveSen)} and ${pc(b.check.liveHouse)}.` : ''),
+  ];
+}
+
 export function render(root) {
   const f = store.forecast;
   const p = (...kids) => h('p', null, ...kids);
@@ -29,6 +44,8 @@ export function render(root) {
     p('A quick simulation draws one outcome using exactly the errors the forecast uses: one national polling miss (or one you choose), plus regional, state and race-level misses. That way a surprise in Ohio tends to come with surprises in Michigan and Pennsylvania.'),
     p('Statewide races in the replay are counted county by county: each county starts from its 2024 presidential lean, shifted to the simulated statewide result with some county-level noise, and gets its own reporting pace (big urban counties tend to finish later) and its own early-vote skew. The statewide totals are the sum of the counties, so the county maps fill in exactly as the totals move.'),
     p('The election-night replay adds the mechanics of a count. Each race gets a turnout and the real poll-closing time for its state. Each state gets a counting pace (Florida reports almost everything within hours; California counts for days) and an "early-vote skew": the first ballots counted often lean one way, so early leads can shrink or flip. Races are projected the way a decision desk works, at poll closing for safe seats, otherwise only when the live model is at least 99.7% sure. Ranked-choice races in Alaska and Maine wait for tabulation, Georgia sends races under 50% to a runoff, and anything within half a point goes to a likely recount. All of it is simulated: none of these numbers are real results.'),
+    h('h2', { id: 'backcast' }, 'The forecast before it went live'),
+    backcastText(),
     h('h2', null, 'Data sources'),
     h('ul', null,
       h('li', null, h('b', null, 'Candidates, incumbents, partisan lean and ratings: '), a('https://en.wikipedia.org/wiki/2026_United_States_elections', 'Wikipedia'), ' (CC BY-SA 4.0), which compiles Cook PVI and the forecasters’ published ratings.'),

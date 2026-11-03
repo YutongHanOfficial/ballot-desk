@@ -136,6 +136,8 @@ function render({ keepScroll = false } = {}) {
   document.querySelectorAll('.nav a, .support-btn').forEach(a => a.classList.toggle('active', a.dataset.nav === navOf(r)));
   if (keepScroll && sameView) window.scrollTo(0, y);
   else if (!sameView) window.scrollTo(0, 0);
+  // Links to a section (/methodology#backcast) land on it once the page is drawn.
+  if (!sameView && location.hash.length > 1) document.getElementById(decodeURIComponent(location.hash.slice(1)))?.scrollIntoView();
   current = { key, loc: location.pathname + location.search };
   drawStatus();
 }

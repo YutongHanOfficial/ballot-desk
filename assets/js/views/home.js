@@ -59,15 +59,29 @@ export function render(root) {
   for (const [key, arr] of [['mSen', mkt.senate], ['mHouse', mkt.house]]) {
     for (const [t, v] of arr || []) { const o = byT.get(t) || { t }; o[key] = v; byT.set(t, o); }
   }
-  const hist = [...byT.values()].sort((a, b) => a.t.localeCompare(b.t));
-  // Polymarket's daily prices go back months; our own forecast history only starts when the model went live,
-  // so it is drawn on top and always ends in a labeled dot, however short its line is.
+  // Before the model went live: the same model re-run on each day's inputs (data/backcast.json), drawn dashed
+  // and joined to the live line at its first run.
   const firstModel = (store.history.points || []).find(p => p.sen !== undefined && p.sen !== null);
+  const back = firstModel ? (store.backcast?.points || []).filter(p => p.t < firstModel.t) : [];
+  // Each re-run day joins the nearest Polymarket reading (within 6 hours), so hovering shows both side by side.
+  const stamps = [...byT.keys()].map(t => [Date.parse(t), t]).sort((a, b) => a[0] - b[0]);
+  for (const p of back) {
+    const ms = Date.parse(p.t);
+    const near = stamps.reduce((best, s) => Math.abs(s[0] - ms) < Math.abs(best[0] - ms) ? s : best, [Infinity, null]);
+    const key = near[1] && Math.abs(near[0] - ms) <= 6 * 3600e3 ? near[1] : p.t;
+    const o = byT.get(key) || { t: key };
+    Object.assign(o, { bSen: p.sen, bHouse: p.house });
+    byT.set(key, o);
+  }
+  if (back.length) Object.assign(byT.get(firstModel.t), { bSen: firstModel.sen, bHouse: firstModel.house });
+  const hist = [...byT.values()].sort((a, b) => a.t.localeCompare(b.t));
   const histCard = h('div', { class: 'card span2' },
     h('div', { class: 'card-title' }, 'Chance of Democratic control over time'),
     historyChart(hist, [
-      { key: 'mSen', label: 'Senate (Polymarket)', color: 'var(--dem)', width: 1.75 },
-      { key: 'mHouse', label: 'House (Polymarket)', color: 'var(--ink-2)', width: 1.75 },
+      { key: 'mSen', label: 'Senate (Polymarket)', color: 'var(--dem)', width: 1.5, opacity: back.length ? 0.55 : null },
+      { key: 'mHouse', label: 'House (Polymarket)', color: 'var(--ink-2)', width: 1.5, opacity: back.length ? 0.55 : null },
+      { key: 'bSen', label: 'Senate (our model, re-run)', color: 'var(--dem)', width: 2.5, dash: '5 4' },
+      { key: 'bHouse', label: 'House (our model, re-run)', color: 'var(--ink-2)', width: 2.5, dash: '5 4' },
       { key: 'sen', label: 'Senate (our forecast)', color: 'var(--dem)', width: 3, marker: true },
       { key: 'house', label: 'House (our forecast)', color: 'var(--ink-2)', width: 3, marker: true },
     ]),
@@ -75,8 +89,11 @@ export function render(root) {
       h('span', null, h('i', { style: { background: 'var(--dem)' } }), 'Senate'),
       h('span', null, h('i', { style: { background: 'var(--ink-2)' } }), 'House'),
       h('span', null, h('i', { class: 'lg-line' }), 'Polymarket, daily'),
-      h('span', null, h('i', { class: 'lg-dot' }), 'Our forecast')),
-    firstModel ? h('p', { class: 'xs muted', style: { margin: '6px 0 0' } }, `Our forecast’s own history starts ${fmtDate(firstModel.t)}, so its line is short; the dots mark where it stands now.`) : null);
+      h('span', null, h('i', { class: 'lg-dot' }), 'Our forecast'),
+      back.length ? h('span', null, h('i', { class: 'lg-dash' }), 'Our model, re-run on earlier days') : null),
+    firstModel ? h('p', { class: 'xs muted', style: { margin: '6px 0 0' } }, back.length
+      ? [`Before ${fmtDate(firstModel.t)}, when our forecast went live, the dashed line is the same model re-run for each day on the polls, forecaster ratings, generic ballot and Polymarket prices published by then (with this fall’s nominees throughout). `, h('a', { href: '/methodology#backcast' }, 'How it was rebuilt')]
+      : `Our forecast’s own history starts ${fmtDate(firstModel.t)}, so its line is short; the dots mark where it stands now.`) : null);
 
   const gb = env.generic;
   const ap = env.approval;

@@ -51,6 +51,17 @@ turns them into:
 
 They are built once and committed. To rebuild: `npm install && npm run geo` (needs `unzip`).
 
+### Forecast history before launch
+
+The model went live late on November 1, so the forecast-history chart's dashed lead-in is a re-run: the same model,
+once a day back to June 6, on the inputs published by that day. Ratings and the generic-ballot aggregates come
+from the Wikipedia pages' edit history (weekly snapshots, parsed with `build_races.py`'s code), polls from
+VoteHub in the order it logged them (`created_at`, counted from the next day) and race prices from Polymarket's
+daily price history. Only the race list (this fall's nominees) and each market's total volume come from
+hindsight. `data/backcast.json` also stores a check: the re-run at the moment of the first live run, beside what
+the live model said. Rebuild: `python3 pipeline/backcast_inputs.py && node pipeline/backcast.mjs` (the data bot
+never touches this file).
+
 ### Candidate photos
 
 Headshots are the lead images of the candidates' English Wikipedia articles. The article comes from the link on
