@@ -1,8 +1,8 @@
 // District maps: the national House map (geographic or equal-size hexagons) and per-state district maps.
 // Boundaries are the Census Bureau's 2026 (120th Congress) districts, built by pipeline/build_geo.mjs.
-import { h, s, probColor, partyVar, tooltip, esc } from './ui.js';
-import { store, cur, awaiting, raceFill, nightMode } from './store.js';
-import { raceTip, mapLegend, currentLegendEl } from './charts.js';
+import { h, s, tooltip, esc, marginFill, hatchFill } from './ui.js';
+import { store, awaiting, raceFill, nightMode, counting } from './store.js';
+import { raceTip, mapLegend, marginLegend } from './charts.js';
 
 const d3 = window.d3;
 const topojson = window.topojson;
@@ -27,6 +27,38 @@ function withGeo(urls, build, height) {
 // ------------------------------------------------------------------------------------------- colour
 
 export { raceFill };
+
+/** A layer of stripes over the races still being counted; empty outside election night. */
+function stripesFor(svg, items) {
+  const layer = s('g', { class: 'hatch' });
+  const live = items.filter(([r]) => counting(r));
+  if (live.length) {
+    const fill = hatchFill(svg);
+    for (const [, shape] of live) layer.appendChild(shape(fill));
+  }
+  return layer;
+}
+
+// District numbers: round badges that keep one size on screen at any zoom (each is scaled by 1/zoom inside the
+// zoomed layer) and never overlap. Bigger districts get a contested spot first; the rest appear as you zoom in.
+function districtBadge(n, [x, y], { size, width, target = false }) {
+  const g = s('g', { class: `dbadge${target ? ' target' : ''}`, 'data-x': x.toFixed(1), 'data-y': y.toFixed(1), 'data-size': target ? 1e9 : size.toFixed(0), 'data-w': target ? 1e9 : width.toFixed(1) });
+  g.append(s('circle', { r: 9 }), s('text', null, String(n)));
+  return g;
+}
+
+function placeBadges(layer, k, { minK = 1, minWidth = 20 } = {}) {
+  const gap = 20;   // badge diameter plus a little air, in screen units
+  const items = [...layer.children].map(el => ({ el, x: +el.dataset.x, y: +el.dataset.y, size: +el.dataset.size, w: +el.dataset.w }))
+    .sort((a, b) => b.size - a.size);
+  const placed = [];
+  for (const it of items) {
+    let show = k >= minK && it.w * k >= minWidth;
+    if (show) show = !placed.some(q => Math.hypot((q.x - it.x) * k, (q.y - it.y) * k) < gap);
+    it.el.style.display = show ? '' : 'none';
+    if (show) { placed.push(it); it.el.setAttribute('transform', `translate(${it.x},${it.y}) scale(${(1 / k).toFixed(4)})`); }
+  }
+}
 
 function hoverable(el, r, tipFn = raceTip) {
   const tip = tooltip();
@@ -124,7 +156,7 @@ export function houseMap({ id = 'house', caption = true, fill = raceFill, tip = 
   }
   wrap.append(h('div', { class: 'map-toolbar' }, seg,
     caption ? h('span', { class: 'xs muted map-hint' }, VIEW.mode === 'hex' ? 'Every district the same size' : 'Click a state to zoom · pinch or Ctrl/⌘-scroll') : null),
-    body, legend ? (legend instanceof Node ? legend : mapLegend(legend)) : currentLegendEl({ check: false }));
+    body, legend ? (legend instanceof Node ? legend : mapLegend(legend)) : marginLegend({ check: false, ind: false }));
   draw();
   // keep the hint in sync with the mode
   seg.addEventListener('click', () => { const hint = wrap.querySelector('.map-hint'); if (hint) hint.textContent = VIEW.mode === 'hex' ? 'Every district the same size' : 'Click a state to zoom · pinch or Ctrl/⌘-scroll'; });
@@ -151,22 +183,15 @@ function geoMap(topo, key, { fill = raceFill, tip: tipFn = raceTip } = {}) {
       });
     }
     layer.appendChild(p);
-    if (r && r.district) {
-      const t = s('text', { x: f.c[0].toFixed(1), y: f.c[1].toFixed(1), 'data-w': f.w.toFixed(1) }, String(r.district));
-      labels.appendChild(t);
-    }
+    if (r && r.district) labels.appendChild(districtBadge(r.district, f.c, { size: f.w * (f.b[1][1] - f.b[0][1]), width: f.w }));
   }
   layer.append(
+    stripesFor(svg, shapes.feats.map(f => [store.byId[f.id], (fill) => s('path', { d: f.d, fill })])),
     s('path', { d: shapes.borders, class: 'state-borders' }),
     s('path', { d: shapes.coast, class: 'coast' }),
     labels);
   svg.appendChild(layer);
-  const placeLabels = (t) => {
-    const k = t ? t.k : 1;
-    labels.style.fontSize = `${11 / k}px`;
-    labels.style.display = k >= 1.9 ? '' : 'none';
-    if (k >= 1.9) for (const el of labels.children) el.style.display = (+el.dataset.w * k > 20) ? '' : 'none';
-  };
+  const placeLabels = (t) => placeBadges(labels, t ? t.k : 1, { minK: 1.9 });
   api = attachZoom(svg, layer, { key, width: W, height: H, onZoom: placeLabels });
   placeLabels(ZOOM[key]);
 
@@ -197,6 +222,7 @@ function hexMap(hex, { fill = raceFill, tip: tipFn = raceTip, mark = null } = {}
     }
     svg.appendChild(poly);
   }
+  svg.appendChild(stripesFor(svg, Object.entries(hex.cells).map(([id, [x, y]]) => [store.byId[id], (fill) => s('polygon', { points: hexPoints(x, y, hex.r), fill })])));
   svg.appendChild(s('path', { d: hex.borders, class: 'hex-borders' }));
   // Optional check marks (mark: race => bool). The House maps leave them off: projected seats are solid instead.
   if (mark) {
@@ -268,18 +294,17 @@ function buildStateMap(code, topo, { highlight, width: W, maxHeight, zoomKey }) 
     }
     layer.appendChild(p);
     const area = path.area(f);
-    if (r && r.district && (area > 700 || isTarget)) {
-      const [cx, cy] = path.centroid(f);
-      if (Number.isFinite(cx)) labels.appendChild(s('text', { x: cx.toFixed(1), y: (cy + 4).toFixed(1), class: isTarget ? 'target' : '' }, String(r.district)));
-    }
+    const c = path.centroid(f);
+    if (r && r.district && Number.isFinite(c[0])) labels.appendChild(districtBadge(r.district, c, { size: area, width: Math.sqrt(area), target: isTarget }));
   }
+  if (!highlight) layer.appendChild(stripesFor(svg, fc.features.map(f => [store.byId[f.properties.id], (fill) => s('path', { d: path(f), fill })])));
   if (target) layer.appendChild(s('path', { d: path(target), class: 'target-outline' }));
   layer.appendChild(s('path', { d: path(topojson.mesh(topo, topo.objects.districts, (a, b) => a === b)), class: 'coast' }));
   layer.appendChild(labels);
   svg.appendChild(layer);
+  placeBadges(labels, (zoomKey && ZOOM[zoomKey]?.k) || 1, { minWidth: 24 });
   if (!zoomKey) return h('div', { class: 'map-frame' }, svg);
-  const api = attachZoom(svg, layer, { key: zoomKey, width: W, height: H, maxK: 12, onZoom: (t) => { labels.style.fontSize = `${12 / t.k}px`; } });
-  if (ZOOM[zoomKey]) labels.style.fontSize = `${12 / ZOOM[zoomKey].k}px`;
+  const api = attachZoom(svg, layer, { key: zoomKey, width: W, height: H, maxK: 12, onZoom: (t) => placeBadges(labels, t.k, { minWidth: 24 }) });
   return h('div', { class: 'map-frame' }, svg, zoomButtons(api));
 }
 
@@ -291,17 +316,12 @@ export function countyResults(raceId) {
   return store.live.counties?.[raceId] || null;
 }
 
-// Lightest step: a paler tint of the "lean" shade, so darker always means a bigger margin.
-const tint = (party) => `color-mix(in srgb, ${partyVar(party, 3)} 50%, #ffffff)`;
-function marginFill(party, m) {
-  const a = Math.abs(m);
-  return a >= 30 ? partyVar(party, 1) : a >= 15 ? partyVar(party, 2) : a >= 5 ? partyVar(party, 3) : tint(party);
+/** Key for the county maps: the same margin scale, by candidate on election night, by party for 2024. */
+export function countyLegend(race = null, live = false) {
+  if (!race || !live) return marginLegend({ results: false, caption: '2024 presidential margin (points)', leftName: 'Harris (D)', rightName: 'Trump (R)', extras: [] });
+  return marginLegend({ results: true, caption: 'lead in the county (points)', left: race.leftParty, right: race.rightParty,
+    leftName: lastNameOf(race.left), rightName: lastNameOf(race.right), extras: [['var(--novotes)', 'No votes yet'], ['var(--await)', 'Polls open']] });
 }
-
-export const COUNTY_LEGEND = [
-  ['var(--dem)', 'D +30'], ['var(--dem-2)', '+15'], ['var(--dem-3)', '+5'], ['color-mix(in srgb, var(--dem-3) 50%, #ffffff)', '<5'],
-  ['color-mix(in srgb, var(--rep-3) 50%, #ffffff)', '<5'], ['var(--rep-3)', '+5'], ['var(--rep-2)', '+15'], ['var(--rep)', 'R +30'],
-];
 
 /**
  * A state's counties. With a race and county results available (election night, or a simulation), counties

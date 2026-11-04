@@ -38,10 +38,14 @@ export const esc = (str) => String(str ?? '').replace(/[&<>"']/g, c => ({ '&': '
 
 // ---------------------------------------------------------------- formatting
 
-export function pct(p, { digits = 0, extremes = true } = {}) {
+/** A probability as a percentage, to one decimal by default (close races read apart: 51.4% vs 54.2%). */
+export function pct(p, { digits = 1, extremes = true } = {}) {
   if (p === null || p === undefined || Number.isNaN(p)) return '—';
-  if (extremes && p > 0.99 && p < 1) return '>99%';
-  if (extremes && p < 0.01 && p > 0) return '<1%';
+  if (p >= 1) return '100%';
+  if (p <= 0) return '0%';
+  const edge = 10 ** -(digits + 2);   // the smallest step shown: 0.1% at one decimal
+  if (extremes && p > 1 - edge) return `>${(100 - edge * 100).toFixed(digits)}%`;
+  if (extremes && p < edge) return `<${(edge * 100).toFixed(digits)}%`;
   return `${(p * 100).toFixed(digits)}%`;
 }
 
@@ -131,24 +135,39 @@ export function partyVar(party, level = 1) {
 }
 
 /** Fill colour for a probability (left side) given each side's party. */
-export function probColor(pLeft, leftParty, rightParty) {
-  if (pLeft === null || pLeft === undefined) return 'var(--none)';
-  const q = Math.max(pLeft, 1 - pLeft);
-  const party = pLeft >= 0.5 ? leftParty : rightParty;
-  if (q < 0.6) return 'var(--toss)';
-  if (q < 0.8) return partyVar(party, 3);
-  if (q < 0.95) return partyVar(party, 2);
-  return partyVar(party, 1);
+/** "Likely D", "Tilt Osborn"…: a race's margin band in words (margin = left minus right, in points). */
+export function bandLabel(margin, race) {
+  if (margin === null || margin === undefined) return '—';
+  if (margin === 0) return 'Toss-up';
+  const party = margin > 0 ? race.leftParty : race.rightParty;
+  const who = party === 'D' || party === 'R' ? party : lastName(margin > 0 ? race.left : race.right);
+  return `${marginBand(margin).label} ${who}`;
 }
 
-export function bandLabel(pLeft, race) {
-  const q = Math.max(pLeft, 1 - pLeft);
-  const party = pLeft >= 0.5 ? race.leftParty : race.rightParty;
-  const who = party === 'D' || party === 'R' ? party : lastName(pLeft >= 0.5 ? race.left : race.right);
-  if (q < 0.6) return 'Toss-up';
-  if (q < 0.8) return `Lean ${who}`;
-  if (q < 0.95) return `Likely ${who}`;
-  return `Solid ${who}`;
+// Every map shades a race by its margin in points, on one scale: the final forecast's projected margin before
+// results (and on forecast pages), the margin in the count once votes are in. Darker always means a bigger margin.
+export const MARGIN_BANDS = [
+  { key: 'safe', label: 'Safe', min: 15, range: '15+' },
+  { key: 'likely', label: 'Likely', min: 5, range: '5–15' },
+  { key: 'lean', label: 'Lean', min: 1, range: '1–5' },
+  { key: 'tilt', label: 'Tilt', min: 0, range: '<1' },
+];
+export const marginBand = (margin) => MARGIN_BANDS.find(b => Math.abs(margin) >= b.min);
+/** Map fill for a race `party` wins or leads by `margin` points (the --dem-safe… tokens in app.css). */
+export function marginFill(party, margin) {
+  if (margin === null || margin === undefined || Number.isNaN(margin)) return 'var(--none)';
+  if (margin === 0) return 'var(--toss)';
+  const f = FAMILY[party];
+  return f ? `var(--${f}-${marginBand(margin).key})` : 'var(--oth)';
+}
+
+let hatchSeq = 0;
+/** Adds the stripe pattern for races still counting to an SVG; returns the fill that draws it. */
+export function hatchFill(svg) {
+  const id = `bd-hatch-${++hatchSeq}`;
+  svg.appendChild(s('defs', null, s('pattern', { id, width: 7, height: 7, patternUnits: 'userSpaceOnUse', patternTransform: 'rotate(45)' },
+    s('rect', { width: 2.6, height: 7, class: 'hatch-stripe' }))));
+  return `url(#${id})`;
 }
 
 export const RATING_COLORS = (r) => {

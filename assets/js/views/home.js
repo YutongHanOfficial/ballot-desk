@@ -1,6 +1,6 @@
-import { h, pct, num, timeAgo, probColor, partyVar, lastName, esc, fmtDate, fmtTimeET } from '../ui.js';
+import { h, pct, num, timeAgo, partyVar, lastName, esc, fmtDate, fmtTimeET } from '../ui.js';
 import { store, cur, chamber, racesOf, raceFill, projected, forecastFinal } from '../store.js';
-import { usMap, currentLegendEl, historyChart, raceTip } from '../charts.js';
+import { usMap, marginLegend, historyChart, raceTip } from '../charts.js';
 import { houseMap } from '../maps.js';
 import { chamberCard, raceCard, headline, electionBanner, CHAMBERS, supportNote } from './common.js';
 import { navigate } from '../nav.js';
@@ -140,9 +140,9 @@ export function render(root) {
     houseMap({ id: 'home' })));
   root.append(h('section', { class: 'section grid g2' },
     h('div', { class: 'card' }, h('div', { class: 'card-title' }, 'Senate forecast', h('a', { class: 'more', href: '/senate' }, 'Details →')),
-      usMap({ fill: stateFill('senate'), onClick: go('senate'), tip: stateTip('senate'), mark: stateCalled('senate') }), currentLegendEl()),
+      usMap({ fill: stateFill('senate'), onClick: go('senate'), tip: stateTip('senate'), mark: stateCalled('senate') }), marginLegend()),
     h('div', { class: 'card' }, h('div', { class: 'card-title' }, 'Governor forecast', h('a', { class: 'more', href: '/governors' }, 'Details →')),
-      usMap({ fill: stateFill('gov'), onClick: go('gov'), tip: stateTip('gov'), mark: stateCalled('gov') }), currentLegendEl())));
+      usMap({ fill: stateFill('gov'), onClick: go('gov'), tip: stateTip('gov'), mark: stateCalled('gov') }), marginLegend())));
 
   // Tipping point
   const tip = Object.entries(chamber('senate').tipping || store.forecast.control.senate.tipping || {}).slice(0, 8);
@@ -157,7 +157,7 @@ export function render(root) {
           return h('a', { href: r.url, style: { display: 'grid', gridTemplateColumns: '120px 1fr 48px', gap: '10px', alignItems: 'center', padding: '6px 0', textDecoration: 'none' } },
             h('span', { style: { fontWeight: 650 } }, r.stateName),
             h('span', { style: { height: '10px', borderRadius: '99px', background: 'var(--surface-2)', position: 'relative', overflow: 'hidden' } },
-              h('i', { style: { position: 'absolute', left: 0, top: 0, bottom: 0, width: `${(v / maxv) * 100}%`, background: probColor(cur(r).p, r.leftParty, r.rightParty) } })),
+              h('i', { style: { position: 'absolute', left: 0, top: 0, bottom: 0, width: `${(v / maxv) * 100}%`, background: raceFill(r) } })),
             h('span', { class: 'tnum small', style: { textAlign: 'right' } }, pct(v)));
         })),
       flipsCard()));
@@ -188,7 +188,7 @@ export function stateGrid() {
     const rs = store.byState[st.code] || [];
     const top = rs.filter(r => r.type === 'senate' || r.type === 'gov');
     return h('a', { class: 'state-link', href: `/state/${st.code}` }, h('span', null, st.name),
-      h('span', { class: 'badges' }, top.map(r => h('i', { title: r.title, style: { background: probColor(cur(r).p ?? (r.left ? 1 : 0), r.leftParty, r.rightParty) } }))));
+      h('span', { class: 'badges' }, top.map(r => h('i', { title: r.title, style: { background: raceFill(r) } }))));
   }));
 }
 

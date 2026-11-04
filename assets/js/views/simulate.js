@@ -1,7 +1,7 @@
 // Simulator page: draw one outcome instantly, or launch an election-night replay.
 import { h, pct, num, partyVar, partyChip, esc, lastName, PARTY_NAME, sortableTable } from '../ui.js';
 import { store } from '../store.js';
-import { histogram, usMap, mapLegend } from '../charts.js';
+import { histogram, usMap, marginLegend } from '../charts.js';
 import { houseMap } from '../maps.js';
 import { makeScenario, startNight, stopSim, randomSeed, simFill, clockLabel, ensureSimData } from '../sim.js';
 import { navigate } from '../nav.js';
@@ -128,7 +128,7 @@ function resultView(sc, seed, err) {
   };
   wrap.append(h('div', { class: 'grid g3', style: { marginTop: '16px' } }, card('senate', 'Senate', 100, 51), card('house', 'House', 435, 218), card('gov', 'Governors', 50, 26)));
 
-  const LEGEND = [['var(--dem)', 'D by 15+'], ['var(--dem-2)', 'D by 5–15'], ['var(--dem-3)', 'D by <5'], ['var(--rep-3)', 'R by <5'], ['var(--rep-2)', 'R by 5–15'], ['var(--rep)', 'R by 15+'], ['var(--ind)', 'Independent']];
+  const key = (ind) => marginLegend({ results: false, caption: 'simulated margin (points)', extras: ind ? [['var(--ind-likely)', 'Independent']] : [] });
   const tip = (r) => {
     const p = sc.races[r.id];
     if (!p) return '';
@@ -142,11 +142,10 @@ function resultView(sc, seed, err) {
   const stateTip = (type) => (code) => { const r = store.races.find(x => x.type === type && x.state === code); return r ? tip(r) : `<div class="tt-title">${esc(store.stateByCode[code]?.name)}</div><div class="muted">No race</div>`; };
   const go = (type) => (code) => { const r = store.races.find(x => x.type === type && x.state === code); if (r) navigate(r.url); };
   wrap.append(
-    h('div', { class: 'card section' }, h('div', { class: 'card-title' }, 'House results in this simulation'), houseMap({ id: 'sim', fill: fillFor, tip, caption: false }),
-      mapLegend(LEGEND)),
+    h('div', { class: 'card section' }, h('div', { class: 'card-title' }, 'House results in this simulation'), houseMap({ id: 'sim', fill: fillFor, tip, caption: false, legend: key(false) })),
     h('div', { class: 'grid g2 section' },
-      h('div', { class: 'card' }, h('div', { class: 'card-title' }, 'Senate'), usMap({ fill: stateFill('senate'), tip: stateTip('senate'), onClick: go('senate') }), mapLegend(LEGEND.slice(0, 6))),
-      h('div', { class: 'card' }, h('div', { class: 'card-title' }, 'Governors'), usMap({ fill: stateFill('gov'), tip: stateTip('gov'), onClick: go('gov') }), mapLegend(LEGEND.slice(0, 6)))));
+      h('div', { class: 'card' }, h('div', { class: 'card-title' }, 'Senate'), usMap({ fill: stateFill('senate'), tip: stateTip('senate'), onClick: go('senate') }), key(true)),
+      h('div', { class: 'card' }, h('div', { class: 'card-title' }, 'Governors'), usMap({ fill: stateFill('gov'), tip: stateTip('gov'), onClick: go('gov') }), key(true))));
 
   const flipChip = (f) => h('a', { href: f.r.url, style: { color: partyVar(f.party) } }, `${f.r.short} → ${f.party} +${Math.abs(f.margin).toFixed(1)}`);
   const order = { senate: 0, gov: 1, house: 2, ltgov: 3, ag: 4, sos: 5 };

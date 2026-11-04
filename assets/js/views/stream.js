@@ -59,7 +59,7 @@ export function render(root) {
       h('select', { class: 'input', onchange: (e) => { OPTS.rotate = +e.target.value; draw(); } }, [10, 15, 20, 30, 60].map(v => h('option', { value: v, selected: v === OPTS.rotate || null }, `${v} seconds`)))),
     h('div', { class: 'sk-opt' }, h('b', null, 'Look'),
       h('div', { class: 'sk-checks' },
-        check('Color maps by live chance of winning instead of results', OPTS.odds, (v) => { OPTS.odds = v; }),
+        check('Shade maps by projected final margin instead of the count', OPTS.odds, (v) => { OPTS.odds = v; }),
         check('Light background', OPTS.light, (v) => { OPTS.light = v; }))),
     h('div', { class: 'sk-opt' }, h('b', null, 'Rehearsal'),
       h('div', { class: 'sk-checks' }, check('Play a simulated election night at 10× speed (switch off before you go live)', OPTS.rehearse, (v) => { OPTS.rehearse = v; }))));

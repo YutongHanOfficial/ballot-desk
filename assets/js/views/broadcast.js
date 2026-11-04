@@ -6,13 +6,13 @@
 //   ?overlay=scoreboard|ticker|alerts   one piece only, transparent background
 //   ?panel=senate,house,gov,races,calls  ?rotate=15 (seconds per panel)  ?map=odds  ?theme=light
 //   ?demo=live&speed=10                 rehearse on a simulated night
-import { h, pct, num, partyVar, lastName, fmtTimeET, probColor, marginText } from '../ui.js';
-import { store, subscribe, cur, chamber, marketControl, racesOf, nightMode, awaiting, raceFill, leadFill } from '../store.js';
+import { h, pct, num, partyVar, lastName, fmtTimeET, marginText } from '../ui.js';
+import { store, subscribe, cur, chamber, marketControl, racesOf, nightMode, awaiting, raceFill, projectionFill, counting } from '../store.js';
 import { calledSeats, resultsEnabled, houseVote } from '../live.js';
 import { CONFIG, pollCloseDate, POLL_CLOSE_ET } from '../config.js';
 import { CHAMBERS } from './common.js';
 import { stateFill, stateCalled } from './home.js';
-import { usMap, mapLegend, resultScale, BAND_LEGEND } from '../charts.js';
+import { usMap, marginLegend } from '../charts.js';
 import { houseHex } from '../maps.js';
 import { loadGeo } from '../geo.js';
 import { clockLabel } from '../sim.js';
@@ -159,13 +159,7 @@ const closeTime = (r) => fmtTimeET(pollCloseDate(r.state)).replace(' ET', '').re
 /** The side a probability favours: { party, tag: 'D' / 'R' / an independent's surname, q }. */
 function favOdds(r, p) {
   const left = p >= 0.5, party = left ? r.leftParty : r.rightParty;
-  return { party, tag: party === 'D' || party === 'R' ? party : lastName(left ? r.left : r.right), q: Math.min(0.99, Math.max(p, 1 - p)) };
-}
-
-function oddsFill(r) {
-  if (!r) return 'var(--none)';
-  if (!r.left || !r.right) return partyVar((r.left ? r.leftParty : r.rightParty) || r.samePartyGeneral, 1);
-  return probColor(cur(r).p, r.leftParty, r.rightParty);
+  return { party, tag: party === 'D' || party === 'R' ? party : lastName(left ? r.left : r.right), q: Math.min(0.999, Math.max(p, 1 - p)) };
 }
 
 /** The next poll closing still to come, with its states. */
@@ -279,7 +273,7 @@ function chamberBlock(type, o) {
   return h('div', { class: 'bc-chamber bc-card' },
     h('div', { class: 'bc-ch-head' }, h('b', null, C.name), h('span', null, `${C.need} for control${type !== 'house' ? ' · counts seats not up' : ''}`)),
     h('div', { class: 'bc-seats' }, side('D', s.D, L.D, false), h('span', { class: 'bc-tocall' }, und ? `${und} uncalled` : 'All called'), side('R', s.R, L.R, true)),
-    h('div', { class: 'bc-bar' }, seg(s.D, 'var(--dem)'), seg(L.D, leadFill('D', 7)), seg(und, 'var(--none)'), seg(s.O + L.O, 'var(--oth)'), seg(L.R, leadFill('R', 7)), seg(s.R, 'var(--rep)'),
+    h('div', { class: 'bc-bar' }, seg(s.D, 'var(--dem)'), seg(L.D, 'var(--dem-lean)'), seg(und, 'var(--none)'), seg(s.O + L.O, 'var(--oth)'), seg(L.R, 'var(--rep-lean)'), seg(s.R, 'var(--rep)'),
       h('b', { class: 'bc-need', style: { left: `${(C.need / total) * 100}%` } })),
     odds,
     mk && mk.pD !== null && mk.pD !== undefined && !o.vertical ? h('div', { class: 'bc-mkt' }, `Polymarket: Democrats ${pct(mk.pD)} · Republicans ${pct(mk.pR ?? 1 - mk.pD)}`) : null);
@@ -293,20 +287,22 @@ function panel(kind, o, index) {
   const night = nightMode();
   if (kind === 'senate' || kind === 'gov' || kind === 'house') {
     const results = night && !o.odds;
-    const fill = results ? raceFill : oddsFill;
-    const map = kind === 'house' ? houseHex({ fill }) : usMap({ fill: stateFill(kind, fill), mark: stateCalled(kind) });
+    const fill = results ? raceFill : projectionFill;
+    const map = kind === 'house' ? houseHex({ fill }) : usMap({ fill: stateFill(kind, fill), mark: stateCalled(kind), hatch: stateFill(kind, counting) });
     const races = racesOf(kind).filter(r => r.left || r.right);
     const called = races.filter(r => store.live.results[r.id]?.called).length;
-    const counting = races.filter(r => { const x = store.live.results[r.id]; return x && x.total > 0 && !x.called; }).length;
-    // 435 check marks would bury the House map: there, projected seats are simply solid.
-    const note = !night ? 'Colored by our forecast until results arrive'
-      : !results ? 'Colored by each race’s live chance of winning'
-      : kind === 'house' ? 'Projected seats are solid; the rest are shaded by the current lead' : 'Projected races carry a check mark; the rest are shaded by the current lead';
+    const nCounting = races.filter(counting).length;
+    // 435 check marks would bury the House map: there, stripes alone mark the seats still being counted.
+    const note = !night ? 'Shaded by our final forecast until results arrive'
+      : !results ? 'Shaded by each race’s projected final margin'
+      : kind === 'house' ? 'Shaded by the lead in the count; striped seats are still counting' : 'Projected races carry a check mark; striped ones are still counting';
+    const key = marginLegend({ results: night, check: kind !== 'house', caption: night && !results ? 'projected final margin (points)' : undefined,
+      extras: night ? [kind !== 'house' ? ['check', 'Projected'] : null, ['hatch', 'Still counting'], ['var(--novotes)', 'No votes yet']].filter(Boolean) : [['var(--norace)', 'No race']] });
     return h('div', { class: `bc-p bc-mapp${o.vertical ? ' stack' : ''}` }, head(PANEL_TITLE[kind], note),
       h('div', { class: 'bc-maprow' },
         h('div', { class: 'bc-mapcol' }, h('div', { class: 'bc-map' }, map),
-          h('div', { class: 'bc-mapfoot' }, results ? resultScale({ check: kind !== 'house' }) : mapLegend(BAND_LEGEND.slice(0, 7)),
-            h('div', { class: 'bc-sum' }, h('span', null, h('b', null, called), ` of ${races.length} projected`), night ? h('span', null, h('b', null, counting), ' counting') : null))),
+          h('div', { class: 'bc-mapfoot' }, key,
+            h('div', { class: 'bc-sum' }, h('span', null, h('b', null, called), ` of ${races.length} projected`), night ? h('span', null, h('b', null, nCounting), ' counting') : null))),
         watchList(kind, o.vertical ? 2 : 3)));
   }
   if (kind === 'races') {
@@ -428,9 +424,9 @@ function tickerItems() {
   const items = [];
   const calls = callsNow().filter(c => c.r.type !== 'house' || c.flip || (c.r.p > 0.15 && c.r.p < 0.85)).slice(0, 10);
   for (const c of calls) items.push(h('span', { class: 'bc-item' }, h('i', { class: `party-chip ${c.party}` }, c.party), h('b', null, '✓'), `${lastName(c.name)} wins ${callTag(c.r)}${c.flip ? ` · ${c.party} pickup` : ''}`));
-  const counting = store.races.filter(r => (r.type === 'senate' || r.type === 'gov') && r.left && r.right && r.p > 0.1 && r.p < 0.9)
-    .filter(r => { const x = store.live.results[r.id]; return x && x.total > 0 && !x.called; });
-  for (const r of counting.slice(0, 8)) {
+  const close = store.races.filter(r => (r.type === 'senate' || r.type === 'gov') && r.left && r.right && r.p > 0.1 && r.p < 0.9)
+    .filter(counting);
+  for (const r of close.slice(0, 8)) {
     const x = store.live.results[r.id];
     items.push(h('span', { class: 'bc-item' }, h('b', null, callTag(r)), ` ${lastName(r.left)} ${((x.left / x.total) * 100).toFixed(1)}% · ${lastName(r.right)} ${((x.right / x.total) * 100).toFixed(1)}% · ${inText(x.eevp)}`));
   }

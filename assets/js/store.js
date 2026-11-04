@@ -1,5 +1,5 @@
 // Loads the precomputed data files and exposes merged race objects to the views.
-import { ordinal, probColor, partyVar } from './ui.js';
+import { ordinal, marginFill } from './ui.js';
 import { CONFIG, pollCloseDate } from './config.js';
 import { samePerson } from './model.js';
 
@@ -16,6 +16,9 @@ export const store = {
   loadedAt: null,
   dataStamp: null,    // Last-Modified of the forecast.json we have, to spot a newer deploy (live.js)
   sim: null,          // a running election-night simulation (sim.js)
+  // Set by the router while a forecast page is on screen (the forecast, Senate, House, Governors): every number,
+  // colour and map there stays at the final pre-election forecast, whatever results and live prices do.
+  frozen: false,
 };
 
 const listeners = new Set();
@@ -100,6 +103,7 @@ function buildRace(r) {
 
 /** Current view of a race: live estimate when votes are being counted, else the pre-election forecast. */
 export function cur(race) {
+  if (store.frozen) return forecastOf(race);
   const L = store.live;
   const est = L.est && L.est[race.id];
   const res = L.results[race.id] || null;
@@ -111,25 +115,32 @@ export function cur(race) {
   return { p: race.p, mu: race.mu, sd: race.sd, live: false, called: null, result: res, eevp: res?.eevp ?? 0, marketP };
 }
 
+/** A race's final pre-election forecast, shaped like cur() but never moved by results or live prices. */
+export function forecastOf(race) {
+  return { p: race.p, mu: race.mu, sd: race.sd, live: false, called: null, result: null, eevp: 0, marketP: race.market?.pLeft ?? null };
+}
+
 /** Chamber summary in force right now: live simulation if results exist, else the pre-election forecast. */
 export function chamber(type) {
-  const live = store.live.sim && store.live.active ? store.live.sim[type] : null;
+  const live = !store.frozen && store.live.sim && store.live.active ? store.live.sim[type] : null;
   return { ...(live || store.forecast.control[type]), live: !!live };
 }
 
 /**
  * Same-party race (California's top two): A's chance against B right now. Called results win, then the live
  * model once votes are counted, then the live market price folded in like the forecast does, then the forecast.
+ * final (the default on forecast pages): the pre-election forecast alone.
  */
-export function duelNow(r) {
+export function duelNow(r, { final = store.frozen } = {}) {
   const d = r.duel;
   if (!d) return null;
   const res = store.live.results[r.id]?.duel || null;
   const est = store.live.est?.[r.id]?.duel;
-  const mk = store.live.markets[r.id] || r.market;
+  const mk = (!final && store.live.markets[r.id]) || r.market;
   const price = (name) => mk?.outcomes?.find(o => o.name && samePerson(o.name, name))?.p ?? null;
   const pa = price(d.a), pb = price(d.b);
   const marketA = pa !== null && pb !== null && pa + pb > 0 ? pa / (pa + pb) : d.marketA ?? null;
+  if (final) return { ...d, live: false, called: null, result: null, marketA };
   if (res?.won) return { ...d, pA: res.won === 'a' ? 1 : 0, live: true, called: res.won, result: res, marketA };
   if (est && est.live && res && res.total > 0) return { ...d, pA: est.pLeft, mu: est.mu, sd: est.sd, live: true, called: null, result: res, marketA };
   return { ...d, live: false, called: null, result: res, marketA };
@@ -138,41 +149,58 @@ export function duelNow(r) {
 export function marketControl(type) {
   const live = store.live.control[type];
   const base = store.forecast.markets?.[type];
-  if (live && live.pD !== null && live.pD !== undefined) return { ...base, ...live, live: true };
+  if (!store.frozen && live && live.pD !== null && live.pD !== undefined) return { ...base, ...live, live: true };
   return base || null;
 }
 
 export function racesOf(type) { return store.races.filter(r => r.type === type); }
 
 /** Election night (real or simulated) with results flowing: maps switch from forecast to results colours. */
-export const nightMode = () => !!store.sim || store.live.active;
+export const nightMode = () => !store.frozen && (!!store.sim || store.live.active);
 
 /** The pre-election forecast stops re-running when the first polls close (pipeline/refresh.mjs): its last run is final. */
 export const forecastFinal = () => Date.now() >= Date.parse(CONFIG.firstPollsClose);
 
-/**
- * Map colour for a race. Before results: forecast confidence. On election night: the party's full colour once
- * projected (maps add a check mark), shaded by the size of the lead while counting, grey when nothing is counted,
- * paler grey before polls close.
- */
-export function raceFill(r) {
-  if (!r) return 'var(--none)';
-  if (awaiting(r)) return 'var(--await)';
-  if (!r.left || !r.right) return partyVar((r.left ? r.leftParty : r.rightParty) || r.samePartyGeneral, 1);
-  if (!nightMode()) return probColor(cur(r).p, r.leftParty, r.rightParty);
-  const res = store.live.results[r.id];
-  if (!res || (!res.total && !res.called)) return 'var(--novotes)';
-  if (res.called === 'left' || res.called === 'right') return partyVar(res.called === 'left' ? r.leftParty : r.rightParty, 1);
-  if (res.left === res.right) return 'var(--toss)';
-  return leadFill(res.left > res.right ? r.leftParty : r.rightParty, (100 * Math.abs(res.left - res.right)) / (res.total || 1));
-}
+const settledParty = (r) => (r.left ? r.leftParty : r.rightParty) || r.samePartyGeneral;
 
-/** A lead that is not yet a projection, by size in points: darker for bigger, never as dark as a call. */
-export function leadFill(party, margin) {
-  if (margin >= 10) return `color-mix(in srgb, ${partyVar(party, 1)} 45%, ${partyVar(party, 2)})`;
-  if (margin >= 5) return partyVar(party, 2);
-  if (margin >= 2) return partyVar(party, 3);
-  return `color-mix(in srgb, ${partyVar(party, 3)} 45%, var(--toss))`;
+/**
+ * What a race's colour on every map comes from: { party, margin } for the side ahead (points, >= 0), or { none }
+ * with the grey to use instead. Before results, and on forecast pages, it is the final forecast's projected margin;
+ * once votes are counted, the margin in the count. Settled seats (one major party, or two of the same) count as safe.
+ */
+export function shade(r) {
+  if (!r) return { none: 'var(--none)' };
+  if (nightMode() && awaiting(r)) return { none: 'var(--await)' };
+  if (!r.left || !r.right) return { party: settledParty(r), margin: 100 };
+  if (nightMode()) {
+    const res = store.live.results[r.id];
+    if (res && res.total > 0) {
+      const m = (100 * (res.left - res.right)) / res.total;
+      return { party: m >= 0 ? r.leftParty : r.rightParty, margin: Math.abs(m) };
+    }
+    if (res && (res.called === 'left' || res.called === 'right')) return { party: res.called === 'left' ? r.leftParty : r.rightParty, margin: 100 };
+    return { none: 'var(--novotes)' };
+  }
+  if (r.mu === null || r.mu === undefined) return { none: 'var(--none)' };
+  return { party: r.mu >= 0 ? r.leftParty : r.rightParty, margin: Math.abs(r.mu) };
+}
+/** Map colour for a race: its margin band (ui.js marginFill), or the grey shade() gives. */
+export function raceFill(r) {
+  const s = shade(r);
+  return s.none || marginFill(s.party, s.margin);
+}
+/** The same scale by the live projection's expected final margin (the forecast's until votes are counted). */
+export function projectionFill(r) {
+  if (!r) return 'var(--none)';
+  if (!r.left || !r.right) return marginFill(settledParty(r), 100);
+  const mu = cur(r).mu;
+  return mu === null || mu === undefined ? 'var(--none)' : marginFill(mu >= 0 ? r.leftParty : r.rightParty, mu);
+}
+/** On election night: votes are in but no call yet. Maps stripe these races. */
+export function counting(r) {
+  if (!r || !nightMode()) return false;
+  const res = store.live.results[r.id];
+  return !!res && res.total > 0 && !res.called && !res.duel?.won;
 }
 
 /** On election night, true once a race is projected (maps draw a check mark on it). */
@@ -184,6 +212,7 @@ export function projected(r) {
 
 /** On election night (real or simulated), true for races whose polls have not closed yet. */
 export function awaiting(r) {
+  if (store.frozen) return false;
   if (store.sim) return !store.live.results[r.id];
   if (!store.live.active) return false;
   const d = pollCloseDate(r.state);

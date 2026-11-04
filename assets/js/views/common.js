@@ -156,6 +156,11 @@ export function electionBanner() {
   const now = Date.now();
   const first = Date.parse(CONFIG.firstPollsClose);
   if (store.sim) return null;   // the simulation bar in the header says it all
+  if (store.live.active && store.frozen) {
+    return h('div', { class: 'banner live' }, h('span', { class: 'live-dot' }),
+      h('div', { class: 'grow' }, h('b', null, 'This is our final forecast, locked when the first polls closed. '), 'Results and live projections are on the live dashboard.'),
+      h('a', { class: 'pill live', href: '/live' }, 'Live results →'));
+  }
   if (store.live.active) {
     const t = Object.values(store.live.resultsAt || {}).sort().pop();
     return h('div', { class: 'banner live' }, h('span', { class: 'live-dot' }),

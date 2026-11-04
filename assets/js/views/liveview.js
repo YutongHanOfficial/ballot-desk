@@ -1,12 +1,12 @@
 // Election-night dashboard. From late afternoon on Election Day until the counting is done it is also the front page.
-import { h, pct, num, partyVar, partyChip, probColor, timeAgo, fmtTimeET, lastName, marginText, sortableTable, PARTY_NAME } from '../ui.js';
-import { store, cur, chamber, marketControl, racesOf, nightMode, awaiting, raceFill, duelNow } from '../store.js';
+import { h, pct, num, partyVar, partyChip, timeAgo, fmtTimeET, lastName, marginText, sortableTable, PARTY_NAME } from '../ui.js';
+import { store, cur, chamber, marketControl, racesOf, nightMode, awaiting, raceFill, projectionFill, counting, duelNow } from '../store.js';
 import { calledSeats, resultsEnabled, wantCounties, houseVote } from '../live.js';
 import { CONFIG, POLL_CLOSE_ET, pollCloseDate } from '../config.js';
 import { raceCard, CHAMBERS, countdown, supportNote } from './common.js';
 import { eventsSoFar, clockLabel } from '../sim.js';
 import { competitive, stateFill, stateTip, stateCalled } from './home.js';
-import { usMap, mapLegend, splitBar, probMini, probCell, resultScale, BAND_LEGEND } from '../charts.js';
+import { usMap, splitBar, probMini, probCell, marginLegend } from '../charts.js';
 import { houseMap, countyMap } from '../maps.js';
 import { navigate } from '../nav.js';
 
@@ -123,18 +123,12 @@ function nightStats() {
 
 const HERO = { tab: 'senate', mode: 'results' };
 
-/** Each race's live chance of winning, in the forecast's colours (called races are certain). */
-function oddsFill(r) {
-  if (!r) return 'var(--none)';
-  if (!r.left || !r.right) return partyVar((r.left ? r.leftParty : r.rightParty) || r.samePartyGeneral, 1);
-  return probColor(cur(r).p, r.leftParty, r.rightParty);
-}
 
-/** The big map at the top: Senate, governors or House, by results so far or by live odds. */
+/** The big map at the top: Senate, governors or House, by the count so far or by the live projection. */
 function heroMap() {
   const night = nightMode();
   const tabs = [['senate', 'Senate'], ['gov', 'Governors'], ['house', 'House']];
-  const modes = [['results', 'Results'], ['odds', 'Live odds']];
+  const modes = [['results', 'Results'], ['odds', 'Projection']];
   const seg = h('div', { class: 'seg' });
   const modeSeg = h('div', { class: 'seg' });
   const hint = h('span', { class: 'xs muted' });
@@ -145,22 +139,22 @@ function heroMap() {
     const odds = night && HERO.mode === 'odds';
     seg.querySelectorAll('button').forEach((b, i) => b.classList.toggle('on', tabs[i][0] === type));
     modeSeg.querySelectorAll('button').forEach((b, i) => b.classList.toggle('on', modes[i][0] === HERO.mode));
-    const fill = odds ? oddsFill : raceFill;
-    const legend = () => night && !odds ? resultScale({ check: type !== 'house' }) : mapLegend(BAND_LEGEND.slice(0, 8));
+    const fill = odds ? projectionFill : raceFill;
+    const legend = () => marginLegend({ results: night, check: type !== 'house', ind: type !== 'house', caption: odds ? 'projected final margin (points)' : undefined });
     if (type === 'house') body.replaceChildren(houseMap({ id: 'live-house', caption: false, fill, legend: legend() }));
     else {
       const go = (code) => { const r = store.races.find(x => x.type === type && x.state === code && !x.special) || store.races.find(x => x.type === type && x.state === code); if (r) navigate(r.url); };
-      body.replaceChildren(usMap({ fill: stateFill(type, fill), tip: stateTip(type), onClick: go, mark: stateCalled(type) }), legend());
+      body.replaceChildren(usMap({ fill: stateFill(type, fill), tip: stateTip(type), onClick: go, mark: stateCalled(type), hatch: stateFill(type, counting) }), legend());
     }
-    hint.textContent = !night ? 'Colored by our forecast until results arrive' : odds ? 'Each race’s live chance of winning'
-      : type === 'house' ? 'Solid = projected · shading = size of the lead' : '✓ = projected · shading = size of the lead';
+    hint.textContent = !night ? 'Shaded by our final forecast until results arrive' : odds ? 'Projected final margin, from the votes counted so far'
+      : type === 'house' ? 'Shading = lead in the count · striped = still counting' : '✓ = projected winner · striped = still counting';
     const races = racesOf(type).filter(r => r.left || r.right);
     const called = races.filter(isCalled).length;
-    const counting = races.filter(r => { const x = store.live.results[r.id]; return x && x.total > 0 && !isCalled(r); }).length;
+    const nCounting = races.filter(r => { const x = store.live.results[r.id]; return x && x.total > 0 && !isCalled(r); }).length;
     const waiting = races.filter(r => awaiting(r)).length;
     summary.replaceChildren(
       h('span', null, h('b', null, called), ` of ${races.length} races projected`),
-      night ? h('span', null, h('b', null, counting), ' counting · ', h('b', null, waiting), ' polls still open') : h('span', null, 'Click a state or district for its race'));
+      night ? h('span', null, h('b', null, nCounting), ' counting · ', h('b', null, waiting), ' polls still open') : h('span', null, 'Click a state or district for its race'));
   };
   tabs.forEach(([k, label]) => seg.appendChild(h('button', { type: 'button', onclick: () => { HERO.tab = k; draw(); } }, label)));
   modes.forEach(([k, label]) => modeSeg.appendChild(h('button', { type: 'button', onclick: () => { HERO.mode = k; draw(); } }, label)));
@@ -391,12 +385,12 @@ export function render(root) {
   }
 
   if (live.active) {
-    const counting = racesOf('senate').concat(racesOf('gov'), racesOf('house')).filter(r => {
+    const inCount = racesOf('senate').concat(racesOf('gov'), racesOf('house')).filter(r => {
       const res = live.results[r.id];
       if (r.duel) return res?.duel?.total > 0 && !res.duel.won;
       return res && res.total > 0 && !res.called && r.left && r.right;
     });
-    const close = counting.sort((a, b) => Math.abs(contestP(a) - 0.5) - Math.abs(contestP(b) - 0.5)).slice(0, 12);
+    const close = inCount.sort((a, b) => Math.abs(contestP(a) - 0.5) - Math.abs(contestP(b) - 0.5)).slice(0, 12);
     root.append(h('section', { class: 'section' }, h('div', { class: 'section-head' }, h('div', null, h('h2', null, 'Too close to call'), h('p', null, 'Uncalled races with votes counted, closest first: vote share, votes and each race’s live chance of winning.'))),
       close.length ? h('div', { class: 'race-cards' }, close.map(r => raceCard(r))) : h('div', { class: 'card empty' }, 'No uncalled races with votes yet.')));
   } else {
@@ -412,7 +406,7 @@ export function render(root) {
     h('div', { class: 'card' }, h('div', { class: 'card-title' }, 'When polls close (Eastern time)'), timeline()),
     h('div', { class: 'card' }, h('div', { class: 'card-title' }, 'How to read election night'),
       h('div', { class: 'prose', style: { fontSize: '14px' } },
-        h('p', null, h('b', null, 'Maps'), ' turn light when a candidate leads and solid when a race is projected. Switch to ', h('i', null, 'Live odds'), ' to color each race by its live chance of winning instead. Counties are shaded by who leads them and by how much.'),
+        h('p', null, h('b', null, 'Maps'), ' shade every race by its margin on one scale: tilt under 1 point, lean 1 to 5, likely 5 to 15, safe 15 or more. Before votes arrive that is our final forecast’s projected margin; then it is the lead in the count. Striped races are still being counted, and a ✓ marks a projected winner. Switch to ', h('i', null, 'Projection'), ' to shade each race by its projected final margin instead. Counties use the same scale.'),
         h('p', null, h('b', null, 'Expected vote counted'), ' is the AP’s estimate of the share of all ballots that have been tallied. Early returns can lean heavily toward one party depending on whether mail, early or Election Day votes are counted first.'),
         h('p', null, h('b', null, 'Live odds'), ' come from our model, which blends the counted vote with the pre-election forecast in proportion to how much is left and nudges uncounted races by how far results are running from expectations elsewhere. Polymarket’s prices are shown alongside for comparison.'),
         h('p', null, h('b', null, 'Calls'), ' come from the Associated Press. Close races, ranked-choice tabulation in Alaska and Maine, and Georgia’s 50% runoff rule can delay outcomes for days.'),

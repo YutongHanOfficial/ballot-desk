@@ -51,6 +51,11 @@ turns them into:
 
 They are built once and committed. To rebuild: `npm install && npm run geo` (needs `unzip`).
 
+Every map shades a race by its margin on one scale (`MARGIN_BANDS` in `assets/js/ui.js`, colours `--dem-safe` etc.
+in `app.css`): tilt under 1 point, lean 1–5, likely 5–15, safe 15+, darker for bigger margins in both themes. Before
+results it is the final forecast's projected margin; on election night, the lead in the count, with stripes on
+races still being counted and a check mark on projected states. The same scale shades counties and the simulator.
+
 ### Forecast history before launch
 
 The model went live late on November 1, so the forecast-history chart before its "Forecast went live" line is a
@@ -86,7 +91,10 @@ Chamber control comes from 20,000 simulations with correlated national, regional
 On election night the counted vote replaces the prior in proportion to the expected vote reported.
 A national swing estimated from mostly counted races shifts the races still out, and AP calls are locked in.
 The pre-election forecast freezes when the first polls close (6 p.m. ET), because markets then start
-reacting to returns.
+reacting to returns. The forecast pages (Forecast, Senate, House, Governors) and each race page's forecast card keep
+showing that final forecast, with Polymarket as of the freeze, while results come in: the router sets `store.frozen`
+on those pages and `cur()`, `chamber()` and the map colours return the frozen numbers. The count and live odds are on
+the live dashboard, the race pages' results card, the state pages and the broadcast.
 
 ## Running locally
 

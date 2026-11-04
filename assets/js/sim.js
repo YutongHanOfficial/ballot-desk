@@ -8,7 +8,7 @@
 import { store, notify } from './store.js';
 import { MODEL, rng, drawMargins, liveEstimate } from './model.js';
 import { POLL_CLOSE_ET, pollCloseDate } from './config.js';
-import { PARTY_NAME } from './ui.js';
+import { PARTY_NAME, marginFill } from './ui.js';
 import { countyBaseline, loadCountyBaseline } from './geo.js';
 
 /** County data the replay needs; resolve this before makeScenario() for county-by-county counting. */
@@ -289,14 +289,10 @@ export function outcome(sc) {
 }
 
 /** Margin colour for a simulated result: party colour, darker for bigger wins. */
+/** A simulated race on the site-wide margin scale (ui.js MARGIN_BANDS). */
 export function simFill(sc, r) {
   const p = sc.races[r.id];
-  if (!p) return 'var(--none)';
-  const party = winnerParty(r, p);
-  const fam = party === 'D' ? 'dem' : party === 'R' ? 'rep' : party === 'I' ? 'ind' : null;
-  if (!fam) return 'var(--oth)';
-  const m = Math.abs(p.margin);
-  return m >= 15 ? `var(--${fam})` : m >= 5 ? `var(--${fam}-2)` : `var(--${fam}-3)`;
+  return p ? marginFill(winnerParty(r, p), Math.abs(p.margin)) : 'var(--none)';
 }
 
 // ------------------------------------------------------------------------------------------- events

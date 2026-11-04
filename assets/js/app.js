@@ -122,9 +122,14 @@ function route() {
   return { r: NOT_FOUND, m: [], path };
 }
 
+// Pages that present the forecast: once polls close, they keep showing the final forecast while results come in
+// (store.frozen). The live dashboard, race and state pages and the broadcast show the count.
+const FORECAST_PAGES = new Set(['home', 'senate', 'house', 'governors']);
+
 function render({ keepScroll = false } = {}) {
   const { r, m, path } = route();
   const key = `${path}|${navOf(r)}`;
+  store.frozen = FORECAST_PAGES.has(navOf(r));
   const sameView = current && current.key === key;
   document.body.classList.toggle('broadcast-mode', navOf(r) === 'broadcast');
   const y = window.scrollY;

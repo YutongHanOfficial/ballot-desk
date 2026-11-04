@@ -1,6 +1,6 @@
 // SVG charts (D3 is loaded globally from assets/vendor).
-import { h, s, pct, partyVar, probColor, tooltip, esc, lastName, marginText, fmtDate, compact, PARTY_NAME } from './ui.js';
-import { store, cur, awaiting, raceFill, nightMode, duelNow, leadFill } from './store.js';
+import { h, s, pct, partyVar, tooltip, esc, lastName, marginText, fmtDate, compact, PARTY_NAME, MARGIN_BANDS, marginFill, hatchFill } from './ui.js';
+import { store, cur, awaiting, raceFill, nightMode, duelNow, shade } from './store.js';
 import { pollCloseDate } from './config.js';
 
 const d3 = window.d3;
@@ -88,7 +88,7 @@ export function histogram(hist, { threshold, total, width = 640, height = 220, x
 // ------------------------------------------------------------------------------------- US map
 
 const FIPS_TO_CODE = {};
-export function usMap({ fill, onClick, tip: tipFn, height = 380, labels = true, stroke, mark } = {}) {
+export function usMap({ fill, onClick, tip: tipFn, height = 380, labels = true, stroke, mark, hatch } = {}) {
   if (!Object.keys(FIPS_TO_CODE).length) for (const st of store.states) FIPS_TO_CODE[st.fips] = st.code;
   const tip = tooltip();
   const geo = store.geo;
@@ -111,8 +111,18 @@ export function usMap({ fill, onClick, tip: tipFn, height = 380, labels = true, 
     if (active) p.addEventListener('click', () => { tip.hide(); onClick(code); });
     g.appendChild(p);
   }
-  // A check mark on each projected state (the small north-eastern ones get it in their callout box instead).
   const CALLOUTS = ['VT', 'NH', 'MA', 'RI', 'CT', 'NJ', 'DE', 'MD'];
+  // Stripes over states whose race is still being counted (the callout boxes get theirs below).
+  const stripes = hatch ? hatchFill(svg) : null;
+  if (stripes) {
+    const layer = s('g', { class: 'hatch' });
+    for (const f of states) {
+      const code = FIPS_TO_CODE[f.id];
+      if (code && !CALLOUTS.includes(code) && hatch(code)) layer.appendChild(s('path', { d: path(f), fill: stripes }));
+    }
+    g.appendChild(layer);
+  }
+  // A check mark on each projected state (the small north-eastern ones get it in their callout box instead).
   if (mark) {
     const checks = s('g', { class: 'map-checks', 'pointer-events': 'none' });
     for (const f of states) {
@@ -133,6 +143,7 @@ export function usMap({ fill, onClick, tip: tipFn, height = 380, labels = true, 
       const color = fill(code);
       const box = s('g', { transform: `translate(914, ${yy})`, style: onClick && color !== null ? 'cursor:pointer' : '' });
       box.appendChild(s('rect', { width: 18, height: 14, rx: 3, fill: color || 'var(--norace)', stroke: 'var(--line-2)', 'stroke-width': 0.5 }));
+      if (stripes && hatch(code)) box.appendChild(s('rect', { width: 18, height: 14, rx: 3, fill: stripes, class: 'hatch' }));
       if (mark && mark(code)) box.appendChild(s('text', { x: 9, y: 7.5, class: 'map-check small' }, '✓'));
       box.appendChild(s('text', { x: 23, y: 11, style: 'font-size:11px;font-weight:600' }, code));
       if (tipFn) { box.addEventListener('mousemove', (e) => { const html = tipFn(code); if (html) tip.show(html, e); }); box.addEventListener('mouseleave', () => tip.hide()); }
@@ -151,51 +162,43 @@ export function mapLegend(items) {
   return h('div', { class: 'legend' }, items.map(([color, label]) => h('span', null, h('i', { style: { background: color } }), label)));
 }
 
-export const RESULT_LEGEND = [
-  ['var(--dem)', 'Dem. projected'], [leadFill('D', 7), 'Dem. leading'], [leadFill('R', 7), 'Rep. leading'], ['var(--rep)', 'Rep. projected'],
-  ['var(--ind)', 'Ind. projected'], ['var(--novotes)', 'No votes counted'], ['var(--await)', 'Polls still open'], ['var(--norace)', 'No race'],
-];
-
-/** Forecast bands before results; won/leading once election-night results flow. */
-export function currentLegend() { return nightMode() ? RESULT_LEGEND : BAND_LEGEND.slice(0, 8); }
-
 /**
- * Election-night key as one scale: projected (with the check), then leads from big to small for each side,
- * then the greys. Shared by the site's maps and the broadcast.
+ * The key for every map: one margin scale (ui.js MARGIN_BANDS), the left party's bands then the right's, plus the
+ * marks and greys that apply. Before results it reads as projected margins; on election night, as the count.
+ * extras replaces the default marks; check: false for maps without check marks (House districts).
  */
-export function resultScale({ check = true } = {}) {
-  // check: false for maps that show projections as solid colour alone (House districts: 435 marks would bury the map).
-  const mark = check ? '✓' : '';
-  const cells = [
-    ['var(--dem)', mark, 'Called'], [leadFill('D', 12), '10+'], [leadFill('D', 7), '5–10'], [leadFill('D', 3), '2–5'], [leadFill('D', 1), '<2'],
-    [leadFill('R', 1), '<2'], [leadFill('R', 3), '2–5'], [leadFill('R', 7), '5–10'], [leadFill('R', 12), '10+'], ['var(--rep)', mark, 'Called'],
-  ];
+export function marginLegend({ results = nightMode(), check = true, ind = true, caption, left = 'D', right = 'R', leftName = 'Democrat', rightName = 'Republican', extras } = {}) {
+  const cells = [...MARGIN_BANDS.map(b => [left, b]), ...[...MARGIN_BANDS].reverse().map(b => [right, b])];
+  const keys = extras ?? [
+    results && check ? ['check', 'Projected winner'] : null,
+    results ? ['hatch', 'Still counting'] : null,
+    results ? ['var(--novotes)', 'No votes yet'] : null,
+    results ? ['var(--await)', 'Polls open'] : null,
+    ind ? ['var(--ind-likely)', 'Independent'] : null,
+    ['var(--norace)', 'No race'],
+  ].filter(Boolean);
   return h('div', { class: 'rscale' },
     h('div', { class: 'rs-main' },
-      h('div', { class: 'rs-cap' }, h('span', { class: 'c-dem' }, 'Democrat'), h('span', null, 'leading by (points)'), h('span', { class: 'c-rep' }, 'Republican')),
-      h('div', { class: 'rs-bar' }, cells.map(([c, t]) => h('span', { style: { background: c } }, t === '✓' ? h('b', null, '✓') : null))),
-      h('div', { class: 'rs-labels' }, cells.map(([, t, l]) => h('span', null, l || t)))),
-    h('div', { class: 'rs-grey' }, [['var(--novotes)', 'No votes yet'], ['var(--await)', 'Polls open'], ['var(--norace)', 'No race']]
-      .map(([c, l]) => h('span', null, h('i', { style: { background: c } }), l))));
+      h('div', { class: 'rs-cap' }, h('span', { style: { color: partyVar(left) } }, leftName),
+        h('span', null, caption ?? (results ? 'lead in the count (points)' : 'projected margin (points)')), h('span', { style: { color: partyVar(right) } }, rightName)),
+      h('div', { class: 'rs-bar' }, cells.map(([party, b]) => h('span', { style: { background: marginFill(party, b.min || 0.5) } }))),
+      h('div', { class: 'rs-labels' }, cells.map(([, b]) => h('span', null, b.label))),
+      h('div', { class: 'rs-labels rs-ranges' }, cells.map(([, b]) => h('span', null, b.range)))),
+    keys.length ? h('div', { class: 'rs-grey' }, keys.map(([c, l]) => h('span', null,
+      c === 'check' ? h('b', { class: 'lg-check' }, '✓') : c === 'hatch' ? h('i', { class: 'lg-hatch' }) : h('i', { style: { background: c } }), l))) : null);
 }
-
-/** The right key for maps coloured by raceFill right now (opts: resultScale's, for the election-night key). */
-export function currentLegendEl(opts) { return nightMode() ? resultScale(opts) : mapLegend(BAND_LEGEND.slice(0, 8)); }
-
-export const BAND_LEGEND = [
-  ['var(--dem)', 'Solid D'], ['var(--dem-2)', 'Likely D'], ['var(--dem-3)', 'Lean D'], ['var(--toss)', 'Toss-up'],
-  ['var(--rep-3)', 'Lean R'], ['var(--rep-2)', 'Likely R'], ['var(--rep)', 'Solid R'], ['var(--ind)', 'Independent'], ['var(--none)', 'No race'],
-];
 
 // ------------------------------------------------------------------------------------- seat strip
 
 /** Every race lined up from safest left to safest right, with the majority marker. */
 export function seatStrip(races, { need, base = 0, height = 34, majorityLabel } = {}) {
   const tip = tooltip();
-  const rows = races.map(r => ({ r, c: cur(r) })).map(x => ({ ...x, dp: dProb(x.r, x.c.p), dd: dShare(x.r, x.c.p) }))
-    .sort((a, b) => (b.dp - a.dp) || (b.dd - a.dd));
+  // Lined up by the margin that sets each seat's colour (Republican margins negative, so independents and
+  // Democrats share the left), which keeps the shades in order from one end to the other.
+  const lean = (r) => { const x = shade(r); return x.none ? 0 : x.party === 'R' ? -x.margin : x.margin; };
+  const rows = races.map(r => ({ r, k: lean(r) })).sort((a, b) => b.k - a.k);
   const strip = h('div', { class: 'seat-strip', style: { height: `${height}px`, gap: rows.length > 120 ? '0' : '2px' } });
-  rows.forEach(({ r, c }) => {
+  rows.forEach(({ r }) => {
     const a = h('a', { href: r.url, style: { background: raceFill(r), borderRadius: rows.length > 120 ? '0' : null }, 'aria-label': r.title });
     a.addEventListener('mousemove', (e) => tip.show(raceTip(r), e));
     a.addEventListener('mouseleave', () => tip.hide());
@@ -208,20 +211,7 @@ export function seatStrip(races, { need, base = 0, height = 34, majorityLabel } 
     wrap.appendChild(h('div', { class: 'strip-mark', style: { left: `calc(${left}% - 1px)` } }, h('span', null, majorityLabel || `Seat ${need}`)));
   }
   return h('div', null, wrap,
-    h('div', { class: 'strip-labels' }, h('span', null, 'Most likely Democratic'), h('span', null, 'Most likely Republican')));
-}
-
-// Chance the seat does not go Republican. Sorting by it follows the colours: an independent or an unopposed
-// Republican with no real chance sits with the safe Republican seats, not in the middle of the strip.
-function dProb(r, p) {
-  if (p === null || p === undefined) return 0.5;
-  return 1 - (r.left && r.leftParty === 'R' ? p : 0) - (r.right && r.rightParty === 'R' ? 1 - p : 0);
-}
-
-// Chance a Democrat wins: breaks ties among the seats Republicans cannot win.
-function dShare(r, p) {
-  if (p === null || p === undefined) return 0.5;
-  return (r.left && r.leftParty === 'D' ? p : 0) + (r.right && r.rightParty === 'D' ? 1 - p : 0);
+    h('div', { class: 'strip-labels' }, h('span', null, 'Safest Democratic'), h('span', null, 'Safest Republican')));
 }
 
 export function raceTip(r) {
@@ -289,7 +279,7 @@ export function historyChart(rows, groups, { mainLabel = 'Ours', refLabel = 'Pol
   const y = d3.scaleLinear().domain([0, 1]).range([height - m.b, m.t]);
   for (const v of [0, 0.25, 0.5, 0.75, 1]) {
     svg.appendChild(s('line', { x1: m.l, x2: width - m.r, y1: y(v), y2: y(v), stroke: v === 0.5 ? 'var(--line-2)' : 'var(--line)', 'stroke-dasharray': v === 0.5 ? '3 3' : null }));
-    svg.appendChild(s('text', { x: m.l - 7, y: y(v) + 4, 'text-anchor': 'end' }, pct(v)));
+    svg.appendChild(s('text', { x: m.l - 7, y: y(v) + 4, 'text-anchor': 'end' }, pct(v, { digits: 0 })));
   }
   const spanDays = (x.domain()[1] - x.domain()[0]) / 864e5;
   const tickFmt = (t) => spanDays < 2 ? t.toLocaleTimeString('en-US', { hour: 'numeric', timeZone: 'America/New_York' }) : fmtDate(t.toISOString());
