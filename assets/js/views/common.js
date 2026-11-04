@@ -1,6 +1,6 @@
 // Building blocks shared by several pages.
 import { h, pct, partyChip, partyVar, lastName, marginText, num, oddsText, ratingChip, fmtTimeET, PARTY_NAME, timeAgo } from '../ui.js';
-import { store, cur, chamber, marketControl, duelNow } from '../store.js';
+import { store, cur, chamber, marketControl, duelNow, catchUp, catchUpText } from '../store.js';
 import { avatar } from '../photos.js';
 import { splitBar, probCell } from '../charts.js';
 import { calledSeats, resultsEnabled } from '../live.js';
@@ -77,6 +77,8 @@ export function raceCard(r, { showType = true } = {}) {
     rows.push(cand(d.a, d.party, tot ? share(v.a) : q(d.pA), tot ? v.a >= v.b : d.pA >= 0.5, d.called === 'a', tot ? v.a : undefined));
     rows.push(cand(d.b, d.party, tot ? share(v.b) : q(1 - d.pA), tot ? v.b > v.a : d.pA < 0.5, d.called === 'b', tot ? v.b : undefined));
     if (tot) rows.push(h('div', { class: 'eevp-bar', title: `${Math.round(v.eevp)}% of expected vote counted` }, h('i', { style: { width: `${Math.min(100, v.eevp)}%` } })));
+    const need = catchUpText(catchUp(r), { short: true });
+    if (need) rows.push(h('div', { class: 'rc-need' }, need));
     const favName = d.pA >= 0.5 ? d.a : d.b;
     return card(h('div', { class: 'rc-foot' },
       h('span', null, tot ? `${Math.round(v.eevp)}% counted` : `Both ${PARTY_NAME[d.party]}s`),
@@ -94,6 +96,8 @@ export function raceCard(r, { showType = true } = {}) {
     rows.push(cand(r.left, r.leftParty, `${(lp * 100).toFixed(1)}%`, lp >= rp, res.called === 'left', res.left));
     rows.push(cand(r.right, r.rightParty, `${(rp * 100).toFixed(1)}%`, rp > lp, res.called === 'right', res.right));
     rows.push(h('div', { class: 'eevp-bar', title: `${Math.round(c.eevp)}% of expected vote counted` }, h('i', { style: { width: `${Math.min(100, c.eevp)}%` } })));
+    const need = catchUpText(catchUp(r), { short: true });
+    if (need) rows.push(h('div', { class: 'rc-need' }, need));
   } else {
     const shown = Math.min(0.999, Math.max(0.001, p));
     rows.push(cand(r.left, r.leftParty, pct(shown), p >= 0.5));
@@ -158,7 +162,7 @@ export function electionBanner() {
   if (store.sim) return null;   // the simulation bar in the header says it all
   if (store.live.active && store.frozen) {
     return h('div', { class: 'banner live' }, h('span', { class: 'live-dot' }),
-      h('div', { class: 'grow' }, h('b', null, 'This is our final forecast, locked when the first polls closed. '), 'Results and live projections are on the live dashboard.'),
+      h('div', { class: 'grow' }, h('b', null, 'This is our final forecast, locked when the first polls closed. '), 'Polymarket prices stay live. Results and live projections are on the live dashboard.'),
       h('a', { class: 'pill live', href: '/live' }, 'Live results →'));
   }
   if (store.live.active) {

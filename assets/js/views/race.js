@@ -1,6 +1,6 @@
 // Individual race page.
 import { h, pct, num, partyChip, partyVar, ratingChip, marginText, lastName, fmtDate, oddsText, compact, timeAgo, PARTY_NAME, bandLabel } from '../ui.js';
-import { store, cur, duelNow, forecastOf, forecastFinal } from '../store.js';
+import { store, cur, duelNow, forecastOf, forecastFinal, catchUp, catchUpText } from '../store.js';
 import { splitBar, pollChart, marginCurve, signalRows } from '../charts.js';
 import { stateDistrictMap, countyMap, countyResults, countyLegend } from '../maps.js';
 import { nightMode } from '../store.js';
@@ -165,6 +165,7 @@ function resultsCard(r, c) {
     h('td', { class: 'votes' }, num(k.votes)),
     h('td', { class: 'votes', style: { fontWeight: 700 } }, `${(k.pct * 100).toFixed(1)}%`)));
   const dw = r.duel ? res.duel?.won : null;
+  const need = catchUpText(catchUp(r));   // what the trailing candidate needs of the votes left
   const status = r.duel ? (dw ? `Called for ${dw === 'a' ? r.duel.a : r.duel.b}` : tot ? 'Counting' : 'Polls closed, no votes yet')
     : res.called ? (res.called === 'other' ? 'Called' : `Called for ${res.called === 'left' ? r.left : r.right}`) : res.runoff ? 'Headed to a runoff' : tot ? 'Counting' : 'Polls closed, no votes yet';
   return h('section', { class: 'card', style: { marginBottom: '16px' } },
@@ -176,21 +177,25 @@ function resultsCard(r, c) {
     h('div', { class: 'compare-line', style: { marginTop: '8px' } },
       h('span', null, h('b', null, `${Math.round(c.eevp)}%`), ' of expected vote counted · ', `${num(tot)} votes`,
         liveOdds ? [' · live chance ', h('b', { style: { color: partyVar(liveOdds[2]) } }, `${lastName(liveOdds[0])} ${pct(Math.min(0.999, liveOdds[1]))}`)] : null),
-      h('span', null, res.demo ? 'Simulated (demo)' : `Source: AP via The New York Times · updated ${timeAgo(res.updated)}`)));
+      h('span', null, res.demo ? 'Simulated (demo)' : `Source: AP via The New York Times · updated ${timeAgo(res.updated)}`)),
+    need ? h('p', { class: 'catch-up', title: 'Votes left: AP’s estimate of the total vote, less the votes counted so far. Other candidates are assumed to keep their share of the rest.' }, need) : null);
 }
 
 function marketCard(r, c) {
   const live = store.live.markets[r.id];
   const m = r.market;
   if (!m) return h('div', { class: 'card' }, h('div', { class: 'card-title' }, 'Prediction market'), h('p', { class: 'muted small', style: { margin: 0 } }, 'No Polymarket market for this race.'));
-  const outs = (live?.outcomes || m.outcomes).filter(o => o.p >= 0.005).slice(0, 6);
+  // The two leading outcomes always, then any others still priced at 0.5% or more.
+  const outs = [...(live?.outcomes || m.outcomes)].sort((a, b) => b.p - a.p).filter((o, i) => i < 2 || o.p >= 0.005).slice(0, 6);
+  const pill = live?.closed ? h('span', { class: 'pill', style: { textTransform: 'none', letterSpacing: 0 } }, 'Trading closed')
+    : live ? h('span', { class: 'pill live', style: { textTransform: 'none', letterSpacing: 0 } }, h('span', { class: 'live-dot' }), 'Live price') : null;
   return h('div', { class: 'card' },
-    h('div', { class: 'card-title' }, 'Polymarket', live ? h('span', { class: 'pill live', style: { textTransform: 'none', letterSpacing: 0 } }, h('span', { class: 'live-dot' }), 'Live price') : null),
+    h('div', { class: 'card-title' }, 'Polymarket', pill),
     outs.map(o => h('div', { style: { display: 'grid', gridTemplateColumns: 'minmax(0,1fr) 140px 52px', gap: '10px', alignItems: 'center', padding: '7px 0', borderBottom: '1px solid var(--line)' } },
       h('div', { class: 'cand-line' }, partyChip(o.party || (o.name && r.candidates?.find(k => k.name && lastName(k.name) === lastName(o.name))?.party) || 'O'), h('span', { class: 'nm' }, o.name || o.label)),
       h('div', { class: 'vote-bar', style: { marginTop: 0, height: '8px' } }, h('i', { style: { width: `${o.p * 100}%`, background: partyVar(o.party || 'O') } })),
       h('b', { class: 'tnum', style: { textAlign: 'right' } }, pct(o.p)))),
-    h('p', { class: 'xs muted', style: { margin: '10px 0 0' } }, `${compact(m.volume)} traded. Prices are traders’ implied probabilities, not polls. `,
+    h('p', { class: 'xs muted', style: { margin: '10px 0 0' } }, `${compact(m.volume)} traded. ${live?.closed ? 'The market has closed and these are its final prices. ' : ''}Prices are traders’ implied probabilities, not polls. `,
       h('a', { href: `https://polymarket.com/event/${m.slug}`, target: '_blank', rel: 'noopener' }, 'View market ↗')));
 }
 

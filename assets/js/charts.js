@@ -1,6 +1,6 @@
 // SVG charts (D3 is loaded globally from assets/vendor).
 import { h, s, pct, partyVar, tooltip, esc, lastName, marginText, fmtDate, compact, PARTY_NAME, MARGIN_BANDS, marginFill, hatchFill } from './ui.js';
-import { store, cur, awaiting, raceFill, nightMode, duelNow, shade } from './store.js';
+import { store, cur, awaiting, raceFill, nightMode, duelNow, shade, catchUp, catchUpText } from './store.js';
 import { pollCloseDate } from './config.js';
 
 const d3 = window.d3;
@@ -222,6 +222,8 @@ export function raceTip(r) {
   const c = cur(r);
   const p = c.p ?? 0.5;
   const rows = [];
+  const need = catchUpText(catchUp(r), { short: true });
+  const needRow = need ? `<div class="tt-row tt-need">${esc(need)}</div>` : '';
   const line = (name, party, prob, votes) => `<div class="tt-row"><span><span class="party-chip ${party || 'O'}" style="margin-right:6px">${party || '?'}</span>${esc(name || '—')}</span><b>${votes !== undefined ? votes : pct(prob)}</b></div>`;
   // "D 87%" for whichever side a probability favours (names for independents)
   const fav = (q) => { const party = q >= 0.5 ? r.leftParty : r.rightParty; return `${party === 'D' || party === 'R' ? party : lastName(q >= 0.5 ? r.left : r.right)} ${pct(Math.min(0.999, Math.max(q, 1 - q)))}`; };
@@ -236,6 +238,7 @@ export function raceTip(r) {
     rows.push(tot
       ? `<div class="tt-row muted"><span>${Math.round(v.eevp)}% of expected vote</span><span>${d.called ? 'Called' : `Live odds ${esc(lastName(favName))} ${q(Math.max(d.pA, 1 - d.pA))}`}</span></div>`
       : `<div class="tt-row muted"><span>Both ${PARTY_NAME[d.party]}s</span><span>${d.party} hold either way</span></div>`);
+    if (tot) rows.push(needRow);
     if (d.marketA !== null && !store.sim && !d.called) rows.push(`<div class="tt-row muted"><span>Polymarket</span><span>${esc(lastName(d.marketA >= 0.5 ? d.a : d.b))} ${q(Math.max(d.marketA, 1 - d.marketA))}</span></div>`);
     return `<div class="tt-title">${esc(r.title)}</div>${rows.join('')}`;
   }
@@ -244,7 +247,7 @@ export function raceTip(r) {
     const share = (v) => `${((v / tot) * 100).toFixed(1)}%<span class="tt-sub">${v.toLocaleString('en-US')}</span>`;
     rows.push(line(r.left, r.leftParty, null, share(res.left)));
     rows.push(line(r.right, r.rightParty, null, share(res.right)));
-    rows.push(`<div class="tt-row muted"><span>${Math.round(c.eevp)}% of expected vote</span><span>${res.called ? 'Called' : `Live odds ${fav(p)}`}</span></div>`);
+    rows.push(`<div class="tt-row muted"><span>${Math.round(c.eevp)}% of expected vote</span><span>${res.called ? 'Called' : `Live odds ${fav(p)}`}</span></div>`, needRow);
   } else if (r.left && r.right) {
     rows.push(line(r.left, r.leftParty, p));
     rows.push(line(r.right, r.rightParty, 1 - p));

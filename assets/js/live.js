@@ -93,6 +93,41 @@ async function checkData() {
 
 // ------------------------------------------------------------------------------------------- markets
 
+// The last trade of each outcome whose order book is gone. Polymarket stops trading a market when it resolves, so
+// these never change: each is looked up once.
+const lastTrade = new Map();
+
+async function postTokens(url, tokens) {
+  const out = [];
+  for (let i = 0; i < tokens.length; i += 250) {
+    const res = await fetch(url, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(tokens.slice(i, i + 250).map(t => ({ token_id: t }))),
+    });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    out.push(await res.json());
+  }
+  return out;
+}
+
+/**
+ * Settle a market some of whose outcomes have stopped trading (each carries `last`, its last trade). The outcome that
+ * last traded near 1 won, and every other one is then worth 0, whatever its own book still says (an empty book reads
+ * 0.5). With every book closed, the highest last trade won. Otherwise the closed outcomes lost and the rest still
+ * trade. Returns true when the market is settled.
+ */
+function settle(outs) {
+  const shut = outs.filter(o => o.last !== undefined);
+  if (!shut.length) return false;
+  const top = shut.reduce((a, b) => (b.last > a.last ? b : a));
+  const all = outs.every(o => o.last !== undefined || !o.token);
+  if (top.last >= 0.9 || (all && top.last >= 0.5)) {
+    for (const o of outs) o.p = o === top ? 1 : 0;
+    return true;
+  }
+  if (!all) for (const o of shut) o.p = 0;
+  return false;   // every book closed and none near 1: keep the last prices we published
+}
+
 async function refreshMarkets() {
   const tokenOwners = new Map();
   const add = (tok, key) => { if (tok) tokenOwners.set(tok, key); };
@@ -102,32 +137,41 @@ async function refreshMarkets() {
   if (!tokens.length) return;
   const mids = {};
   try {
-    for (let i = 0; i < tokens.length; i += 250) {
-      const chunk = tokens.slice(i, i + 250);
-      const res = await fetch('https://clob.polymarket.com/midpoints', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(chunk.map(t => ({ token_id: t }))),
-      });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      Object.assign(mids, await res.json());
-    }
+    for (const part of await postTokens('https://clob.polymarket.com/midpoints', tokens)) Object.assign(mids, part);
   } catch (e) {
     console.warn('Polymarket live prices unavailable:', e.message);
     return;
   }
+  // No midpoint means no order book: the market has closed (resolved, by election night). Its last trade says how.
+  const gone = tokens.filter(t => mids[t] === undefined && !lastTrade.has(t));
+  if (gone.length) {
+    try {
+      for (const part of await postTokens('https://clob.polymarket.com/last-trades-prices', gone)) {
+        for (const x of Array.isArray(part) ? part : []) if (x?.token_id && x.price !== undefined && !Number.isNaN(parseFloat(x.price))) lastTrade.set(x.token_id, parseFloat(x.price));
+      }
+      for (const t of gone) if (!lastTrade.has(t)) lastTrade.set(t, null);   // never traded: don't ask again
+    } catch (e) {
+      console.warn('Polymarket closing prices unavailable:', e.message);
+    }
+  }
   const raceOut = {}, control = {};
   const group = (src, kind) => {
     for (const [id, m] of Object.entries(src || {})) {
-      const outs = m.outcomes.map(o => ({ ...o, p: mids[o.token] !== undefined ? parseFloat(mids[o.token]) : o.p }));
+      // Live midpoint where the book is open; for a closed one, its last trade (settle() decides what it means).
+      // Neither: the price in markets.json.
+      const outs = m.outcomes.map(o => mids[o.token] !== undefined ? { ...o, p: parseFloat(mids[o.token]) }
+        : lastTrade.get(o.token) != null ? { ...o, last: lastTrade.get(o.token) } : { ...o });
+      const closed = settle(outs);
       const tot = outs.reduce((s, o) => s + (o.p || 0), 0) || 1;
-      outs.forEach(o => { o.p = o.p / tot; });
+      outs.forEach(o => { o.p = (o.p || 0) / tot; delete o.last; });
       if (kind === 'race') {
         const race = store.byId[id];
         if (!race) continue;
         const left = outs.find(o => (o.name && samePerson(o.name, race.left)) || (!o.name && o.party === race.leftParty));
         const right = outs.find(o => o !== left && ((o.name && samePerson(o.name, race.right)) || (!o.name && o.party === race.rightParty)));
-        raceOut[id] = { pLeft: left ? left.p : right ? 1 - right.p : null, outcomes: outs.sort((a, b) => b.p - a.p) };
+        raceOut[id] = { pLeft: left ? left.p : right ? 1 - right.p : null, outcomes: outs.sort((a, b) => b.p - a.p), closed };
       } else {
-        control[id] = { pD: outs.find(o => o.party === 'D')?.p ?? null, pR: outs.find(o => o.party === 'R')?.p ?? null };
+        control[id] = { pD: outs.find(o => o.party === 'D')?.p ?? null, pR: outs.find(o => o.party === 'R')?.p ?? null, closed };
       }
     }
   };
@@ -190,8 +234,12 @@ function normalizeNyt(race, nr) {
     if (A || B) duel = { a: A ? A.votes : 0, b: B ? B.votes : 0, total, eevp: tru.eevp || 0, won: A && won.has(A.id) ? 'a' : B && won.has(B.id) ? 'b' : null };
   }
   const runoff = (nr.outcome?.advanced_to_runoff || []).length > 0;
+  // How the race is won: most votes, a majority (Georgia and Louisiana hold runoffs; Vermont's legislature decides),
+  // or ranked choices (Alaska, Maine).
+  const rule = nr.tabulation_method === 'ranked-choice' ? 'rcv' : nr.win_threshold >= 50 ? 'majority' : 'plurality';
   return {
     eevp: tru.eevp || 0, total, cands, left: L ? L.votes : 0, right: R ? R.votes : 0, called, runoff, duel,
+    expected: tru.total_expected_vote || 0, rule, runoffs: !!nr.max_runoff,   // expected: AP's estimate of the total vote
     status: nr.race_call_status, updated: tru.provider_updated_at || nr.updated_at, precincts: [tru.precincts_reporting, tru.precincts_total],
     calledAt: (nr.outcome?.winner_accepted_at || [])[0] || null,
     slug: String(nr.url || '').split('/').pop().replace(/\.html$/, '') || null,

@@ -1,5 +1,5 @@
 // Loads the precomputed data files and exposes merged race objects to the views.
-import { ordinal, marginFill } from './ui.js';
+import { ordinal, marginFill, pct, num, lastName } from './ui.js';
 import { CONFIG, pollCloseDate } from './config.js';
 import { samePerson } from './model.js';
 
@@ -16,8 +16,9 @@ export const store = {
   loadedAt: null,
   dataStamp: null,    // Last-Modified of the forecast.json we have, to spot a newer deploy (live.js)
   sim: null,          // a running election-night simulation (sim.js)
-  // Set by the router while a forecast page is on screen (the forecast, Senate, House, Governors): every number,
-  // colour and map there stays at the final pre-election forecast, whatever results and live prices do.
+  // Set by the router while a forecast page is on screen (the forecast, Senate, House, Governors): our numbers,
+  // colours and maps there stay at the final pre-election forecast, whatever the results do. Polymarket's prices
+  // are someone else's and stay live.
   frozen: false,
 };
 
@@ -115,9 +116,10 @@ export function cur(race) {
   return { p: race.p, mu: race.mu, sd: race.sd, live: false, called: null, result: res, eevp: res?.eevp ?? 0, marketP };
 }
 
-/** A race's final pre-election forecast, shaped like cur() but never moved by results or live prices. */
+/** A race's final pre-election forecast, shaped like cur() but never moved by results. The market price is live. */
 export function forecastOf(race) {
-  return { p: race.p, mu: race.mu, sd: race.sd, live: false, called: null, result: null, eevp: 0, marketP: race.market?.pLeft ?? null };
+  const marketP = store.live.markets[race.id]?.pLeft ?? race.market?.pLeft ?? null;
+  return { p: race.p, mu: race.mu, sd: race.sd, live: false, called: null, result: null, eevp: 0, marketP };
 }
 
 /** Chamber summary in force right now: live simulation if results exist, else the pre-election forecast. */
@@ -128,15 +130,15 @@ export function chamber(type) {
 
 /**
  * Same-party race (California's top two): A's chance against B right now. Called results win, then the live
- * model once votes are counted, then the live market price folded in like the forecast does, then the forecast.
- * final (the default on forecast pages): the pre-election forecast alone.
+ * model once votes are counted, then the forecast. final (the default on forecast pages): the pre-election
+ * forecast alone. marketA, Polymarket's price for A, is live either way.
  */
 export function duelNow(r, { final = store.frozen } = {}) {
   const d = r.duel;
   if (!d) return null;
   const res = store.live.results[r.id]?.duel || null;
   const est = store.live.est?.[r.id]?.duel;
-  const mk = (!final && store.live.markets[r.id]) || r.market;
+  const mk = store.live.markets[r.id] || r.market;
   const price = (name) => mk?.outcomes?.find(o => o.name && samePerson(o.name, name))?.p ?? null;
   const pa = price(d.a), pb = price(d.b);
   const marketA = pa !== null && pb !== null && pa + pb > 0 ? pa / (pa + pb) : d.marketA ?? null;
@@ -146,10 +148,11 @@ export function duelNow(r, { final = store.frozen } = {}) {
   return { ...d, live: false, called: null, result: res, marketA };
 }
 
+/** Polymarket's price for control of a chamber: live, or as of the last data refresh when it can't be reached. */
 export function marketControl(type) {
   const live = store.live.control[type];
   const base = store.forecast.markets?.[type];
-  if (!store.frozen && live && live.pD !== null && live.pD !== undefined) return { ...base, ...live, live: true };
+  if (live && live.pD !== null && live.pD !== undefined) return { ...base, ...live, live: true };
   return base || null;
 }
 
@@ -201,6 +204,67 @@ export function counting(r) {
   if (!r || !nightMode()) return false;
   const res = store.live.results[r.id];
   return !!res && res.total > 0 && !res.called && !res.duel?.won;
+}
+
+// "410,000": an estimate shown to two significant figures (to the ten below 1,000, exact below 100).
+const roughly = (n) => { if (n < 100) return Math.round(n); const m = 10 ** (Math.floor(Math.log10(n)) - 1); return Math.round(n / m) * m; };
+const NOT_A_CANDIDATE = /^(others?|write-ins?)$/i;
+
+/**
+ * What the votes still to be counted would have to do to change a race that is being counted and not yet called.
+ * left: AP's estimate of the votes to come, its expected total less the count (from the share counted when the
+ * feed has no total). Usually it is the share of them the runner-up needs to draw level, with the other
+ * candidates keeping their share so far; out means even every vote left would not be enough. Where a winner
+ * needs a majority (Georgia's and Louisiana's runoffs, Vermont), it is the share the leader needs to finish above
+ * 50%. side: which of the race's two candidates that is about ('left' / 'right', or 'a' / 'b' in a same-party race).
+ * Null when nothing is left to count or it can't be estimated.
+ */
+export function catchUp(r) {
+  const res = r && !store.frozen && store.live.results[r.id];
+  if (!res || !(res.total > 0) || res.called || res.runoff || res.duel?.won) return null;
+  const V = res.total;
+  const left = res.expected ? res.expected - V : res.eevp > 0 && res.eevp < 100 ? (V * (100 - res.eevp)) / res.eevp : 0;
+  if (!(left >= 1)) return null;
+  const [a, b] = (res.cands || []).filter(c => !NOT_A_CANDIDATE.test(c.name || ''));
+  if (!a || !b) return null;
+  const gap = a.votes - b.votes;
+  const sideOf = (name) => r.duel ? (samePerson(name, r.duel.a) ? 'a' : samePerson(name, r.duel.b) ? 'b' : null)
+    : samePerson(name, r.left) ? 'left' : samePerson(name, r.right) ? 'right' : null;
+  if (res.rule === 'majority') {
+    return { kind: 'majority', name: a.name, side: sideOf(a.name), rival: b.name, left, gap, runoffs: !!res.runoffs, share: (0.5 * (V + left) - a.votes) / left };
+  }
+  const others = Math.max(0, V - a.votes - b.votes) / V;
+  return { kind: res.rule === 'rcv' ? 'rcv' : 'plurality', name: b.name, side: sideOf(b.name), rival: a.name, left, gap,
+    share: (gap / left + 1 - others) / 2, out: gap >= left };
+}
+
+/**
+ * catchUp() in words. The full sentence for a race page; short: a few words for cards and tooltips ("Paxton needs
+ * 58.2% of votes left"); bare: the same without the name, for a line under that candidate ("Needs 58.2% of votes left").
+ */
+export function catchUpText(k, { short = false, bare = false } = {}) {
+  if (!k) return null;
+  const share = pct(Math.min(1, Math.max(0, k.share)));
+  const ballots = k.kind === 'rcv' ? 'ballots' : 'votes';
+  if (!short && !bare) {
+    const left = num(roughly(k.left));
+    if (k.kind === 'majority') {
+      if (k.share <= 0) return `${k.name} already has more than half of the votes expected${k.runoffs ? ', enough to avoid a runoff' : ''}.`;
+      if (k.share >= 1) return `No one can reach 50% with the estimated ${left} votes left${k.runoffs ? ', so the race looks headed for a runoff' : ''}.`;
+      return `${k.name} needs ${share} of the estimated ${left} votes left to finish above 50%${k.runoffs ? ' and avoid a runoff' : ''}.`;
+    }
+    const rcv = k.kind === 'rcv' ? ' If no one wins a majority, ranked choices decide.' : '';
+    if (k.out) return `${k.rival}’s lead of ${num(k.gap)} ${k.kind === 'rcv' ? 'first-choice votes' : 'votes'} is bigger than the estimated ${left} ${ballots} left to count.${rcv}`;
+    return `${k.name} needs ${share} of the estimated ${left} ${ballots} left to ${k.kind === 'rcv' ? `pass ${k.rival} on first choices` : `overtake ${k.rival}`}.${rcv}`;
+  }
+  const said = (rest) => bare ? rest[0].toUpperCase() + rest.slice(1) : `${lastName(k.name)} ${rest}`;
+  if (k.kind === 'majority') {
+    if (k.share <= 0) return said('has a majority of the expected vote');
+    if (k.share >= 1) return bare ? 'Can’t reach 50% with the votes left' : 'No one can reach 50%';
+    return said(`needs ${share} of votes left to finish over 50%`);
+  }
+  if (k.out) return bare ? `Needs more ${ballots} than are left` : `${lastName(k.rival)}’s lead is bigger than the ${ballots} left`;
+  return said(`needs ${share} of ${ballots} left`);
 }
 
 /** On election night, true once a race is projected (maps draw a check mark on it). */

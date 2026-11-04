@@ -7,7 +7,7 @@
 //   ?panel=senate,house,gov,races,calls  ?rotate=15 (seconds per panel)  ?map=odds  ?theme=light
 //   ?demo=live&speed=10                 rehearse on a simulated night
 import { h, pct, num, partyVar, lastName, fmtTimeET, marginText } from '../ui.js';
-import { store, subscribe, cur, chamber, marketControl, racesOf, nightMode, awaiting, raceFill, projectionFill, counting } from '../store.js';
+import { store, subscribe, cur, chamber, marketControl, racesOf, nightMode, awaiting, raceFill, projectionFill, counting, catchUp, catchUpText } from '../store.js';
 import { calledSeats, resultsEnabled, houseVote } from '../live.js';
 import { CONFIG, pollCloseDate, POLL_CLOSE_ET } from '../config.js';
 import { CHAMBERS } from './common.js';
@@ -240,7 +240,7 @@ function drawStats(el, o) {
   const share = (x) => `${((x / v.total) * 100).toFixed(1)}%`;
   const kpi = (label, value, sub) => h('div', { class: 'bc-kpi' }, h('span', { class: 'k' }, label), h('div', { class: 'v' }, value), h('span', { class: 's' }, sub || ''));
   const cells = [
-    kpi('Votes counted', v ? num(v.total) : '0', v && v.eevp ? `House races · about ${Math.round(v.eevp)}% of the expected vote` : 'House races'),
+    kpi('Votes counted', v ? num(v.total) : '0', v && v.eevp ? `House races · about ${Math.round(v.eevp)}% counted` : 'House races'),
     kpi('House popular vote', v ? [h('b', { class: 'c-dem' }, `D ${share(v.D)}`), h('b', { class: 'c-rep' }, `R ${share(v.R)}`)] : '—',
       v ? `${votesShort(v.D)} Democratic · ${votesShort(v.R)} Republican` : 'No votes counted yet'),
     kpi('Races projected', [h('b', null, called), h('small', null, ` of ${all.length}`)], 'Senate, House and governor'),
@@ -338,13 +338,15 @@ function watchRow(r) {
     tot ? h('span', { class: 'bc-wv' }, num(votes)) : null,
     h('b', { style: { color: partyVar(party) } }, val(share)));
   const gap = tot ? Math.abs(res.left - res.right) : 0;
+  const need = catchUpText(catchUp(r), { short: true });
   return h('div', { class: `bc-wrow${tot ? '' : ' pre'}` },
     h('div', { class: 'bc-wtop' }, h('b', null, r.type === 'house' ? r.short : r.stateName), status),
     line(r.left, r.leftParty, lp, res?.left), line(r.right, r.rightParty, rp, res?.right),
     h('div', { class: 'bc-wbar' }, h('i', { style: { width: `${lp * 100}%`, background: partyVar(r.leftParty) } }), h('i', { style: { width: `${rp * 100}%`, background: partyVar(r.rightParty), marginLeft: 'auto' } })),
     h('div', { class: 'bc-wfoot' },
       h('span', null, tot ? (gap ? `${lastName(res.left > res.right ? r.left : r.right)} +${num(gap)} votes` : 'Tied') : 'Chance of winning'),
-      !res?.called ? h('span', { style: { color: partyVar(f.party) } }, `${f.tag} ${pct(f.q)} ${night ? 'live odds' : 'to win'}`) : null));
+      !res?.called ? h('span', { style: { color: partyVar(f.party) } }, `${f.tag} ${pct(f.q)} ${night ? 'live odds' : 'to win'}`) : null),
+    need ? h('div', { class: 'bc-wneed' }, need) : null);
 }
 
 /** The closest contested races as cards: statewide first, then House toss-ups; projected ones drop to the end. */
@@ -377,12 +379,14 @@ function raceCard(r) {
   const f = favOdds(r, p);
   const margin = tot ? ((res.left - res.right) / tot) * 100 : null;
   const status = res?.called ? 'Projected' : awaiting(r) ? `Polls close ${closeTime(r)}` : tot ? inText(c.eevp) : night ? 'No votes yet' : 'Forecast';
+  // While it is counted: what the runner-up needs, in place of the margin (the shares above already show that).
+  const need = catchUpText(catchUp(r), { short: true });
   // Before any votes the bars and numbers are each side's chance of winning, drawn fainter so they don't read as votes.
   return h('div', { class: `bc-rcard bc-card${res?.called ? ' called' : ''}${tot ? '' : ' pre'}` },
     h('div', { class: 'bc-rhead' }, h('b', null, r.type === 'house' ? r.short : r.stateName), h('span', null, r.type === 'house' ? 'House' : r.office), h('em', null, status)),
     line('left'), line('right'),
     h('div', { class: 'bc-rfoot' },
-      h('span', null, margin !== null ? `Margin ${marginText(margin, r)}` : night ? 'Chance of winning · no votes yet' : 'Chance of winning'),
+      h('span', null, need || (margin !== null ? `Margin ${marginText(margin, r)}` : night ? 'Chance of winning · no votes yet' : 'Chance of winning')),
       tot ? h('span', { class: 'bc-in' }, h('i', { style: { width: `${Math.min(100, c.eevp)}%` } })) : h('span'),
       h('span', { style: { color: partyVar(f.party) } }, res?.called || !tot ? '' : `${f.tag} ${pct(f.q)} to win`)));
 }
@@ -428,7 +432,8 @@ function tickerItems() {
     .filter(counting);
   for (const r of close.slice(0, 8)) {
     const x = store.live.results[r.id];
-    items.push(h('span', { class: 'bc-item' }, h('b', null, callTag(r)), ` ${lastName(r.left)} ${((x.left / x.total) * 100).toFixed(1)}% · ${lastName(r.right)} ${((x.right / x.total) * 100).toFixed(1)}% · ${inText(x.eevp)}`));
+    const need = catchUpText(catchUp(r), { short: true });
+    items.push(h('span', { class: 'bc-item' }, h('b', null, callTag(r)), ` ${lastName(r.left)} ${((x.left / x.total) * 100).toFixed(1)}% · ${lastName(r.right)} ${((x.right / x.total) * 100).toFixed(1)}% · ${inText(x.eevp)}${need ? ` · ${need}` : ''}`));
   }
   const v = houseVote();
   if (v) items.push(h('span', { class: 'bc-item' }, h('b', null, 'House popular vote'), ` Democrats ${((v.D / v.total) * 100).toFixed(1)}% · Republicans ${((v.R / v.total) * 100).toFixed(1)}% · ${num(v.total)} votes`));

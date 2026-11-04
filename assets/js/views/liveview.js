@@ -1,6 +1,6 @@
 // Election-night dashboard. From late afternoon on Election Day until the counting is done it is also the front page.
 import { h, pct, num, partyVar, partyChip, timeAgo, fmtTimeET, lastName, marginText, sortableTable, PARTY_NAME } from '../ui.js';
-import { store, cur, chamber, marketControl, racesOf, nightMode, awaiting, raceFill, projectionFill, counting, duelNow } from '../store.js';
+import { store, cur, chamber, marketControl, racesOf, nightMode, awaiting, raceFill, projectionFill, counting, duelNow, catchUp, catchUpText } from '../store.js';
 import { calledSeats, resultsEnabled, wantCounties, houseVote } from '../live.js';
 import { CONFIG, POLL_CLOSE_ET, pollCloseDate } from '../config.js';
 import { raceCard, CHAMBERS, countdown, supportNote } from './common.js';
@@ -191,9 +191,11 @@ function battlegrounds() {
     const status = res?.called ? h('span', { class: 'pill called' }, 'Projected')
       : awaiting(r) ? h('span', { class: 'pill' }, `Polls close ${fmtTimeET(pollCloseDate(r.state)).replace(' ET', '')}`)
       : tot ? h('span', { class: 'pill live' }, `${Math.round(c.eevp)}% counted`) : h('span', { class: 'pill' }, nightMode() ? 'Awaiting votes' : r.office);
+    const need = catchUpText(catchUp(r), { short: true });
     return h('a', { class: 'bg-card', href: r.url },
       h('div', { class: 'bg-head' }, h('b', null, `${r.stateName} ${r.office === 'Governor' ? 'Gov.' : 'Sen.'}${r.special ? ' (S)' : ''}`), status),
       h('div', { class: 'bg-cands' }, line('left'), line('right')),
+      need ? h('div', { class: 'rc-need' }, need) : null,
       odds,
       countyMap(r.state, { raceId: r.id, width: 380, maxHeight: 250, compact: true }));
   };
@@ -233,10 +235,12 @@ function candResult(r, side) {
     // Same-party race: both candidates in their party's column.
     if (side !== (r.left ? 'left' : 'right')) return h('span', { class: 'muted' }, '—');
     const d = duelNow(r), v = d.result, tot = v?.total || 0;
+    const k = catchUp(r);
     const one = (name, votes, other, key) => h('div', { class: 'res-cand' },
       h('div', { class: 'cand-line' }, partyChip(d.party), h('span', { class: 'nm', style: { fontWeight: d.called === key || (tot && votes > other) ? 700 : 500 } }, name),
         d.called === key ? h('span', { class: 'winner-check', title: 'Projected winner' }, '✓') : null),
-      tot ? h('div', { class: 'res-votes' }, h('b', { style: { color: partyVar(d.party) } }, `${((votes / tot) * 100).toFixed(1)}%`), h('span', null, num(votes))) : null);
+      tot ? h('div', { class: 'res-votes' }, h('b', { style: { color: partyVar(d.party) } }, `${((votes / tot) * 100).toFixed(1)}%`), h('span', null, num(votes))) : null,
+      k?.side === key ? h('div', { class: 'res-need' }, catchUpText(k, { bare: true })) : null);
     return h('div', { class: 'duel-cell' }, one(d.a, v?.a || 0, v?.b || 0, 'a'), one(d.b, v?.b || 0, v?.a || 0, 'b'));
   }
   const name = side === 'left' ? r.left : r.right;
@@ -247,10 +251,12 @@ function candResult(r, side) {
   const votes = res ? (side === 'left' ? res.left : res.right) : 0;
   const other = res ? (side === 'left' ? res.right : res.left) : 0;
   const won = res?.called === side;
+  const k = catchUp(r);
   return h('div', { class: 'res-cand' },
     h('div', { class: 'cand-line' }, partyChip(party), h('span', { class: 'nm', style: { fontWeight: won || (tot && votes > other) ? 700 : 500 } }, name),
       won ? h('span', { class: 'winner-check', title: 'Projected winner' }, '✓') : null),
-    tot ? h('div', { class: 'res-votes' }, h('b', { style: { color: partyVar(party) } }, `${((votes / tot) * 100).toFixed(1)}%`), h('span', null, num(votes))) : null);
+    tot ? h('div', { class: 'res-votes' }, h('b', { style: { color: partyVar(party) } }, `${((votes / tot) * 100).toFixed(1)}%`), h('span', null, num(votes))) : null,
+    k?.side === side ? h('div', { class: 'res-need' }, catchUpText(k, { bare: true })) : null);
 }
 
 function voteMargin(r) {
@@ -267,7 +273,13 @@ function resultColumns() {
     { key: 'status', label: 'Counted', render: statusCell, sort: statusKey },
     { key: 'left', label: 'Democrat / Ind.', render: r => candResult(r, 'left') },
     { key: 'right', label: 'Republican', render: r => candResult(r, 'right') },
-    { key: 'margin', label: 'Vote margin', num: true, hideSm: true, render: r => { const m = voteMargin(r); return m === null ? h('span', { class: 'muted' }, '—') : h('span', { class: 'tnum' }, marginCell(r, m)); }, sort: voteMargin },
+    { key: 'margin', label: 'Vote margin', num: true, hideSm: true, render: r => {
+      const m = voteMargin(r);
+      if (m === null) return h('span', { class: 'muted' }, '—');
+      // What the trailing candidate needs goes under their own count; here only if they aren't one of the two shown.
+      const k = catchUp(r);
+      return [h('span', { class: 'tnum' }, marginCell(r, m)), k && !k.side ? h('div', { class: 'res-need' }, catchUpText(k, { short: true })) : null];
+    }, sort: voteMargin },
     { key: 'p', label: 'Chance of winning', num: true, render: r => (r.left && r.right) || r.duel ? probCell(r) : h('span', { class: 'muted small' }, 'Uncontested'), sort: r => { const p = contestP(r); return p === null || p === undefined || (!(r.left && r.right) && !r.duel) ? null : -Math.abs(p - 0.5); } },
     { key: 'mk', label: 'Polymarket', num: true, hideSm: true, render: r => {
       if (store.sim) return h('span', { class: 'muted' }, '—');

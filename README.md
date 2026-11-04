@@ -21,7 +21,7 @@ GitHub Action (about every 20 min until the polls close)
 
 Browser (index.html + assets/)
   reads data/*.json, then live:
-    Polymarket CLOB midpoints        every 60 s
+    Polymarket CLOB midpoints        every 60 s (30 s on election night); last trades for closed markets
     AP vote counts (NYT results JSON) every 30-120 s during the election window
   and re-runs the projection model (assets/js/model.js) on every update
 ```
@@ -92,9 +92,20 @@ On election night the counted vote replaces the prior in proportion to the expec
 A national swing estimated from mostly counted races shifts the races still out, and AP calls are locked in.
 The pre-election forecast freezes when the first polls close (6 p.m. ET), because markets then start
 reacting to returns. The forecast pages (Forecast, Senate, House, Governors) and each race page's forecast card keep
-showing that final forecast, with Polymarket as of the freeze, while results come in: the router sets `store.frozen`
-on those pages and `cur()`, `chamber()` and the map colours return the frozen numbers. The count and live odds are on
-the live dashboard, the race pages' results card, the state pages and the broadcast.
+showing that final forecast while results come in: the router sets `store.frozen` on those pages and `cur()`,
+`chamber()` and the map colours return the frozen numbers. Polymarket prices stay live everywhere. The count and live
+odds are on the live dashboard, the race pages' results card, the state pages and the broadcast.
+
+Polymarket closes a market's order book when the market resolves, and the midpoint API then has nothing for it. The
+browser asks for those outcomes' last trades instead (`refreshMarkets()` in live.js): the outcome that last traded
+near 1 won and the rest go to 0, since an empty book still reads 0.5. The race page's market card then says
+"Trading closed".
+
+While a race is counted and not yet called, `catchUp()` in store.js works out what the runner-up needs of the votes
+left to draw level: AP's expected total vote (`total_expected_vote` in the feed) less the count, with other
+candidates keeping their share. Races that need a majority (Georgia and Louisiana runoffs, Vermont) show what the
+leader needs to stay above 50% instead, and Alaska's and Maine's ranked-choice races are about first choices. It
+shows on the race page, race cards, map tooltips, the live results table and the broadcast.
 
 ## Running locally
 
