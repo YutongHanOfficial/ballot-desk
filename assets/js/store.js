@@ -1,5 +1,5 @@
 // Loads the precomputed data files and exposes merged race objects to the views.
-import { ordinal, marginFill, pct, num, lastName } from './ui.js';
+import { ordinal, marginFill, pct, num, lastName, shareDigits, votePct } from './ui.js';
 import { CONFIG, pollCloseDate } from './config.js';
 import { samePerson } from './model.js';
 
@@ -219,6 +219,34 @@ export function counting(r) {
 // "410,000": an estimate shown to two significant figures (to the ten below 1,000, exact below 100).
 const roughly = (n) => { if (n < 100) return Math.round(n); const m = 10 ** (Math.floor(Math.log10(n)) - 1); return Math.round(n / m) * m; };
 const NOT_A_CANDIDATE = /^(others?|write-ins?)$/i;
+
+/**
+ * How many decimals a race's vote shares get, the same on every card, table and tooltip (ui.js shareDigits): enough
+ * to tell apart the two candidates we show and the top two on the ballot; where second place goes to a runoff
+ * (Georgia, Louisiana), second from third; and where a majority wins outright (runoff states, Vermont, ranked-choice
+ * Alaska and Maine), the leader from half the vote, since 49.996% is not a majority. Also takes a plain
+ * { left, right, total }, such as a county or each party's combined vote.
+ */
+export function voteDigits(res) {
+  if (!res || !(res.total > 0)) return 2;
+  const left = res.left || 0, right = res.right || 0;
+  const all = res.cands ? res.cands.filter(c => !NOT_A_CANDIDATE.test(c.name || '')).map(c => c.votes) : [left, right];
+  const top = all.sort((a, b) => b - a).slice(0, 3);
+  const pairs = [[left, right]];
+  if (res.duel) pairs.push([res.duel.a, res.duel.b]);
+  if (top.length > 1) pairs.push([top[0], top[1]]);
+  if (top.length > 2 && (res.runoffs || res.allParty)) pairs.push([top[1], top[2]]);
+  if (top.length && (res.rule === 'majority' || res.rule === 'rcv')) pairs.push([top[0], res.total / 2]);
+  return shareDigits(res.total, pairs);
+}
+
+/** An all-party primary's (Louisiana's) combined vote for each of our two parties: [[party, '45.12%'], ...], or null. */
+export function partyShares(r, res) {
+  if (!res?.allParty || !res.byParty || !(res.total > 0) || !r.left || !r.right) return null;
+  const v = [r.leftParty, r.rightParty].map(p => res.byParty[p] || 0);
+  const d = voteDigits({ left: v[0], right: v[1], total: res.total });
+  return [r.leftParty, r.rightParty].map((p, i) => [p, votePct(v[i] / res.total, d)]);
+}
 
 /**
  * What the votes still to be counted would have to do to change a race while they could still change it: called

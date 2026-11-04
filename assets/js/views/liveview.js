@@ -1,6 +1,6 @@
 // Election-night dashboard. From late afternoon on Election Day until the counting is done it is also the front page.
-import { h, pct, num, partyVar, partyChip, timeAgo, fmtTimeET, lastName, marginText, sortableTable, PARTY_NAME } from '../ui.js';
-import { store, cur, chamber, marketControl, racesOf, nightMode, awaiting, raceFill, projectionFill, counting, duelNow, catchUp, catchUpText } from '../store.js';
+import { h, pct, num, partyVar, partyChip, timeAgo, fmtTimeET, lastName, marginText, sortableTable, PARTY_NAME, votePct } from '../ui.js';
+import { store, cur, chamber, marketControl, racesOf, nightMode, awaiting, raceFill, projectionFill, counting, duelNow, catchUp, catchUpText, voteDigits } from '../store.js';
 import { calledSeats, resultsEnabled, wantCounties, houseVote } from '../live.js';
 import { CONFIG, POLL_CLOSE_ET, pollCloseDate } from '../config.js';
 import { raceCard, CHAMBERS, countdown, supportNote } from './common.js';
@@ -101,7 +101,8 @@ function nightStats() {
     }
     return [t, g];
   });
-  const share = (x) => `${((x / v.total) * 100).toFixed(1)}%`;
+  const dg = v ? voteDigits({ left: v.D, right: v.R, total: v.total }) : 2;
+  const share = (x) => votePct(x / v.total, dg);
   return h('section', { class: 'card night-stats' },
     h('div', { class: 'ns-cell' },
       h('div', { class: 'ns-k' }, 'House popular vote'),
@@ -172,14 +173,14 @@ function battlegrounds() {
   const card = (r) => {
     const c = cur(r);
     const res = c.result;
-    const tot = res?.total || 0;
+    const tot = res?.total || 0, dg = voteDigits(res);
     const line = (side) => {
       const name = side === 'left' ? r.left : r.right, party = side === 'left' ? r.leftParty : r.rightParty;
       const votes = res ? (side === 'left' ? res.left : res.right) : 0;
       const won = res?.called === side;
       return h('div', { class: 'bg-cand' }, partyChip(party),
         h('span', { class: 'nm' }, lastName(name), won ? h('span', { class: 'winner-check', style: { marginLeft: '5px' } }, '✓') : null),
-        tot ? [h('span', { class: 'bg-votes' }, num(votes)), h('b', { style: { color: partyVar(party) } }, `${((votes / tot) * 100).toFixed(1)}%`)] : null);
+        tot ? [h('span', { class: 'bg-votes' }, num(votes)), h('b', { style: { color: partyVar(party) } }, votePct(votes / tot, dg))] : null);
     };
     const f = favOdds(r, c.p ?? 0.5);
     const m = c.marketP !== null && c.marketP !== undefined && !store.sim ? favOdds(r, c.marketP) : null;
@@ -234,12 +235,12 @@ function candResult(r, side) {
   if (r.duel) {
     // Same-party race: both candidates in their party's column.
     if (side !== (r.left ? 'left' : 'right')) return h('span', { class: 'muted' }, '—');
-    const d = duelNow(r), v = d.result, tot = v?.total || 0;
+    const d = duelNow(r), v = d.result, tot = v?.total || 0, dg = voteDigits(store.live.results[r.id]);
     const k = catchUp(r);
     const one = (name, votes, other, key) => h('div', { class: 'res-cand' },
       h('div', { class: 'cand-line' }, partyChip(d.party), h('span', { class: 'nm', style: { fontWeight: d.called === key || (tot && votes > other) ? 700 : 500 } }, name),
         d.called === key ? h('span', { class: 'winner-check', title: 'Projected winner' }, '✓') : null),
-      tot ? h('div', { class: 'res-votes' }, h('b', { style: { color: partyVar(d.party) } }, `${((votes / tot) * 100).toFixed(1)}%`), h('span', null, num(votes))) : null,
+      tot ? h('div', { class: 'res-votes' }, h('b', { style: { color: partyVar(d.party) } }, votePct(votes / tot, dg)), h('span', null, num(votes))) : null,
       k?.side === key ? h('div', { class: 'res-need' }, catchUpText(k, { bare: true })) : null);
     return h('div', { class: 'duel-cell' }, one(d.a, v?.a || 0, v?.b || 0, 'a'), one(d.b, v?.b || 0, v?.a || 0, 'b'));
   }
@@ -255,7 +256,7 @@ function candResult(r, side) {
   return h('div', { class: 'res-cand' },
     h('div', { class: 'cand-line' }, partyChip(party), h('span', { class: 'nm', style: { fontWeight: won || (tot && votes > other) ? 700 : 500 } }, name),
       won ? h('span', { class: 'winner-check', title: 'Projected winner' }, '✓') : null),
-    tot ? h('div', { class: 'res-votes' }, h('b', { style: { color: partyVar(party) } }, `${((votes / tot) * 100).toFixed(1)}%`), h('span', null, num(votes))) : null,
+    tot ? h('div', { class: 'res-votes' }, h('b', { style: { color: partyVar(party) } }, votePct(votes / tot, voteDigits(res))), h('span', null, num(votes))) : null,
     k?.side === side ? h('div', { class: 'res-need' }, catchUpText(k, { bare: true })) : null);
 }
 
@@ -265,7 +266,12 @@ function voteMargin(r) {
   return r.left && r.right && res && res.total > 0 ? ((res.left - res.right) / res.total) * 100 : null;
 }
 
-const marginCell = (r, m) => r.duel ? `${lastName(m >= 0 ? r.duel.a : r.duel.b)} +${Math.abs(m).toFixed(1)}` : marginText(m, r);
+// To the same decimals as the race's shares, so a margin never reads zero while the counts differ.
+function marginCell(r, m) {
+  const d = voteDigits(store.live.results[r.id]);
+  if (!r.duel) return marginText(m, r, d);
+  return Math.abs(m) < 0.5 * 10 ** -d ? 'Even' : `${lastName(m >= 0 ? r.duel.a : r.duel.b)} +${Math.abs(m).toFixed(d)}`;
+}
 
 function resultColumns() {
   return [

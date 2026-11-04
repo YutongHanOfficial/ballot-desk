@@ -1,7 +1,7 @@
 // District maps: the national House map (geographic or equal-size hexagons) and per-state district maps.
 // Boundaries are the Census Bureau's 2026 (120th Congress) districts, built by pipeline/build_geo.mjs.
-import { h, s, tooltip, esc, marginFill, hatchFill } from './ui.js';
-import { store, awaiting, raceFill, nightMode, counting } from './store.js';
+import { h, s, tooltip, esc, marginFill, hatchFill, votePct } from './ui.js';
+import { store, awaiting, raceFill, nightMode, counting, voteDigits } from './store.js';
 import { raceTip, mapLegend, marginLegend } from './charts.js';
 
 const d3 = window.d3;
@@ -354,9 +354,10 @@ function buildCountyMap(code, topo, base, { raceId, width: W, maxHeight, compact
         const m = 100 * (v[1] - v[2]) / v[3];
         fill = marginFill(m >= 0 ? race.leftParty : race.rightParty, m);
       }
+      const dg = v && v[3] > 0 ? voteDigits({ left: v[1], right: v[2], total: v[3] }) : 2;
       html = `<div class="tt-title">${esc(name)}</div>` + (v && v[3] > 0
-        ? `<div class="tt-row"><span><span class="party-chip ${race.leftParty}" style="margin-right:6px">${race.leftParty}</span>${esc(lastNameOf(race.left))}</span><b>${(100 * v[1] / v[3]).toFixed(1)}%</b></div>` +
-          `<div class="tt-row"><span><span class="party-chip ${race.rightParty}" style="margin-right:6px">${race.rightParty}</span>${esc(lastNameOf(race.right))}</span><b>${(100 * v[2] / v[3]).toFixed(1)}%</b></div>` +
+        ? `<div class="tt-row"><span><span class="party-chip ${race.leftParty}" style="margin-right:6px">${race.leftParty}</span>${esc(lastNameOf(race.left))}</span><b>${votePct(v[1] / v[3], dg)}</b></div>` +
+          `<div class="tt-row"><span><span class="party-chip ${race.rightParty}" style="margin-right:6px">${race.rightParty}</span>${esc(lastNameOf(race.right))}</span><b>${votePct(v[2] / v[3], dg)}</b></div>` +
           `<div class="tt-row muted"><span>${Math.round(v[0] * 100)}% counted</span><span>${v[3].toLocaleString()} votes</span></div>`
         : `<div class="muted">${waiting ? 'Polls still open' : 'No votes counted yet'}</div>`);
       if (!waiting && !(v && v[3] > 0)) fill = 'var(--novotes)';
@@ -365,7 +366,8 @@ function buildCountyMap(code, topo, base, { raceId, width: W, maxHeight, compact
       if (b && b[0] > 0) {
         const m = 100 * (b[1] - b[2]) / b[0];
         fill = marginFill(m >= 0 ? 'D' : 'R', m);
-        html = `<div class="tt-title">${esc(name)}</div><div class="tt-row"><span>Harris (D)</span><b>${(100 * b[1] / b[0]).toFixed(1)}%</b></div><div class="tt-row"><span>Trump (R)</span><b>${(100 * b[2] / b[0]).toFixed(1)}%</b></div><div class="tt-row muted"><span>2024 president</span><span>${b[0].toLocaleString()} votes</span></div>`;
+        const dg = voteDigits({ left: b[1], right: b[2], total: b[0] });
+        html = `<div class="tt-title">${esc(name)}</div><div class="tt-row"><span>Harris (D)</span><b>${votePct(b[1] / b[0], dg)}</b></div><div class="tt-row"><span>Trump (R)</span><b>${votePct(b[2] / b[0], dg)}</b></div><div class="tt-row muted"><span>2024 president</span><span>${b[0].toLocaleString()} votes</span></div>`;
       } else html = `<div class="tt-title">${esc(name)}</div><div class="muted">No 2024 county result</div>`;
     }
     const p = s('path', { d: path(f), fill, class: 'county' });

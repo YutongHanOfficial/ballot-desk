@@ -49,6 +49,25 @@ export function pct(p, { digits = 1, extremes = true } = {}) {
   return `${(p * 100).toFixed(digits)}%`;
 }
 
+/**
+ * How many decimals vote shares get: two (53.52%), or as many more as it takes, up to six, for each pair of vote
+ * counts given to read apart, with at least one step of the last digit between them. So a close race never shows
+ * two candidates on the same share, or a margin of zero, while their counts differ (50.004% to 49.996%). Six
+ * decimals still separate a one-vote gap in a race of 50 million votes.
+ */
+export function shareDigits(total, pairs) {
+  if (!(total > 0)) return 2;
+  const at = (x, d) => ((100 * x) / total).toFixed(d);
+  for (let d = 2; d < 6; d++) {
+    const step = total / 10 ** (d + 2);   // the votes that one step of the last digit stands for
+    if (pairs.every(([x, y]) => x === y || (Math.abs(x - y) >= step && at(x, d) !== at(y, d)))) return d;
+  }
+  return 6;
+}
+
+/** A vote share (a fraction of the vote) as a percentage to d decimals, from shareDigits(): '53.52%'. */
+export const votePct = (x, d = 2) => `${(100 * x).toFixed(d)}%`;
+
 /** "3 in 4" style odds for a probability. */
 export function oddsText(p) {
   if (p >= 0.995) return 'almost certain';
@@ -123,7 +142,7 @@ export function marginText(mu, race, d = 1) {
   const name = leftWins ? race.left : race.right;
   const v = Math.abs(mu);
   const tag = party === 'D' || party === 'R' ? party : lastName(name);
-  if (v < 0.05) return 'Even';
+  if (v < 0.5 * 10 ** -d) return 'Even';   // rounds to zero at the decimals shown
   return `${tag}+${v.toFixed(d)}`;
 }
 

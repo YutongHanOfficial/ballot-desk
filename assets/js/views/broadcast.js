@@ -6,8 +6,8 @@
 //   ?overlay=scoreboard|ticker|alerts   one piece only, transparent background
 //   ?panel=senate,house,gov,races,calls  ?rotate=15 (seconds per panel)  ?map=odds  ?theme=light
 //   ?demo=live&speed=10                 rehearse on a simulated night
-import { h, pct, num, partyVar, lastName, fmtTimeET, marginText } from '../ui.js';
-import { store, subscribe, cur, chamber, marketControl, racesOf, nightMode, awaiting, raceFill, projectionFill, counting, catchUp, catchUpText, seatCount } from '../store.js';
+import { h, pct, num, partyVar, lastName, fmtTimeET, marginText, votePct } from '../ui.js';
+import { store, subscribe, cur, chamber, marketControl, racesOf, nightMode, awaiting, raceFill, projectionFill, counting, catchUp, catchUpText, seatCount, voteDigits } from '../store.js';
 import { calledSeats, resultsEnabled, houseVote } from '../live.js';
 import { CONFIG, pollCloseDate, POLL_CLOSE_ET } from '../config.js';
 import { CHAMBERS } from './common.js';
@@ -143,6 +143,14 @@ function start(stage, o, W, H) {
 
 // ------------------------------------------------------------------------------------------- helpers
 
+/** Shrink a line's type until it fits its box (a close race's popular vote can need extra decimals). */
+function fitText(el) {
+  for (let i = 0; i < 6 && el.scrollWidth > el.clientWidth + 0.5; i++) {
+    const size = parseFloat(getComputedStyle(el).fontSize);
+    el.style.fontSize = `${Math.max(14, Math.floor(size * Math.min(0.97, el.clientWidth / el.scrollWidth)))}px`;
+  }
+}
+
 /** Drop trailing rows that would hang off the bottom of a list: names and counts vary, and half a row looks broken. */
 function fitList(list) {
   const bottom = list.getBoundingClientRect().bottom + 0.5;
@@ -237,7 +245,8 @@ function drawStats(el, o) {
   const flips = { D: 0, R: 0 };
   for (const c of callsNow()) if (c.flip && (c.party === 'D' || c.party === 'R')) flips[c.party]++;
   const next = nextClose();
-  const share = (x) => `${((x / v.total) * 100).toFixed(1)}%`;
+  const dg = v ? voteDigits({ left: v.D, right: v.R, total: v.total }) : 2;
+  const share = (x) => votePct(x / v.total, dg);
   const kpi = (label, value, sub) => h('div', { class: 'bc-kpi' }, h('span', { class: 'k' }, label), h('div', { class: 'v' }, value), h('span', { class: 's' }, sub || ''));
   const cells = [
     kpi('Votes counted', v ? num(v.total) : '0', v && v.eevp ? `House races · about ${Math.round(v.eevp)}% counted` : 'House races'),
@@ -249,6 +258,7 @@ function drawStats(el, o) {
       next ? `${next.sts.slice(0, 7).join(' · ')}${next.sts.length > 7 ? ` +${next.sts.length - 7}` : ''}` : 'Counting continues'),
   ];
   el.replaceChildren(...(o.vertical ? cells.slice(0, 4) : cells));
+  el.querySelectorAll('.bc-kpi .v').forEach(fitText);
 }
 
 // ------------------------------------------------------------------------------------------- scoreboard
@@ -326,7 +336,8 @@ function watchRow(r) {
   const c = cur(r), res = c.result, tot = res?.total || 0, night = nightMode();
   const p = c.p ?? 0.5;
   const lp = tot ? res.left / tot : p, rp = tot ? res.right / tot : 1 - p;
-  const val = (x) => tot ? `${(x * 100).toFixed(1)}%` : pct(x);
+  const dg = voteDigits(res);
+  const val = (x) => tot ? votePct(x, dg) : pct(x);
   const f = favOdds(r, p);
   const status = res?.called ? h('span', { class: 'bc-wst called' }, '✓ Projected')
     : awaiting(r) ? h('span', { class: 'bc-wst' }, `Polls close ${closeTime(r)}`)
@@ -363,7 +374,7 @@ function keyRaces(o) {
 
 function raceCard(r) {
   const c = cur(r), res = c.result, tot = res?.total || 0, night = nightMode();
-  const p = c.p ?? 0.5;
+  const p = c.p ?? 0.5, dg = voteDigits(res);
   const line = (side) => {
     const name = side === 'left' ? r.left : r.right, party = side === 'left' ? r.leftParty : r.rightParty;
     const v = res ? (side === 'left' ? res.left : res.right) : 0;
@@ -373,7 +384,7 @@ function raceCard(r) {
       avatar(r, name, party, { size: 36, fallback: 'chip', badge: true }),
       h('span', { class: 'nm' }, lastName(name), won ? h('em', null, '✓') : null),
       h('span', { class: 'bc-cbar' }, h('i', { style: { width: `${Math.min(100, share * 100)}%`, background: partyVar(party) } })),
-      h('b', { style: { color: partyVar(party) } }, tot ? `${(share * 100).toFixed(1)}%` : pct(share)),
+      h('b', { style: { color: partyVar(party) } }, tot ? votePct(share, dg) : pct(share)),
       h('span', { class: 'bc-votes' }, tot ? num(v) : ''));
   };
   const f = favOdds(r, p);
@@ -386,7 +397,7 @@ function raceCard(r) {
     h('div', { class: 'bc-rhead' }, h('b', null, r.type === 'house' ? r.short : r.stateName), h('span', null, r.type === 'house' ? 'House' : r.office), h('em', null, status)),
     line('left'), line('right'),
     h('div', { class: 'bc-rfoot' },
-      h('span', null, need || (margin !== null ? `Margin ${marginText(margin, r)}` : night ? 'Chance of winning · no votes yet' : 'Chance of winning')),
+      h('span', null, need || (margin !== null ? `Margin ${marginText(margin, r, dg)}` : night ? 'Chance of winning · no votes yet' : 'Chance of winning')),
       tot ? h('span', { class: 'bc-in' }, h('i', { style: { width: `${Math.min(100, c.eevp)}%` } })) : h('span'),
       h('span', { style: { color: partyVar(f.party) } }, res?.called || !tot ? '' : `${f.tag} ${pct(f.q)} to win`)));
 }
@@ -398,13 +409,13 @@ function latestCalls(o, head) {
     return [head('Latest projections', store.sim ? 'Simulated decision desk' : 'Calls by the Associated Press'),
       h('div', { class: 'bc-calls' }, calls.map(c => {
         const tot = c.res.total || 0, eevp = c.res.eevp || 0;
-        const lp = tot ? (c.res.left / tot) * 100 : null, rp = tot ? (c.res.right / tot) * 100 : null;
+        const lp = tot ? c.res.left / tot : null, rp = tot ? c.res.right / tot : null, dg = voteDigits(c.res);
         return h('div', { class: 'bc-call' },
           h('span', { class: 'bc-t' }, fmtTimeET(c.at).replace(' ET', '')),
           h('i', { class: `party-chip ${c.party}` }, c.party),
           h('span', { class: 'bc-what' }, h('b', null, lastName(c.name)), ` wins ${c.r.title}`,
             // A call with almost nothing counted is one made as the polls closed; shares of a handful of votes mean nothing.
-            h('em', null, lp !== null && eevp >= 1 ? `${lastName(c.r.left)} ${lp.toFixed(1)}% · ${lastName(c.r.right)} ${rp.toFixed(1)}% · ${Math.round(eevp)}% in` : 'Projected as polls closed')),
+            h('em', null, lp !== null && eevp >= 1 ? `${lastName(c.r.left)} ${votePct(lp, dg)} · ${lastName(c.r.right)} ${votePct(rp, dg)} · ${Math.round(eevp)}% in` : 'Projected as polls closed')),
           c.flip ? h('span', { class: 'bc-flip', style: { background: partyVar(c.party) } }, `${c.party} pickup`) : null);
       }))];
   }
@@ -433,10 +444,14 @@ function tickerItems() {
   for (const r of close.slice(0, 8)) {
     const x = store.live.results[r.id];
     const need = catchUpText(catchUp(r), { short: true });
-    items.push(h('span', { class: 'bc-item' }, h('b', null, callTag(r)), ` ${lastName(r.left)} ${((x.left / x.total) * 100).toFixed(1)}% · ${lastName(r.right)} ${((x.right / x.total) * 100).toFixed(1)}% · ${inText(x.eevp)}${need ? ` · ${need}` : ''}`));
+    const dg = voteDigits(x);
+    items.push(h('span', { class: 'bc-item' }, h('b', null, callTag(r)), ` ${lastName(r.left)} ${votePct(x.left / x.total, dg)} · ${lastName(r.right)} ${votePct(x.right / x.total, dg)} · ${inText(x.eevp)}${need ? ` · ${need}` : ''}`));
   }
   const v = houseVote();
-  if (v) items.push(h('span', { class: 'bc-item' }, h('b', null, 'House popular vote'), ` Democrats ${((v.D / v.total) * 100).toFixed(1)}% · Republicans ${((v.R / v.total) * 100).toFixed(1)}% · ${num(v.total)} votes`));
+  if (v) {
+    const dg = voteDigits({ left: v.D, right: v.R, total: v.total });
+    items.push(h('span', { class: 'bc-item' }, h('b', null, 'House popular vote'), ` Democrats ${votePct(v.D / v.total, dg)} · Republicans ${votePct(v.R / v.total, dg)} · ${num(v.total)} votes`));
+  }
   for (const type of ['senate', 'house']) {
     const ch = chamber(type);
     items.push(h('span', { class: 'bc-item' }, h('b', null, CHAMBERS[type].name), ` ${ch.live ? 'live chance of control' : 'forecast'}: Democrats ${pct(ch.pD)} · Republicans ${pct(ch.pR)}`));
@@ -515,7 +530,7 @@ function alertQueue(slot) {
       body = [h('div', { class: 'bc-a-label' }, h('span', { class: 'bc-a-check' }, '✓'), 'Projected winner', c.flip ? h('span', { class: 'bc-flip' }, `${c.party} pickup`) : null),
         h('div', { class: 'bc-a-big' }, c.name, h('i', { class: `party-chip ${c.party}` }, c.party)),
         h('div', { class: 'bc-a-race' }, `${c.r.title}`,
-          tot && eevp >= 1 ? ` · ${((c.res.left / tot) * 100).toFixed(1)}% to ${((c.res.right / tot) * 100).toFixed(1)}%, ${Math.round(eevp)}% in` : ' · as polls closed',
+          tot && eevp >= 1 ? ` · ${votePct(c.res.left / tot, voteDigits(c.res))} to ${votePct(c.res.right / tot, voteDigits(c.res))}, ${Math.round(eevp)}% in` : ' · as polls closed',
           store.sim ? ' · simulated' : ' · AP projection')];
       if (pic) {
         body = [h('div', { class: 'bc-a-row' }, avatar(c.r, c.name, c.party, { size: 104 }), h('div', { class: 'bc-a-text' }, body)),

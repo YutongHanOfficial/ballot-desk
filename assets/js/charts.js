@@ -1,6 +1,6 @@
 // SVG charts (D3 is loaded globally from assets/vendor).
-import { h, s, pct, partyVar, tooltip, esc, lastName, marginText, fmtDate, compact, PARTY_NAME, MARGIN_BANDS, marginFill, hatchFill } from './ui.js';
-import { store, cur, awaiting, raceFill, nightMode, duelNow, shade, catchUp, catchUpText } from './store.js';
+import { h, s, pct, partyVar, tooltip, esc, lastName, marginText, fmtDate, compact, PARTY_NAME, MARGIN_BANDS, marginFill, hatchFill, votePct } from './ui.js';
+import { store, cur, awaiting, raceFill, nightMode, duelNow, shade, catchUp, catchUpText, voteDigits, partyShares } from './store.js';
 import { pollCloseDate } from './config.js';
 
 const d3 = window.d3;
@@ -232,7 +232,8 @@ export function raceTip(r) {
     const d = duelNow(r);
     const v = d.result, tot = v?.total || 0;
     const q = (x) => pct(Math.min(0.999, Math.max(0.001, x)));
-    const share = (x) => `${((x / tot) * 100).toFixed(1)}%<span class="tt-sub">${x.toLocaleString('en-US')}</span>`;
+    const dg = voteDigits(c.result);
+    const share = (x) => `${votePct(x / tot, dg)}<span class="tt-sub">${x.toLocaleString('en-US')}</span>`;
     const favName = d.pA >= 0.5 ? d.a : d.b;
     rows.push(line(d.a, d.party, null, tot ? share(v.a) : q(d.pA)), line(d.b, d.party, null, tot ? share(v.b) : q(1 - d.pA)));
     rows.push(tot
@@ -244,11 +245,13 @@ export function raceTip(r) {
   }
   if (r.left && r.right && c.result && c.result.total > 0) {
     const res = c.result, tot = res.total;
-    const share = (v) => `${((v / tot) * 100).toFixed(1)}%<span class="tt-sub">${v.toLocaleString('en-US')}</span>`;
+    const dg = voteDigits(res);
+    const share = (v) => `${votePct(v / tot, dg)}<span class="tt-sub">${v.toLocaleString('en-US')}</span>`;
     rows.push(line(r.left, r.leftParty, null, share(res.left)));
     rows.push(line(r.right, r.rightParty, null, share(res.right)));
     // All-party primary: the map colour comes from each party's total over all its candidates.
-    if (res.allParty && res.byParty) rows.push(`<div class="tt-row muted"><span>By party</span><span>${[r.leftParty, r.rightParty].map(p => `${p} ${((100 * (res.byParty[p] || 0)) / tot).toFixed(1)}%`).join(' · ')}</span></div>`);
+    const shares = partyShares(r, res);
+    if (shares) rows.push(`<div class="tt-row muted"><span>By party</span><span>${shares.map(([p, v]) => `${p} ${v}`).join(' · ')}</span></div>`);
     rows.push(`<div class="tt-row muted"><span>${Math.round(c.eevp)}% of expected vote</span><span>${res.called ? 'Called' : `Live odds ${fav(p)}`}</span></div>`, needRow);
   } else if (r.left && r.right) {
     rows.push(line(r.left, r.leftParty, p));

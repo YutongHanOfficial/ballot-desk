@@ -1,6 +1,6 @@
 // Individual race page.
-import { h, pct, num, partyChip, partyVar, ratingChip, marginText, lastName, fmtDate, oddsText, compact, timeAgo, PARTY_NAME, bandLabel } from '../ui.js';
-import { store, cur, duelNow, forecastOf, forecastFinal, catchUp, catchUpText } from '../store.js';
+import { h, pct, num, partyChip, partyVar, ratingChip, marginText, lastName, fmtDate, oddsText, compact, timeAgo, PARTY_NAME, bandLabel, votePct } from '../ui.js';
+import { store, cur, duelNow, forecastOf, forecastFinal, catchUp, catchUpText, voteDigits, partyShares } from '../store.js';
 import { splitBar, pollChart, marginCurve, signalRows } from '../charts.js';
 import { stateDistrictMap, countyMap, countyResults, countyLegend } from '../maps.js';
 import { nightMode } from '../store.js';
@@ -159,17 +159,17 @@ function resultsCard(r, c) {
   const d = r.duel ? duelNow(r) : null;
   const liveOdds = d ? (d.live && !d.called ? [d.pA >= 0.5 ? d.a : d.b, Math.max(d.pA, 1 - d.pA), d.party] : null)
     : c.live && !res.called && r.left && r.right ? [c.p >= 0.5 ? r.left : r.right, Math.max(c.p, 1 - c.p), c.p >= 0.5 ? r.leftParty : r.rightParty] : null;
+  const dg = voteDigits(res);
   const rows = res.cands.slice(0, 8).map(k => h('tr', null,
     h('td', null, h('div', { class: 'cand-line' }, avatar(r, k.name, k.party, { size: 30, fallback: 'chip', badge: true }), h('span', { class: 'nm', style: { fontWeight: k.winner ? 750 : 550 } }, k.name), k.winner ? h('span', { class: 'winner-check', title: 'Winner' }, '✓') : null),
       h('div', { class: 'vote-bar' }, h('i', { style: { width: `${(k.pct * 100).toFixed(1)}%`, background: partyVar(k.party) } }))),
     h('td', { class: 'votes' }, num(k.votes)),
-    h('td', { class: 'votes', style: { fontWeight: 700 } }, `${(k.pct * 100).toFixed(1)}%`)));
+    h('td', { class: 'votes', style: { fontWeight: 700 } }, votePct(k.pct, dg))));
   const dw = r.duel ? res.duel?.won : null;
   const need = catchUpText(catchUp(r));   // what the trailing candidate needs of the votes left
   const PLURAL = { D: 'Democrats', R: 'Republicans', L: 'Libertarians', G: 'Greens', I: 'independents' };
-  const byParty = res.allParty && res.byParty && tot && r.left && r.right
-    ? `All-party primary. By party, every candidate counted: ${[r.leftParty, r.rightParty].map(p => `${PLURAL[p] || PARTY_NAME[p] || p} ${((100 * (res.byParty[p] || 0)) / tot).toFixed(1)}%`).join(', ')}.`
-    : null;
+  const shares = partyShares(r, res);
+  const byParty = shares ? `All-party primary. By party, every candidate counted: ${shares.map(([p, v]) => `${PLURAL[p] || PARTY_NAME[p] || p} ${v}`).join(', ')}.` : null;
   const status = r.duel ? (dw ? `Called for ${dw === 'a' ? r.duel.a : r.duel.b}` : tot ? 'Counting' : 'Polls closed, no votes yet')
     : res.called ? (res.called === 'other' ? 'Called' : `Called for ${res.called === 'left' ? r.left : r.right}`) : res.runoff ? 'Headed to a runoff' : tot ? 'Counting' : 'Polls closed, no votes yet';
   return h('section', { class: 'card', style: { marginBottom: '16px' } },

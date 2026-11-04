@@ -107,7 +107,14 @@ While a race is counted, `catchUp()` in store.js works out what the runner-up ne
 (called races too, worded "would need", until the count puts them out of reach): AP's expected total vote (`total_expected_vote` in the feed) less the count, with other
 candidates keeping their share. Races that need a majority (Georgia and Louisiana runoffs, Vermont) show what the
 leader needs to stay above 50% instead, and Alaska's and Maine's ranked-choice races are about first choices. It
-shows on the race page, race cards, map tooltips, the live results table and the broadcast.
+shows on the race page, race cards, map tooltips, the live results table and the broadcast. Being built on AP's
+estimate of the votes left, it keeps one decimal.
+
+Vote shares show two decimals (53.52%), and more where two numbers that matter would otherwise read the same:
+`voteDigits()` in store.js (on `shareDigits()` in ui.js) adds decimals, up to six, until the top two candidates read
+apart with at least one step of the last digit between them, so the margin never reads zero while the counts differ
+(48.949% to 48.942%). Where second place goes to a runoff it also separates second from third, and where a majority
+wins outright, the leader from 50%. Every view of a race uses the same count of decimals.
 
 Louisiana's House races are all-party primaries with a December runoff (`race_type_id` 'L' in the feed). There,
 `seatCount()` gives the live model, the map colours and the broadcast's tallies each party's combined vote, while the

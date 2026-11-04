@@ -681,7 +681,7 @@ html.bc-transparent, html.bc-transparent body { background: transparent !importa
 .bc-rhead span { font-size: 14px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; color: var(--bc-muted); }
 .bc-rhead em { margin-left: auto; font-size: 16px; font-style: normal; font-weight: 900; color: var(--bc-muted); }
 .bc-rcard.called .bc-rhead em { color: var(--bc-ink); }
-.bc-cline { display: grid; grid-template-columns: auto 160px minmax(0, 1fr) 86px 118px; align-items: center; gap: 12px; font-size: 20px; }
+.bc-cline { display: grid; grid-template-columns: auto 160px minmax(0, 1fr) minmax(100px, max-content) 118px; align-items: center; gap: 12px; font-size: 20px; }
 .bc-cline .nm { min-width: 0; overflow: hidden; font-weight: 800; white-space: nowrap; text-overflow: ellipsis; }
 .bc-cline .nm em { margin-left: 6px; font-style: normal; }
 .bc-cbar { height: 14px; border-radius: 99px; overflow: hidden; background: var(--bc-line); }
@@ -762,7 +762,7 @@ html.bc-transparent, html.bc-transparent body { background: transparent !importa
 .bc-stage.vertical .bc-cards { grid-template-columns: minmax(0, 1fr); }
 .bc-stage.vertical .bc-rcard { gap: 5px; padding: 8px 18px; }
 .bc-foot-credit { font-size: 13px; opacity: .7; }
-.bc-stage.vertical .bc-cline { grid-template-columns: auto 190px minmax(0, 1fr) 86px 118px; }
+.bc-stage.vertical .bc-cline { grid-template-columns: auto 190px minmax(0, 1fr) minmax(100px, max-content) 118px; }
 .bc-foot { height: 188px; flex-shrink: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; font-size: 22px; color: var(--bc-muted); }
 .bc-foot b { font: 900 40px/1 var(--sans); letter-spacing: .02em; color: var(--bc-ink); }
 

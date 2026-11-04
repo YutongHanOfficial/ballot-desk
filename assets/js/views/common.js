@@ -1,6 +1,6 @@
 // Building blocks shared by several pages.
-import { h, pct, partyChip, partyVar, lastName, marginText, num, oddsText, ratingChip, fmtTimeET, PARTY_NAME, timeAgo } from '../ui.js';
-import { store, cur, chamber, marketControl, duelNow, catchUp, catchUpText } from '../store.js';
+import { h, pct, partyChip, partyVar, lastName, marginText, num, oddsText, ratingChip, fmtTimeET, PARTY_NAME, timeAgo, votePct } from '../ui.js';
+import { store, cur, chamber, marketControl, duelNow, catchUp, catchUpText, voteDigits } from '../store.js';
 import { avatar } from '../photos.js';
 import { splitBar, probCell } from '../charts.js';
 import { calledSeats, resultsEnabled } from '../live.js';
@@ -72,7 +72,8 @@ export function raceCard(r, { showType = true } = {}) {
     // Two candidates of one party: the odds (or the count) between them.
     const d = duelNow(r);
     const v = d.result, tot = v?.total || 0;
-    const share = (x) => `${((x / tot) * 100).toFixed(1)}%`;
+    const dg = voteDigits(res);
+    const share = (x) => votePct(x / tot, dg);
     const q = (x) => pct(Math.min(0.999, Math.max(0.001, x)));
     rows.push(cand(d.a, d.party, tot ? share(v.a) : q(d.pA), tot ? v.a >= v.b : d.pA >= 0.5, d.called === 'a', tot ? v.a : undefined));
     rows.push(cand(d.b, d.party, tot ? share(v.b) : q(1 - d.pA), tot ? v.b > v.a : d.pA < 0.5, d.called === 'b', tot ? v.b : undefined));
@@ -92,9 +93,9 @@ export function raceCard(r, { showType = true } = {}) {
     rows.push(h('div', { class: 'xs muted' }, r.samePartyGeneral ? `Two ${PARTY_NAME[r.samePartyGeneral]}s advanced` : 'No major-party opponent'));
   } else if (counting) {
     const tot = res.total || 1;
-    const lp = res.left / tot, rp = res.right / tot;
-    rows.push(cand(r.left, r.leftParty, `${(lp * 100).toFixed(1)}%`, lp >= rp, res.called === 'left', res.left));
-    rows.push(cand(r.right, r.rightParty, `${(rp * 100).toFixed(1)}%`, rp > lp, res.called === 'right', res.right));
+    const lp = res.left / tot, rp = res.right / tot, dg = voteDigits(res);
+    rows.push(cand(r.left, r.leftParty, votePct(lp, dg), lp >= rp, res.called === 'left', res.left));
+    rows.push(cand(r.right, r.rightParty, votePct(rp, dg), rp > lp, res.called === 'right', res.right));
     rows.push(h('div', { class: 'eevp-bar', title: `${Math.round(c.eevp)}% of expected vote counted` }, h('i', { style: { width: `${Math.min(100, c.eevp)}%` } })));
     const need = catchUpText(catchUp(r), { short: true });
     if (need) rows.push(h('div', { class: 'rc-need' }, need));
