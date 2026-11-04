@@ -10,6 +10,7 @@
     "geo": "node pipeline/build_geo.mjs",
     "hex": "node pipeline/build_hex.mjs",
     "pages": "node pipeline/build_pages.mjs",
+    "archive": "node pipeline/build_archive.mjs",
     "icons": "node pipeline/build_icons.mjs"
   },
   "devDependencies": {

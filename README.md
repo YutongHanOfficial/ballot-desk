@@ -56,6 +56,29 @@ in `app.css`): tilt under 1 point, lean 1–5, likely 5–15, safe 15+, darker f
 results it is the final forecast's projected margin; on election night, the lead in the count, with stripes on
 races still being counted and a check mark on projected states. The same scale shades counties and the simulator.
 
+### Archive and swing map
+
+`/archive/` lists every federal general election from 1976 to 2024 (an `index.html` in `archive/`, so `/archive/2024`
+can sit beside it), and `/archive/2024` shows one: the presidential vote by state and, from 2000, by county; every
+Senate race; and all 435 House seats with the popular vote. `/swing` compares any two presidential elections, by
+county (2000 on) or state, as arrows (left toward Democrats, right toward Republicans, longer for a bigger shift) or
+shading, with the choice in the address (`?from=2016&to=2020&level=states&style=shading`). Both are built from the
+official returns compiled by the MIT Election Data and Science Lab (CC0, Harvard Dataverse) by
+`pipeline/build_archive.mjs` (`npm run archive`), which writes `data/archive/` and the national county map
+`data/geo/counties-us.json`. Run once; the output is committed and the GitHub Action never touches it.
+
+The president and Senate files download directly, but the county and House files sit behind a Dataverse guestbook:
+download `countypres_2000-2024.csv` (doi:10.7910/DVN/VOQCHQ) and `1976-2024-house.tab` (doi:10.7910/DVN/IG0UN2) in a
+browser into `pipeline/.cache/archive/`. The build checks itself and stops on a mismatch: electoral votes from the
+state results (House seats plus two, Maine's and Nebraska's split districts) must equal the official count once
+faithless electors are added back, and House seats must match the official totals for 2008-2024. Known gaps in the
+data are patched in the script with their sources: Louisiana's December runoffs (the file mixes the rounds), a few
+Senate races missing or mislabelled (North Dakota 1980, North Carolina 1986, Illinois 2010, Connecticut 2022, from
+the official results on Wikipedia), candidates listed without a party, and Kansas City's 2024 county code. Counties
+are matched to today's map; Alaska (which reports by state House district) and Connecticut (whose counties became
+planning regions in 2022) are shown as whole states, and states whose county returns don't add up to the official
+state total are noted on the swing map.
+
 ### Forecast history before launch
 
 The model went live late on November 1, so the forecast-history chart before its "Forecast went live" line is a
@@ -218,6 +241,7 @@ counted by the beacon itself (it follows the History API). Ad and tracker blocke
 | Election-night counts and calls | AP via The New York Times public results JSON | Unofficial; see above |
 | 2026 congressional district boundaries | U.S. Census Bureau TIGER/Line 2026 (`cd120`) + cartographic state outlines | Public domain |
 | County boundaries | U.S. Census Bureau cartographic boundaries, 2025 | Public domain |
+| Past results (archive and swing map): president by state and county, Senate, House | [MIT Election Data and Science Lab](https://electionlab.mit.edu/data), Harvard Dataverse; a few gaps from Wikipedia | CC0 (Wikipedia: CC BY-SA 4.0) |
 | 2024 presidential vote by county | [tonmcg/US_County_Level_Election_Results_08-24](https://github.com/tonmcg/US_County_Level_Election_Results_08-24) | MIT |
 | Election-night county results | AP via each race's NYT results file (fetched in the browser) | Unofficial; see above |
 | Candidate photos | Lead images of the candidates' Wikipedia articles (Wikimedia Commons / Wikipedia), cropped | Each file's own: public domain, CC0, CC BY or CC BY-SA (listed on `/credits`) |

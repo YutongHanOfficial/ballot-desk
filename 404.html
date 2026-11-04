@@ -33,12 +33,15 @@
       var PAGES = { '': '', home: '', index: '', overview: 'forecast', forecast: 'forecast', live: 'live', results: 'live',
         'election-night': 'live', senate: 'senate', house: 'house', governor: 'governors', governors: 'governors', states: 'states',
         downballot: 'downballot', 'down-ballot': 'downballot', methodology: 'methodology', methods: 'methodology', about: 'methodology',
-        simulate: 'simulate', simulator: 'simulate', simulation: 'simulate' };
+        simulate: 'simulate', simulator: 'simulate', simulation: 'simulate', archive: 'archive', archives: 'archive',
+        'past-elections': 'archive', elections: 'archive', history: 'archive', swing: 'swing', 'swing-map': 'swing', swings: 'swing',
+        shift: 'swing', shifts: 'swing', 'shift-map': 'swing' };
       var OFFICE = { al: 'AL', 'at-large': 'AL', sen: 'SEN', senate: 'SEN', gov: 'GOV', governor: 'GOV', ltgov: 'LTGOV', ag: 'AG', sos: 'SOS' };
       var to = null, m;
       var name = function (s) { return byName[s.replace(/-/g, '')]; };
       if (Object.prototype.hasOwnProperty.call(PAGES, slug)) to = PAGES[slug];
       else if ((m = slug.match(/^downballot\/(offices|legislatures|measures)$/))) to = 'downballot?tab=' + m[1];
+      else if ((m = slug.match(/^(?:(?:archives?|elections?|past-elections)\/)?(19[789]\d|20[0-2]\d)(?:-elections?)?$/)) && +m[1] % 2 === 0 && +m[1] >= 1976 && +m[1] <= 2024) to = 'archive/' + m[1];
       else if ((m = slug.match(/^(?:states?\/)?([a-z]{2})$/)) && byCode[m[1].toUpperCase()]) to = 'state/' + m[1].toUpperCase();
       else if ((m = slug.match(/^(?:states?\/)?([a-z-]+)$/)) && name(m[1])) to = 'state/' + name(m[1]);
       else if ((m = slug.match(/^(?:races?\/)?([a-z]{2})-?(\d{1,2}|al|at-large|sen|senate|gov|governor|ltgov|ag|sos)$/)) && byCode[m[1].toUpperCase()]) {
@@ -77,6 +80,7 @@
         <a href="/states">States</a>
         <a href="/downballot">Down-ballot</a>
         <a href="/simulate">Simulate</a>
+        <a href="/archive">Archive</a>
         <a href="/methodology">Methodology</a>
       </nav>
     </div>

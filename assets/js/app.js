@@ -16,6 +16,8 @@ import * as broadcast from './views/broadcast.js';
 import * as stream from './views/stream.js';
 import * as credits from './views/credits.js';
 import * as legal from './views/legal.js';
+import * as archive from './views/archive.js';
+import * as swing from './views/swing.js';
 import { loadPhotos } from './photos.js';
 import { START, END, clockLabel, togglePlay, setSpeed, seek, stopSim } from './sim.js';
 import { navigate, currentPath, upgradeHashLink, tidyAddress } from './nav.js';
@@ -43,6 +45,9 @@ const ROUTES = [
   { re: /^\/support$/, nav: 'support', render: (root) => support.render(root), title: () => support.title() },
   { re: /^\/broadcast$/, nav: 'broadcast', render: (root) => broadcast.render(root), title: () => broadcast.title() },
   { re: /^\/stream$/, nav: 'stream', render: (root) => stream.render(root), title: () => stream.title() },
+  { re: /^\/archive$/, nav: 'archive', render: (root) => archive.renderIndex(root), title: () => archive.indexTitle() },
+  { re: /^\/archive\/(\d{4})$/, nav: 'archive', render: (root, m) => archive.renderYear(root, m[1]), title: (m) => archive.yearTitle(m[1]) },
+  { re: /^\/swing$/, nav: 'archive', render: (root) => swing.render(root), title: () => swing.title() },
   { re: /^\/credits$/, nav: 'credits', render: (root) => credits.render(root), title: () => credits.title() },
   { re: /^\/terms$/, nav: 'terms', render: (root) => legal.renderTerms(root), title: () => legal.termsTitle() },
   { re: /^\/privacy$/, nav: 'privacy', render: (root) => legal.renderPrivacy(root), title: () => legal.privacyTitle() },
@@ -254,6 +259,8 @@ async function boot() {
   subscribe((reason) => {
     if (navOf(route().r) === 'broadcast') return;   // the broadcast stage updates itself, without a full redraw
     if (reason === 'sim') drawSimBar();
+    // Past elections don't move with tonight's count: leave the page, and any zoomed county map, as it is.
+    if (navOf(route().r) === 'archive') { drawStatus(); return; }
     if (reason === 'markets' && !isMarketView()) { drawStatus(); return; }
     scheduleRender();
   });

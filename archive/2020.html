@@ -1,0 +1,105 @@
+<!doctype html>
+<!-- Generated from index.html by pipeline/build_pages.mjs (npm run pages). Edit index.html instead. -->
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Ballot Desk - 2020 elections</title>
+  <meta name="description" content="Joe Biden won the presidency with 306 electoral votes, and Democrats won the House 222–213. Results and maps for president, the Senate and the House, by state and county.">
+  <meta property="og:title" content="Ballot Desk - 2020 elections">
+  <meta property="og:site_name" content="Ballot Desk">
+  <meta name="twitter:card" content="summary">
+  <meta property="og:description" content="Joe Biden won the presidency with 306 electoral votes, and Democrats won the House 222–213. Results and maps for president, the Senate and the House, by state and county.">
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://ballotdesk.org/archive/2020">
+  <link rel="canonical" href="https://ballotdesk.org/archive/2020">
+  <meta name="theme-color" content="#f7f6f3" media="(prefers-color-scheme: light)">
+  <meta name="theme-color" content="#0e1013" media="(prefers-color-scheme: dark)">
+  <link rel="icon" href="/favicon.ico" sizes="48x48">
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <link rel="icon" href="/icon-192.png" type="image/png" sizes="192x192">
+  <link rel="apple-touch-icon" href="/apple-touch-icon.png">
+  <link rel="preload" href="/assets/fonts/inter/latin.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="preload" href="/assets/fonts/source-serif-4/latin.woff2" as="font" type="font/woff2" crossorigin>
+  <script>
+    // GitHub Pages can answer 503 for a minute or two around each deploy. Retry a stylesheet that failed to load;
+    // if the code failed, say so and reload a few times. (sw.js covers anyone who has visited before.)
+    function bdRetry(el) {
+      var n = +(el.getAttribute('data-retry') || 0) + 1;
+      if (n > 6) return;
+      setTimeout(function () {
+        var again = el.cloneNode();
+        again.setAttribute('data-retry', n);
+        again.href = el.href.split('?')[0] + '?retry=' + n;
+        el.replaceWith(again);
+      }, 2000 * n);
+    }
+    function bdReload() {
+      if (window.bdReloading) return;
+      window.bdReloading = true;
+      var n = 9, main = document.getElementById('main');
+      try { n = +sessionStorage.getItem('bdReloads') || 0; sessionStorage.setItem('bdReloads', n + 1); } catch (e) { /* no storage: no loop */ }
+      var say = function (t) { if (main) main.innerHTML = '<div class="card empty">' + t + '</div>'; };
+      if (n >= 4) { say('Ballot Desk’s host is having trouble right now. Please refresh in a minute.'); return; }
+      say('Couldn’t reach the server. Trying again…');
+      setTimeout(function () { location.reload(); }, [3000, 10000, 20000, 40000][n]);
+    }
+  </script>
+  <link rel="stylesheet" href="/assets/css/fonts.css" onerror="bdRetry(this)">
+  <link rel="stylesheet" href="/assets/css/app.css" onerror="bdRetry(this)">
+</head>
+<body>
+  <a class="sr-only" href="#main">Skip to content</a>
+  <header class="site-header">
+    <div class="header-inner">
+      <a class="brand" href="/" aria-label="Ballot Desk home">
+        <span class="brand-mark"><svg viewBox="0 0 32 32" aria-hidden="true"><defs><linearGradient id="bd-g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#1f5fd1"/><stop offset="1" stop-color="#d0312d"/></linearGradient></defs><rect width="32" height="32" rx="8" fill="url(#bd-g)"/><rect x="8" y="8" width="16" height="16" rx="3.5" fill="none" stroke="#fff" stroke-width="2.2" opacity=".55"/><path d="M11.6 16.4l3.3 3.3 6.2-7.1" fill="none" stroke="#fff" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+        <span class="brand-text"><b>Ballot Desk</b><span>2026 midterms · forecast &amp; live results</span></span>
+      </a>
+      <nav class="nav" aria-label="Main">
+        <a href="/" data-nav="home">Overview</a>
+        <a href="/live" data-nav="live" class="live-link"><span class="live-dot"></span>Live</a>
+        <a href="/senate" data-nav="senate">Senate</a>
+        <a href="/house" data-nav="house">House</a>
+        <a href="/governors" data-nav="governors">Governors</a>
+        <a href="/states" data-nav="states">States</a>
+        <a href="/downballot" data-nav="downballot">Down-ballot</a>
+        <a href="/simulate" data-nav="simulate">Simulate</a>
+        <a href="/archive" data-nav="archive">Archive</a>
+        <a href="/methodology" data-nav="methodology">Methodology</a>
+      </nav>
+      <div class="header-tools">
+        <button class="icon-btn" id="theme-btn" type="button" aria-label="Toggle dark mode" title="Toggle dark mode">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg>
+        </button>
+      </div>
+    </div>
+    <div id="simbar"></div>
+  </header>
+  <div class="status-bar"><div class="status-inner" id="status" aria-live="polite"></div></div>
+
+  <main id="main">
+    <div class="skeleton" style="height:44px;width:60%;margin:10px 0 18px"></div>
+    <div class="grid g3">
+      <div class="skeleton" style="height:190px"></div><div class="skeleton" style="height:190px"></div><div class="skeleton" style="height:190px"></div>
+    </div>
+  </main>
+
+  <footer class="site-footer">
+    <div class="footer-inner">
+      <div>
+        <p><b style="color:var(--ink)">Ballot Desk</b> is an independent, automated forecast of the 2026 midterms. It is not affiliated with any campaign, party or news organization.</p>
+        <p>Forecasts are probabilities, not predictions. Official results come from each state’s election office.</p>
+      </div>
+      <div>
+        <p>Data: <a href="https://en.wikipedia.org/wiki/2026_United_States_elections" target="_blank" rel="noopener">Wikipedia</a> (CC BY-SA 4.0) for candidates and ratings · <a href="https://votehub.com/polls" target="_blank" rel="noopener">VoteHub</a> (CC BY 4.0) for polls · <a href="https://polymarket.com" target="_blank" rel="noopener">Polymarket</a> for market prices · AP vote counts via The New York Times on election night · 2026 district lines from the U.S. Census Bureau.</p>
+        <p><a href="/methodology">How the forecast works</a> · <a href="/credits">Photo credits</a> · <a href="/terms">Terms</a> · <a href="/privacy">Privacy</a></p>
+      </div>
+    </div>
+  </footer>
+
+  <script src="/assets/vendor/d3.min.js" onerror="bdReload()"></script>
+  <script src="/assets/vendor/topojson-client.min.js" onerror="bdReload()"></script>
+  <script type="module" src="/assets/js/app.js" onerror="bdReload()"></script>
+</body>
+</html>

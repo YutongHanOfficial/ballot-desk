@@ -55,7 +55,7 @@ export function renderTerms(root) {
         h('li', null, 'try to break into, overload or interfere with the site.')),
       p('To republish our forecasts or data, or to use them commercially, ask first.'),
       h('h2', null, 'Content from others'),
-      p('Candidate lists and ratings come from Wikipedia (CC BY-SA 4.0), polls from VoteHub (CC BY 4.0), district maps from the U.S. Census Bureau, prices from Polymarket and vote counts from the AP through The New York Times. Candidate photos come from Wikipedia under their own free licenses and are credited on the ', h('a', { href: '/credits' }, 'photo credits'), ' page. That material belongs to its owners and is used under their terms. The rest of the site, including its text, design, code and forecasts, is ours.'),
+      p('Candidate lists and ratings come from Wikipedia (CC BY-SA 4.0), polls from VoteHub (CC BY 4.0), district and county maps from the U.S. Census Bureau, prices from Polymarket and vote counts from the AP through The New York Times. Results of past elections in the ', h('a', { href: '/archive' }, 'archive'), ' are official returns compiled by the MIT Election Data and Science Lab (CC0), with a few missing races filled in from Wikipedia. Candidate photos come from Wikipedia under their own free licenses and are credited on the ', h('a', { href: '/credits' }, 'photo credits'), ' page. That material belongs to its owners and is used under their terms. The rest of the site, including its text, design, code and forecasts, is ours.'),
       h('h2', null, 'Links to other sites'),
       p('We link to other websites, such as Wikipedia, VoteHub and Polymarket. We don’t control them and aren’t responsible for them; their own terms apply.'),
       d ? [h('h2', null, 'Donations'),

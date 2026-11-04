@@ -34,6 +34,19 @@ const pages = [
   ['/privacy', 'Privacy policy', 'Ballot Desk has no accounts, cookies, analytics or ads, and collects no personal information. What your browser stores and connects to.'],
 ];
 
+// Past elections (data/archive, from pipeline/build_archive.mjs). The index is archive/index.html, so /archive/2024
+// can sit beside it: GitHub Pages sends /archive to /archive/ because the folder exists.
+const archive = read('data/archive/index.json');
+pages.push(['/archive/', 'Past elections', 'Results of every U.S. federal general election since 1976, for president, Senate and House, with maps by state and, from 2000, by county.', { file: 'archive/index' }]);
+pages.push(['/swing', 'Swing map', 'How the presidential vote shifted between any two elections since 1976: county by county from 2000, as arrows or shading.']);
+for (const e of archive.years) {
+  const p = e.president;
+  const hs = e.house.seats, hw = hs.D > hs.R ? 'Democrats' : 'Republicans';
+  const lead = p ? `${p.ev.D > p.ev.R ? p.D : p.R} won the presidency with ${Math.max(p.ev.D, p.ev.R)} electoral votes, and ${hw} won the House ${Math.max(hs.D, hs.R)}–${Math.min(hs.D, hs.R)}.`
+    : `Midterm results: ${hw} won the House ${Math.max(hs.D, hs.R)}–${Math.min(hs.D, hs.R)}.`;
+  pages.push([`/archive/${e.year}`, `${e.year} elections`, `${lead} Results and maps for ${p ? 'president, ' : ''}the Senate and the House${e.counties ? ', by state and county' : ''}.`]);
+}
+
 const OFFICES = { senate: 'Senate', gov: 'governor', ltgov: 'lieutenant governor', ag: 'attorney general', sos: 'secretary of state' };
 const listText = (xs) => xs.length < 2 ? xs.join('') : `${xs.slice(0, -1).join(', ')} and ${xs[xs.length - 1]}`;
 for (const st of base.states) {
@@ -83,10 +96,10 @@ function pageHtml(url, title, desc, { noindex = false } = {}) {
   return html.replace('<!doctype html>', '<!doctype html>\n<!-- Generated from index.html by pipeline/build_pages.mjs (npm run pages). Edit index.html instead. -->');
 }
 
-// The generator owns state/ and race/ outright, so pages for races that no longer exist disappear.
-for (const dir of ['state', 'race']) fs.rmSync(path.join(ROOT, dir), { recursive: true, force: true });
+// The generator owns state/, race/ and archive/ outright, so pages for races that no longer exist disappear.
+for (const dir of ['state', 'race', 'archive']) fs.rmSync(path.join(ROOT, dir), { recursive: true, force: true });
 for (const [p, title, desc, opts] of pages) {
-  const file = path.join(ROOT, `${p}.html`);
+  const file = path.join(ROOT, `${opts?.file || p}.html`);
   fs.mkdirSync(path.dirname(file), { recursive: true });
   fs.writeFileSync(file, pageHtml(`${SITE}${p}`, title, desc, opts));
 }

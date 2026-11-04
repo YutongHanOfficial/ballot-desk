@@ -71,7 +71,7 @@ function hoverable(el, r, tipFn = raceTip) {
 
 const ZOOM = {};   // remembered transforms, so the live re-render every minute doesn't reset the view
 
-function attachZoom(svg, layer, { key, width, height, maxK = 16, onZoom }) {
+export function attachZoom(svg, layer, { key, width, height, maxK = 16, onZoom }) {
   let k = 1;
   const zoom = d3.zoom().scaleExtent([1, maxK]).translateExtent([[0, 0], [width, height]])
     .filter((ev) => {
@@ -102,7 +102,7 @@ function attachZoom(svg, layer, { key, width, height, maxK = 16, onZoom }) {
   return api;
 }
 
-function zoomButtons(api, extra = []) {
+export function zoomButtons(api, extra = []) {
   const btn = (label, title, fn) => h('button', { type: 'button', class: 'zoom-btn', title, 'aria-label': title, onclick: fn }, label);
   return h('div', { class: 'zoom-ctrls' }, btn('+', 'Zoom in', () => api.by(1.8)), btn('−', 'Zoom out', () => api.by(1 / 1.8)), btn('⟲', 'Reset view', () => api.reset()), ...extra);
 }

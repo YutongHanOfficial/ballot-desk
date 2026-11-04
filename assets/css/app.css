@@ -820,3 +820,81 @@ html.bc-transparent, html.bc-transparent body { background: transparent !importa
 .rs-grey { display: flex; flex-wrap: wrap; gap: 6px 12px; }
 .rs-grey span { display: inline-flex; align-items: center; gap: 5px; }
 .rs-grey i { display: inline-block; width: 12px; height: 12px; border-radius: 3px; }
+
+/* ---------------------------------------------------------------------------------- archive and swing map */
+.ar-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 12px; }
+.ar-card { display: flex; flex-direction: column; gap: 7px; padding: 14px 16px; background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); box-shadow: var(--shadow); color: var(--ink); text-decoration: none; transition: border-color .15s; }
+.ar-card:hover { border-color: var(--ink-2); }
+.ar-head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+.ar-head b { font: 750 22px/1 var(--sans); font-variant-numeric: tabular-nums; }
+.ar-kind { font-size: 11px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+.ar-line { display: flex; justify-content: space-between; gap: 10px; font-size: 13.5px; }
+.ar-k { color: var(--muted); }
+.ar-seats { display: inline-flex; gap: 8px; font-variant-numeric: tabular-nums; }
+.ar-oth { color: var(--ind); }
+.ar-bar { position: relative; display: flex; border-radius: 999px; overflow: hidden; background: var(--none); margin-top: 3px; }
+.ar-bar span { display: block; height: 100%; }
+.ar-mid { position: absolute; left: 50%; top: -3px; bottom: -3px; width: 2px; margin-left: -1px; background: var(--ink); opacity: .55; }
+.ar-mid.tall { top: -4px; bottom: -4px; }
+.ar-ev-names { display: flex; justify-content: space-between; gap: 10px; margin-bottom: 8px; font-size: 15px; font-variant-numeric: tabular-nums; flex-wrap: wrap; }
+.ar-pv { font-size: 26px; font-variant-numeric: tabular-nums; margin-bottom: 6px; }
+.ar-won { text-transform: none; letter-spacing: 0; font-size: 13px; font-weight: 700; }
+.ar-cand .cand-line { gap: 7px; }
+.ar-note { margin-top: 2px; padding-left: 26px; line-height: 1.35; max-width: 340px; }
+.ar-filter { display: flex; justify-content: flex-end; margin: 16px 0 8px; }
+.ar-filter select { max-width: 240px; }
+.yr-nav { display: flex; align-items: center; gap: 8px; margin-top: 14px; }
+.yr-list { position: relative; display: flex; gap: 4px; overflow-x: auto; scrollbar-width: thin; padding-bottom: 4px; min-width: 0; }
+.yr-list a, .yr-step { flex-shrink: 0; padding: 4px 9px; border-radius: 7px; font-size: 13px; font-weight: 600; color: var(--ink-2); text-decoration: none; font-variant-numeric: tabular-nums; border: 1px solid transparent; }
+.yr-list a:hover, .yr-step:hover { border-color: var(--line-2); }
+.yr-list a.on { background: var(--ink); color: var(--bg); }
+.yr-step { border-color: var(--line); white-space: nowrap; }
+.archive-states { display: block; width: 100%; height: auto; }
+.archive-states .state { stroke: var(--surface); stroke-width: .5; }
+.county-nation .county { stroke: var(--surface); stroke-width: .2; vector-effect: non-scaling-stroke; }
+.county-nation .county:hover { stroke: var(--ink); stroke-width: 1; }
+.county-nation.with-arrows .county { stroke: none; }
+.county-nation.with-arrows .county:hover { fill: var(--line-2); }
+.county-nation .state-borders { stroke-width: 1.1; }
+.county-nation.with-arrows .state-borders { stroke: var(--line-2); stroke-width: .8; }
+.shift-arrows .arrow, .arrow-sample .arrow { fill: none; stroke-width: 1.15; stroke-linecap: round; stroke-linejoin: round; vector-effect: non-scaling-stroke; }
+.archive-states .shift-arrows .arrow { stroke-width: 2; }
+.arrow.D { stroke: var(--dem); }
+.arrow.R { stroke: var(--rep); }
+.arrow-key { align-items: center; }
+.arrow-key svg { vertical-align: middle; margin-right: 4px; }
+.tooltip .tt-foot { margin-top: 5px; max-width: 250px; font-size: 11.5px; line-height: 1.35; color: var(--muted); }
+.sw-teaser .sw-teaser-foot { display: flex; justify-content: flex-end; margin-top: 10px; }
+.sw-controls { display: flex; flex-direction: column; gap: 12px; margin-bottom: 16px; }
+.sw-row { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 14px; }
+.sw-pick { display: inline-flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 650; color: var(--muted); }
+.sw-pick select { width: auto; min-width: 92px; font-size: 15px; font-weight: 650; color: var(--ink); padding: 6px 10px; }
+.sw-to { color: var(--muted); font-weight: 700; }
+.sw-presets { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.chip-btn { border: 1px solid var(--line-2); background: var(--surface); color: var(--ink-2); border-radius: 999px; padding: 4px 11px; font-size: 12.5px; font-weight: 650; cursor: pointer; font-variant-numeric: tabular-nums; }
+.chip-btn:hover { border-color: var(--ink-2); }
+.chip-btn.on { background: var(--ink); border-color: var(--ink); color: var(--bg); }
+.sw-map { margin-bottom: 16px; }
+.sw-kpis { margin-bottom: 4px; }
+.sw-kpi .sw-k { font-size: 12px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
+.sw-kpi .sw-v { margin: 6px 0 4px; font-size: 18px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.sw-list { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 8px; font-size: 14px; }
+.sw-list li { display: grid; grid-template-columns: 18px minmax(0, 1fr) auto; gap: 8px; align-items: baseline; }
+.sw-rank { color: var(--muted); font-size: 12px; font-variant-numeric: tabular-nums; }
+.sw-place { min-width: 0; }
+.sw-place .xs { display: block; margin-top: 1px; font-variant-numeric: tabular-nums; }
+.sw-list li b { font-variant-numeric: tabular-nums; }
+.sw-notes { margin: 8px 0 0; padding-left: 20px; color: var(--ink-2); font-size: 14px; line-height: 1.5; max-width: 820px; }
+.sw-notes li { margin-bottom: 6px; }
+@media (max-width: 680px) {
+  .sw-row { gap: 8px; }
+  .sw-row .seg { flex: 1 1 100%; display: flex; }
+  .sw-row .seg button { flex: 1; }
+  .sw-map .map-hint { display: none; }
+  .yr-step { display: none; }
+  .ar-pv { font-size: 22px; }
+  .ar-table table.data td, .ar-table table.data th { padding: 7px 6px; }
+  .ar-table .nm { white-space: normal; }
+  .ar-table .pill { padding: 1px 6px; font-size: 11px; }
+  .ar-note { max-width: 220px; }
+}
