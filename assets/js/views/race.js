@@ -2,7 +2,8 @@
 import { h, pct, num, partyChip, partyVar, ratingChip, marginText, lastName, fmtDate, oddsText, compact, timeAgo, PARTY_NAME, bandLabel, votePct } from '../ui.js';
 import { store, cur, duelNow, forecastOf, forecastFinal, catchUp, catchUpText, voteDigits, partyShares } from '../store.js';
 import { splitBar, pollChart, marginCurve, signalRows } from '../charts.js';
-import { stateDistrictMap, countyMap, countyResults, countyLegend } from '../maps.js';
+import { stateDistrictMap, countyMap, countyResults, countyLegend, shiftSides } from '../maps.js';
+import { shiftLegend } from '../archive.js';
 import { nightMode } from '../store.js';
 import { wantCounties } from '../live.js';
 import { electionBanner, pollCloseText, raceCard } from './common.js';
@@ -138,19 +139,38 @@ function duelHero(r) {
     photoCredits(r, [d.a, d.b]));
 }
 
+// Each race page's county view: 'results', or 'shift' (the change from the 2024 presidential vote). Kept for the
+// visit, so the live redraw every minute doesn't switch it back.
+const COUNTY_VIEW = {};
+
 /** Statewide races: county map, live on election night, otherwise the 2024 presidential vote. */
 export function countyCard(r) {
   if (nightMode() && !store.sim) wantCounties([r.id]);
   const live = nightMode() && countyResults(r.id);
-  const title = live ? 'Results by county' : 'How the counties voted in 2024';
-  const note = r.state === 'AK' ? '' : live
-    ? `Shaded by who leads each county and by how much. ${store.sim ? 'Simulated counts.' : 'AP counts via The New York Times.'}`
+  // Senate and governor races can also be shown as the shift from 2024: the Democrat's (or an independent's)
+  // margin in each county against Harris's.
+  const sides = shiftSides(r);
+  const canShift = !!live && !!sides && (r.type === 'senate' || r.type === 'gov') && r.state !== 'AK';
+  const shift = canShift && COUNTY_VIEW[r.id] === 'shift';
+  const who = sides ? lastName(sides.name) : '';
+  const title = shift ? 'Shift from 2024, by county' : live ? 'Results by county' : 'How the counties voted in 2024';
+  const note = r.state === 'AK' ? '' : shift
+    ? `How ${who}’s margin over ${lastName(sides.rival)} in each county compares with Kamala Harris’s over Donald Trump in 2024, in points. Striped where less than 95% of the expected vote is counted: early counts can lean one way. ${store.sim ? 'Simulated counts.' : 'AP counts via The New York Times.'}`
+    : live ? `Shaded by who leads each county and by how much. ${store.sim ? 'Simulated counts.' : 'AP counts via The New York Times.'}`
     : nightMode() ? 'County results appear as soon as counties report.' : 'Presidential vote by county, 2024 (Harris vs. Trump). On election night this map switches to live county results.';
-  return h('section', { class: 'section card' },
+  const card = h('section', { class: 'section card' });
+  const pick = (k) => { COUNTY_VIEW[r.id] = k; card.replaceWith(countyCard(r)); };
+  const seg = canShift ? h('div', { class: 'seg', role: 'tablist', 'aria-label': 'County map view' },
+    [['results', 'Results'], ['shift', 'Shift from 2024']].map(([k, label]) => h('button', { type: 'button', class: (k === 'shift') === shift ? 'on' : '', onclick: () => pick(k) }, label))) : null;
+  card.append(
     h('div', { class: 'card-title' }, title, live ? h('span', { class: 'pill live', style: { textTransform: 'none', letterSpacing: 0 } }, h('span', { class: 'live-dot' }), store.sim ? 'Simulated' : 'Live') : null),
-    countyMap(r.state, { raceId: r.id, zoomKey: `county-${r.id}` }),
-    r.state === 'AK' ? null : countyLegend(r, !!live),
+    seg ? h('div', { class: 'map-toolbar' }, seg) : null,
+    countyMap(r.state, { raceId: r.id, zoomKey: `county-${r.id}`, view: shift ? 'shift' : 'results',
+      shiftKey: (bands) => shiftLegend({ caption: 'change from the 2024 presidential margin (points)', left: sides.party, right: 'R',
+        leftName: sides.party === 'D' ? 'Democrats' : who, bands, extras: [['hatch', 'Still counting'], ['var(--novotes)', 'No votes yet']] }) }),
+    r.state === 'AK' || shift ? null : countyLegend(r, !!live),
     note ? h('p', { class: 'xs muted', style: { margin: '6px 0 0' } }, note) : null);
+  return card;
 }
 
 function resultsCard(r, c) {

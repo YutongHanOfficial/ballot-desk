@@ -60,9 +60,15 @@ races still being counted and a check mark on projected states. The same scale s
 
 `/archive/` lists every federal general election from 1976 to 2024 (an `index.html` in `archive/`, so `/archive/2024`
 can sit beside it), and `/archive/2024` shows one: the presidential vote by state and, from 2000, by county; every
-Senate race; and all 435 House seats with the popular vote. `/swing` compares any two presidential elections, by
-county (2000 on) or state, as arrows (left toward Democrats, right toward Republicans, longer for a bigger shift) or
-shading, with the choice in the address (`?from=2016&to=2020&level=states&style=shading`). Both are built from the
+Senate race; and all 435 House seats with the popular vote. `/swing` compares any two presidential elections, in
+either order, by county (2000 on) or state, as arrows (left toward Democrats, right toward Republicans, longer for a
+bigger shift) or shading, with the choice in the address (`?from=2016&to=2020&level=states&style=shading`).
+
+On election night the 2026 Senate and governor race pages can switch their county map to "Shift from 2024": each
+county's margin for the Democrat (or an independent running against a Republican) against Harris's margin over Trump
+(`view: 'shift'` in `countyMap()`, maps.js; the 2024 numbers are `data/geo/counties-2024.json`). Counties under 95% of
+their expected vote are striped. A midterm can move much further than one presidential election from the next, so
+that map picks its shift scale from the race's typical county (`shiftScaleFor()` in ui.js) and its key says which. Both are built from the
 official returns compiled by the MIT Election Data and Science Lab (CC0, Harvard Dataverse) by
 `pipeline/build_archive.mjs` (`npm run archive`), which writes `data/archive/` and the national county map
 `data/geo/counties-us.json`. Run once; the output is committed and the GitHub Action never touches it.

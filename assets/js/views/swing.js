@@ -9,11 +9,14 @@ import {
 
 const COUNTY_K = 1.6, STATE_K = 2.4;   // arrow length in map pixels per point of shift
 
-/** Settings from the address, made valid: two presidential years, earlier first; counties only from 2000. */
+/**
+ * Settings from the address, made valid: two different presidential years, in either order (2024 to 2020 shows the
+ * same moves the other way round); counties only from 2000.
+ */
 export function swingSettings(q = new URLSearchParams(location.search)) {
   let from = +q.get('from'), to = +q.get('to');
   if (!PRES_YEARS.includes(to)) to = 2024;
-  if (!PRES_YEARS.includes(from) || from >= to) from = PRES_YEARS[PRES_YEARS.indexOf(to) - 1] || 2020;
+  if (!PRES_YEARS.includes(from) || from === to) from = PRES_YEARS[PRES_YEARS.indexOf(to) - 1] || PRES_YEARS[1];
   const countiesOk = COUNTY_YEARS.includes(from) && COUNTY_YEARS.includes(to);
   const level = q.get('level') === 'states' || !countiesOk ? 'states' : 'counties';
   const style = q.get('style') === 'shading' ? 'shading' : 'arrows';
@@ -89,7 +92,7 @@ export function shiftMap(o, { key = 'swing', onData = null, height = 'map' } = {
     };
     const tip = (f) => {
       if (whole(f)) return placeTip(`${stateName(f.st)} (whole state)`, st[f.st], o.from, o.to, WHOLE_STATE[f.st]);
-      const note = !sh[f.id] && f.id === '08014' && o.from === 2000 ? 'Broomfield County was formed in 2001.' : null;
+      const note = !sh[f.id] && f.id === '08014' && (o.from === 2000 || o.to === 2000) ? 'Broomfield County was formed in 2001.' : null;
       return placeTip(`${f.n}, ${f.st}`, sh[f.id], o.from, o.to, note);
     };
     let arrows = null;
@@ -140,15 +143,16 @@ function controls(o, go) {
     b.addEventListener('click', () => { if (!off) onPick(k); });
     return b;
   }));
-  // Picking one year keeps the pair in order by moving the other along.
-  const pickFrom = (y) => go({ from: y, to: y >= o.to ? PRES_YEARS[PRES_YEARS.indexOf(y) + 1] : o.to });
-  const pickTo = (y) => go({ to: y, from: y <= o.from ? PRES_YEARS[PRES_YEARS.indexOf(y) - 1] : o.from });
+  // Either year can come first. Picking the year the other box already has swaps the two.
+  const pickFrom = (y) => go({ from: y, to: y === o.to ? o.from : o.to });
+  const pickTo = (y) => go({ to: y, from: y === o.from ? o.to : o.from });
+  const swap = h('button', { type: 'button', class: 'sw-swap', title: 'Swap the years', 'aria-label': `Swap the years: ${o.to} to ${o.from}`, onclick: () => go({ from: o.to, to: o.from }) }, '⇄');
   const presets = [[2020, 2024], [2016, 2020], [2012, 2016], [2000, 2024], [1980, 2024]];
   return h('div', { class: 'card sw-controls' },
     h('div', { class: 'sw-row' },
-      yearSelect('From', o.from, pickFrom, y => y < 2024),
-      h('span', { class: 'sw-to', 'aria-hidden': 'true' }, '→'),
-      yearSelect('To', o.to, pickTo, y => y > 1976),
+      yearSelect('From', o.from, pickFrom, () => true),
+      swap,
+      yearSelect('To', o.to, pickTo, () => true),
       seg([['counties', 'Counties'], ['states', 'States']], o.level, (k) => go({ level: k }), (k) => k === 'counties' && !o.countiesOk),
       seg([['arrows', 'Arrows'], ['shading', 'Shading']], o.style, (k) => go({ style: k }))),
     h('div', { class: 'sw-presets' }, h('span', { class: 'muted xs' }, 'Try'),
@@ -190,7 +194,7 @@ function fillSummary(el, o, { pres, states, counties, topo, idx }) {
   ], stRows, { sortKey: 'sh', desc: false, stateKey: 'swing-states', limit: 15 });
   el.replaceChildren(
     h('div', { class: `grid ${counties ? 'g3' : 'g2'} sw-kpis` }, kpis),
-    lists ? h('section', { class: 'section' }, h('div', { class: 'section-head' }, h('div', null, h('h2', null, 'Counties that moved most'), h('p', null, 'Among counties with at least 10,000 votes in the later election.'))), lists) : null,
+    lists ? h('section', { class: 'section' }, h('div', { class: 'section-head' }, h('div', null, h('h2', null, 'Counties that moved most'), h('p', null, `Among counties with at least 10,000 votes in ${o.to}.`))), lists) : null,
     h('section', { class: 'section' }, h('div', { class: 'section-head' }, h('div', null, h('h2', null, 'Every state'), h('p', null, 'Margins are the Democrat’s share minus the Republican’s, in points of all votes cast.'))), table),
     notes(o, idx));
 }
@@ -199,7 +203,7 @@ function notes(o, idx) {
   const items = [];
   if (o.level === 'counties') {
     items.push(WHOLE_STATE.AK, WHOLE_STATE.CT);
-    if (o.from === 2000) items.push('Broomfield County, Colorado, formed in 2001, has no result for 2000.');
+    if (o.from === 2000 || o.to === 2000) items.push('Broomfield County, Colorado, formed in 2001, has no result for 2000.');
     items.push('Counties are matched to today’s map: Bedford city, Virginia, counts in Bedford County, Clifton Forge in Alleghany County, Shannon County, South Dakota, as Oglala Lakota County, and Kansas City, Missouri, which counts its votes apart from its counties, in Jackson County.');
     for (const y of [o.from, o.to]) for (const n of idx?.years.find(e => e.year === y)?.countyNotes || []) items.push(`${y}: ${n.text}`);
   }

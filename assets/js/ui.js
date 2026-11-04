@@ -185,6 +185,32 @@ export function marginFill(party, margin) {
   return f ? `var(--${f}-${marginBand(margin).key})` : 'var(--oth)';
 }
 
+// A shift is the change in a margin between two elections, in points, positive toward `left`'s party (the swing map,
+// and the race pages' "Shift from 2024" view). The same four shades per party, darker = bigger, at the smaller steps
+// shifts come in. A midterm against a presidential year can move much further, so maps of those pick a wider scale
+// (shiftScaleFor) and say so in their key.
+export const SHIFT_SCALES = [[1.5, 4, 8], [3, 8, 15], [5, 12, 25], [10, 20, 35]];   // where lean, likely and safe start
+export function shiftBands([lean, likely, safe] = SHIFT_SCALES[0]) {
+  return [
+    { key: 'safe', min: safe, range: `${safe}+` },
+    { key: 'likely', min: likely, range: `${likely}–${safe}` },
+    { key: 'lean', min: lean, range: `${lean}–${likely}` },
+    { key: 'tilt', min: 0, range: `<${lean}` },
+  ];
+}
+export const SHIFT_BANDS = shiftBands();
+/** The narrowest scale that puts the typical (median) shift well inside the second-darkest shade, not the darkest. */
+export function shiftScaleFor(shifts) {
+  const xs = shifts.filter(Number.isFinite).map(Math.abs).sort((a, b) => a - b);
+  const med = xs.length ? xs[Math.floor(xs.length / 2)] : 0;
+  return shiftBands(SHIFT_SCALES.find(sc => med < 0.75 * sc[2]) || SHIFT_SCALES[SHIFT_SCALES.length - 1]);
+}
+export function shiftFill(sh, left = 'D', right = 'R', bands = SHIFT_BANDS) {
+  if (sh === null || sh === undefined || Number.isNaN(sh)) return 'var(--none)';
+  const f = FAMILY[sh >= 0 ? left : right];
+  return f ? `var(--${f}-${bands.find(b => Math.abs(sh) >= b.min).key})` : 'var(--oth)';
+}
+
 let hatchSeq = 0;
 /** Adds the stripe pattern for races still counting to an SVG; returns the fill that draws it. */
 export function hatchFill(svg) {

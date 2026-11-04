@@ -1,6 +1,6 @@
 // District maps: the national House map (geographic or equal-size hexagons) and per-state district maps.
 // Boundaries are the Census Bureau's 2026 (120th Congress) districts, built by pipeline/build_geo.mjs.
-import { h, s, tooltip, esc, marginFill, hatchFill, votePct } from './ui.js';
+import { h, s, tooltip, esc, marginFill, hatchFill, votePct, shiftFill, shiftScaleFor } from './ui.js';
 import { store, awaiting, raceFill, nightMode, counting, voteDigits } from './store.js';
 import { raceTip, mapLegend, marginLegend } from './charts.js';
 
@@ -324,15 +324,35 @@ export function countyLegend(race = null, live = false) {
 }
 
 /**
- * A state's counties. With a race and county results available (election night, or a simulation), counties
- * are shaded by who leads and by how much; otherwise by the 2024 presidential vote.
+ * For the "Shift from 2024" view: the side of a race to set against Harris's 2024 vote (a Democrat, or an independent
+ * running against a Republican), with sign 1 if that is the race's left side and -1 if its right. Null for races
+ * without a Republican on one side, such as two candidates of one party.
  */
-export function countyMap(code, { raceId = null, width = 720, maxHeight = 540, compact = false, zoomKey = null } = {}) {
-  if (code === 'AK') return h('div', { class: 'empty small' }, 'Alaska reports results by state House district rather than by county, so there is no county map.');
-  return withGeo([`/data/geo/counties/${code}.json`, COUNTY_BASE_URL], (topo, base) => buildCountyMap(code, topo, base, { raceId, width, maxHeight, compact, zoomKey }), compact ? 200 : 360);
+export function shiftSides(race) {
+  if (!race?.left || !race?.right) return null;
+  const lp = race.leftParty, rp = race.rightParty;
+  if (rp === 'R' && (lp === 'D' || lp === 'I')) return { sign: 1, party: lp, name: race.left, rival: race.right };
+  if (lp === 'R' && (rp === 'D' || rp === 'I')) return { sign: -1, party: rp, name: race.right, rival: race.left };
+  return null;
 }
 
-function buildCountyMap(code, topo, base, { raceId, width: W, maxHeight, compact, zoomKey }) {
+/**
+ * A state's counties. With a race and county results available (election night, or a simulation), counties
+ * are shaded by who leads and by how much; otherwise by the 2024 presidential vote. view 'shift' shades them
+ * instead by the change from the 2024 presidential margin (see shiftSides), striping counties still counting.
+ */
+export function countyMap(code, { raceId = null, width = 720, maxHeight = 540, compact = false, zoomKey = null, view = 'results', shiftKey = null } = {}) {
+  if (code === 'AK') return h('div', { class: 'empty small' }, 'Alaska reports results by state House district rather than by county, so there is no county map.');
+  return withGeo([`/data/geo/counties/${code}.json`, COUNTY_BASE_URL], (topo, base) => buildCountyMap(code, topo, base, { raceId, width, maxHeight, compact, zoomKey, view, shiftKey }), compact ? 200 : 360);
+}
+
+/** 'D+4.2', 'R+3.1', an independent's 'Osborn +2.0', or 'Even'. */
+function sideLabel(m, tag) {
+  const v = Math.abs(m);
+  return v < 0.05 ? 'Even' : `${m > 0 ? tag : 'R'}${m > 0 && tag.length > 1 ? ' ' : ''}+${v.toFixed(1)}`;
+}
+
+function buildCountyMap(code, topo, base, { raceId, width: W, maxHeight, compact, zoomKey, view, shiftKey }) {
   const fc = topojson.feature(topo, topo.objects.counties);
   const { path, H } = stateFrame(fc, W, maxHeight);
   const race = raceId ? store.byId[raceId] : null;
@@ -340,6 +360,18 @@ function buildCountyMap(code, topo, base, { raceId, width: W, maxHeight, compact
   const night = !!race && nightMode();
   const waiting = night && awaiting(race);
   const liveMode = night && (!!live || waiting);
+  const sides = view === 'shift' && liveMode && !waiting && live ? shiftSides(race) : null;
+  const tag = sides ? (sides.party === 'D' ? 'D' : lastNameOf(sides.name)) : null;
+  const stillCounting = [];   // shift view: counties under 95% of their expected vote, striped
+  // The shift view's scale comes from the shifts themselves; shiftKey(bands) draws the matching key under the map.
+  const shiftOf = (fips) => {
+    const v = live[fips], b = base[fips];
+    if (!(v && v[3] > 0 && b && b[0] > 0)) return null;
+    const now = (sides.sign * 100 * (v[1] - v[2])) / v[3];   // this race: the Democrat's (or independent's) margin
+    const then = (100 * (b[1] - b[2])) / b[0];                // 2024: Harris's over Trump
+    return { now, then, sh: now - then };
+  };
+  const bands = sides ? shiftScaleFor(fc.features.map(f => shiftOf(f.properties.id)?.sh)) : null;
   const tip = tooltip();
   const svg = s('svg', { viewBox: `0 0 ${W} ${H}`, class: `district-map county-map${compact ? ' compact' : ''}`, role: 'img', 'aria-label': `${store.stateByCode[code]?.name} counties` });
   const layer = s('g');
@@ -347,7 +379,22 @@ function buildCountyMap(code, topo, base, { raceId, width: W, maxHeight, compact
   for (const f of fc.features) {
     const fips = f.properties.id, name = f.properties.n + suffix;
     let fill = 'var(--none)', html;
-    if (liveMode) {
+    if (sides) {
+      const v = live[fips], x = shiftOf(fips);
+      if (x) {
+        const { now, then, sh } = x;
+        fill = shiftFill(sh, sides.party, 'R', bands);
+        if (v[0] < 0.95) stillCounting.push(f);
+        html = `<div class="tt-title">${esc(name)}</div>` +
+          `<div class="tt-row"><span>2024 president</span><b>${sideLabel(then, 'D')}</b></div>` +
+          `<div class="tt-row"><span>This race</span><b>${esc(sideLabel(now, tag))}</b></div>` +
+          `<div class="tt-row"><span>Shift</span><b style="color:${sh >= 0 ? (sides.party === 'D' ? 'var(--dem)' : 'var(--ind)') : 'var(--rep)'}">${esc(sideLabel(sh, tag))}</b></div>` +
+          `<div class="tt-row muted"><span>${Math.round(v[0] * 100)}% counted</span><span>${v[3].toLocaleString()} votes</span></div>`;
+      } else {
+        fill = v && v[3] > 0 ? 'var(--none)' : 'var(--novotes)';
+        html = `<div class="tt-title">${esc(name)}</div><div class="muted">${v && v[3] > 0 ? 'No 2024 county result to compare with' : 'No votes counted yet'}</div>`;
+      }
+    } else if (liveMode) {
       const v = live && live[fips];
       if (waiting) fill = 'var(--await)';
       else if (v && v[3] > 0) {
@@ -375,13 +422,17 @@ function buildCountyMap(code, topo, base, { raceId, width: W, maxHeight, compact
     p.addEventListener('mouseleave', () => tip.hide());
     layer.appendChild(p);
   }
+  if (stillCounting.length) {
+    const stripes = hatchFill(svg);
+    layer.appendChild(s('path', { d: stillCounting.map(f => path(f)).join(''), fill: stripes, class: 'hatch' }));
+  }
   layer.appendChild(s('path', { d: path(topojson.mesh(topo, topo.objects.counties, (a, b) => a === b)), class: 'coast state-outline' }));
   svg.appendChild(layer);
   const frame = h('div', { class: 'map-frame' }, svg);
   if (zoomKey && !compact) frame.appendChild(zoomButtons(attachZoom(svg, layer, { key: zoomKey, width: W, height: H, maxK: 10 })));
-  frame.dataset.mode = liveMode ? 'live' : 'baseline';
+  frame.dataset.mode = sides ? 'shift' : liveMode ? 'live' : 'baseline';
   if (compact && night) frame.appendChild(h('span', { class: 'map-tag' }, waiting ? 'Polls open' : liveMode ? (store.sim ? 'Simulated counts' : 'Live counts') : '2024 vote'));
-  return frame;
+  return sides && shiftKey ? h('div', null, frame, shiftKey(bands)) : frame;
 }
 
 const lastNameOf = (n) => String(n || '').split(' ').slice(-1)[0];

@@ -1,6 +1,6 @@
 // Past elections for the archive and the swing map: data loading, margins and shifts, and the national maps.
 // The data comes from pipeline/build_archive.mjs (official returns compiled by the MIT Election Data and Science Lab).
-import { h, s, esc, num, tooltip, marginFill, MARGIN_BANDS, partyVar } from './ui.js';
+import { h, s, esc, num, tooltip, marginFill, MARGIN_BANDS, SHIFT_BANDS, shiftFill, partyVar } from './ui.js';
 import { store } from './store.js';
 import { loadGeo, cachedGeo } from './geo.js';
 import { attachZoom, zoomButtons } from './maps.js';
@@ -39,19 +39,8 @@ export function marginLabel(m, d = 1) {
 }
 export const partyOfMargin = (m) => (m >= 0 ? 'D' : 'R');
 
-// A shift is the change in that margin from one election to the next: positive toward Democrats. The bands reuse the
-// map's four shades per party, darker = bigger, at the smaller steps shifts come in.
-export const SHIFT_BANDS = [
-  { key: 'safe', min: 8, range: '8+' },
-  { key: 'likely', min: 4, range: '4–8' },
-  { key: 'lean', min: 1.5, range: '1.5–4' },
-  { key: 'tilt', min: 0, range: '<1.5' },
-];
-export function shiftFill(sh) {
-  if (sh === null || sh === undefined || Number.isNaN(sh)) return 'var(--none)';
-  const b = SHIFT_BANDS.find(x => Math.abs(sh) >= x.min);
-  return `var(--${sh >= 0 ? 'dem' : 'rep'}-${b.key})`;
-}
+// A shift is the change in that margin from one election to the next, positive toward Democrats (ui.js shiftFill).
+export { SHIFT_BANDS, shiftFill };
 /** 'D+2.3' (toward Democrats), 'R+5.1', or 'No change'. */
 export function shiftLabel(sh, d = 1) {
   if (sh === null || sh === undefined || Number.isNaN(sh)) return '—';
@@ -119,15 +108,16 @@ export function arrowKey({ k = 1.6, pts = 10, caption = 'Shift in the margin' } 
     h('span', { class: 'muted' }, caption));
 }
 
-/** The shift key: the four shades each way, labelled in points. */
-export function shiftLegend({ caption = 'shift in the margin (points)' } = {}) {
-  const cells = [...SHIFT_BANDS.map(b => ['D', b]), ...[...SHIFT_BANDS].reverse().map(b => ['R', b])];
+/** The shift key: the four shades each way, labelled in points. left/right: the parties at each end. */
+export function shiftLegend({ caption = 'shift in the margin (points)', left = 'D', right = 'R', leftName = 'Democrats', rightName = 'Republicans',
+  extras = [['var(--none)', 'No result']], bands = SHIFT_BANDS } = {}) {
+  const cells = [...bands.map(b => [1, b]), ...[...bands].reverse().map(b => [-1, b])];
   return h('div', { class: 'rscale' },
     h('div', { class: 'rs-main' },
-      h('div', { class: 'rs-cap' }, h('span', { style: { color: partyVar('D') } }, 'Toward Democrats'), h('span', null, caption), h('span', { style: { color: partyVar('R') } }, 'Toward Republicans')),
-      h('div', { class: 'rs-bar' }, cells.map(([party, b]) => h('span', { style: { background: shiftFill(party === 'D' ? b.min + 0.01 : -(b.min + 0.01)) } }))),
+      h('div', { class: 'rs-cap' }, h('span', { style: { color: partyVar(left) } }, `Toward ${leftName}`), h('span', null, caption), h('span', { style: { color: partyVar(right) } }, `Toward ${rightName}`)),
+      h('div', { class: 'rs-bar' }, cells.map(([dir, b]) => h('span', { style: { background: shiftFill(dir * (b.min + 0.01), left, right, bands) } }))),
       h('div', { class: 'rs-labels' }, cells.map(([, b]) => h('span', null, b.range)))),
-    h('div', { class: 'rs-grey' }, h('span', null, h('i', { style: { background: 'var(--none)' } }), 'No result')));
+    extras.length ? h('div', { class: 'rs-grey' }, extras.map(([c, label]) => h('span', null, c === 'hatch' ? h('i', { class: 'lg-hatch' }) : h('i', { style: { background: c } }), label))) : null);
 }
 
 /** The margin key: the site's margin scale, as a result rather than a projection. */
