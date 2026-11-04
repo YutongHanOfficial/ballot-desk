@@ -7,8 +7,8 @@
 //   ?panel=senate,house,gov,races,calls  ?rotate=15 (seconds per panel)  ?map=odds  ?theme=light
 //   ?demo=live&speed=10                 rehearse on a simulated night
 import { h, pct, num, partyVar, lastName, fmtTimeET, marginText, votePct } from '../ui.js';
-import { store, subscribe, cur, chamber, marketControl, racesOf, nightMode, awaiting, raceFill, projectionFill, counting, catchUp, catchUpText, seatCount, voteDigits } from '../store.js';
-import { calledSeats, resultsEnabled, houseVote } from '../live.js';
+import { store, subscribe, cur, chamber, marketControl, racesOf, nightMode, awaiting, raceFill, projectionFill, counting, catchUp, catchUpText, voteDigits } from '../store.js';
+import { calledSeats, leadingSeats, resultsEnabled, houseVote } from '../live.js';
 import { CONFIG, pollCloseDate, POLL_CLOSE_ET } from '../config.js';
 import { CHAMBERS } from './common.js';
 import { stateFill, stateCalled } from './home.js';
@@ -178,19 +178,6 @@ function nextClose() {
   return Object.values(groups).map(sts => ({ d: pollCloseDate(sts[0]), sts: sts.sort() })).filter(g => g.d > now).sort((a, b) => a.d - b.d)[0] || null;
 }
 
-/** Uncalled races where a party leads the count. */
-function leadingSeats(type) {
-  const out = { D: 0, R: 0, O: 0 };
-  for (const r of racesOf(type)) {
-    if (!r.left || !r.right) continue;
-    const res = seatCount(r, store.live.results[r.id]);
-    if (!res || res.called || !res.total || res.left === res.right) continue;
-    const p = res.left > res.right ? r.leftParty : r.rightParty;
-    out[p === 'D' || p === 'R' ? p : 'O']++;
-  }
-  return out;
-}
-
 /** Every contested projection so far, newest first. */
 function callsNow() {
   const out = [];
@@ -267,7 +254,8 @@ function chamberBlock(type, o) {
   const C = CHAMBERS[type];
   const s = calledSeats(type), L = leadingSeats(type), ch = chamber(type), night = nightMode();
   const total = C.total;
-  const und = Math.max(0, total - s.D - s.R - s.O - L.D - L.R - L.O);
+  const und = Math.max(0, total - s.D - s.R - s.O);              // not called yet, led or not
+  const open = Math.max(0, und - L.D - L.R - L.O);                // the grey: no one ahead yet
   const seg = (n, color) => n > 0 ? h('i', { style: { width: `${(n / total) * 100}%`, background: color } }) : null;
   const mk = type !== 'gov' && !store.sim ? marketControl(type) : null;
   const side = (party, n, lead, right) => h('div', { class: `bc-side${right ? ' right' : ''}` },
@@ -283,7 +271,7 @@ function chamberBlock(type, o) {
   return h('div', { class: 'bc-chamber bc-card' },
     h('div', { class: 'bc-ch-head' }, h('b', null, C.name), h('span', null, `${C.need} for control${type !== 'house' ? ' · counts seats not up' : ''}`)),
     h('div', { class: 'bc-seats' }, side('D', s.D, L.D, false), h('span', { class: 'bc-tocall' }, und ? `${und} uncalled` : 'All called'), side('R', s.R, L.R, true)),
-    h('div', { class: 'bc-bar' }, seg(s.D, 'var(--dem)'), seg(L.D, 'var(--dem-lean)'), seg(und, 'var(--none)'), seg(s.O + L.O, 'var(--oth)'), seg(L.R, 'var(--rep-lean)'), seg(s.R, 'var(--rep)'),
+    h('div', { class: 'bc-bar' }, seg(s.D, 'var(--dem)'), seg(L.D, 'var(--dem-lean)'), seg(open, 'var(--none)'), seg(s.O + L.O, 'var(--oth)'), seg(L.R, 'var(--rep-lean)'), seg(s.R, 'var(--rep)'),
       h('b', { class: 'bc-need', style: { left: `${(C.need / total) * 100}%` } })),
     odds,
     mk && mk.pD !== null && mk.pD !== undefined && !o.vertical ? h('div', { class: 'bc-mkt' }, `Polymarket: Democrats ${pct(mk.pD)} · Republicans ${pct(mk.pR ?? 1 - mk.pD)}`) : null);

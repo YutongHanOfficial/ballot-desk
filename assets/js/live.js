@@ -1,6 +1,6 @@
 // Live layer: Polymarket prices every minute, vote counts on election night, and the live projection model.
 import { CONFIG, pollCloseDate } from './config.js';
-import { store, notify, loadData, seatCount } from './store.js';
+import { store, notify, loadData, seatCount, racesOf } from './store.js';
 import { liveEstimate, estimateSwing, simulate, samePerson } from './model.js';
 import { makeScenario, startNight, registerSimHooks, ensureSimData } from './sim.js';
 
@@ -402,6 +402,22 @@ export function calledSeats(type) {
     else if (res && res.called === 'other') party = 'O';
     if (!party) continue;
     if (party === 'D' || party === 'R') out[party]++; else out.O++;
+  }
+  return out;
+}
+
+/**
+ * Races not yet called where a party leads the count, by party: the lighter shades in the live seat bars. Louisiana's
+ * all-party races go by each party's combined vote (seatCount); a race with no votes yet, or a tie, counts for no one.
+ */
+export function leadingSeats(type) {
+  const out = { D: 0, R: 0, O: 0 };
+  for (const r of racesOf(type)) {
+    if (!r.left || !r.right) continue;
+    const res = seatCount(r, store.live.results[r.id]);
+    if (!res || res.called || !res.total || res.left === res.right) continue;
+    const p = res.left > res.right ? r.leftParty : r.rightParty;
+    out[p === 'D' || p === 'R' ? p : 'O']++;
   }
   return out;
 }

@@ -1,7 +1,7 @@
 // Election-night dashboard. From late afternoon on Election Day until the counting is done it is also the front page.
 import { h, pct, num, partyVar, partyChip, timeAgo, fmtTimeET, lastName, marginText, sortableTable, PARTY_NAME, votePct } from '../ui.js';
 import { store, cur, chamber, marketControl, racesOf, nightMode, awaiting, raceFill, projectionFill, counting, duelNow, catchUp, catchUpText, voteDigits } from '../store.js';
-import { calledSeats, resultsEnabled, wantCounties, houseVote } from '../live.js';
+import { calledSeats, leadingSeats, resultsEnabled, wantCounties, houseVote } from '../live.js';
 import { CONFIG, POLL_CLOSE_ET, pollCloseDate } from '../config.js';
 import { raceCard, CHAMBERS, countdown, supportNote } from './common.js';
 import { eventsSoFar, clockLabel } from '../sim.js';
@@ -34,20 +34,34 @@ function winnerOrFav(r) {
 
 // ------------------------------------------------------------------------------------------- chambers
 
-/** Seats won so far, and the live chance of control from our model and from Polymarket. */
+/**
+ * Seats won so far, the seats not yet called where each party leads the count (the lighter shades), and the live
+ * chance of control from our model and from Polymarket.
+ */
 function chamberLive(type) {
   const C = CHAMBERS[type];
-  const s = calledSeats(type);
+  const s = calledSeats(type), L = leadingSeats(type);
   const total = C.total;
   const und = Math.max(0, total - s.D - s.R - s.O);
+  const open = Math.max(0, und - L.D - L.R - L.O);   // not called, and no one ahead: no votes yet, or a tie
+  const leads = L.D + L.R + L.O > 0;
   const ch = chamber(type);
+  const seats = type === 'gov' ? 'governorships' : 'seats';
+  const won = type === 'house' ? 'won' : 'won or not up';
+  const seg = (n, background, title) => n > 0 ? h('span', { style: { width: `${(n / total) * 100}%`, background }, title }) : null;
   const bar = h('div', { style: { position: 'relative', marginTop: '22px' } },
     h('div', { class: 'split-bar', style: { height: '26px', borderRadius: '6px' } },
-      h('span', { style: { width: `${(s.D / total) * 100}%`, background: 'var(--dem)' } }),
-      h('span', { style: { width: `${(und / total) * 100}%`, background: 'var(--none)' } }),
-      s.O ? h('span', { style: { width: `${(s.O / total) * 100}%`, background: 'var(--oth)' } }) : null,
-      h('span', { style: { width: `${(s.R / total) * 100}%`, background: 'var(--rep)' } })),
+      seg(s.D, 'var(--dem)', `Democrats: ${s.D} ${seats} ${won}`),
+      seg(L.D, 'var(--dem-lean)', `Democrats lead in ${L.D} not yet called`),
+      seg(open, 'var(--none)', `${open} not called, with no one ahead yet`),
+      seg(s.O + L.O, 'var(--oth)', `Others: ${s.O} won, ${L.O} leading`),
+      seg(L.R, 'var(--rep-lean)', `Republicans lead in ${L.R} not yet called`),
+      seg(s.R, 'var(--rep)', `Republicans: ${s.R} ${seats} ${won}`)),
     h('div', { class: 'strip-mark', style: { left: `calc(${(C.need / total) * 100}% - 1px)`, top: '-18px', bottom: '-4px' } }, h('span', null, `${C.need} to win`)));
+  // Under each side's total: the races it leads, with a swatch of the bar's lighter shade.
+  const side = (party, n, lead) => h('div', { class: `odds ${party === 'D' ? 'dem' : 'rep right'}` },
+    h('span', { class: 'pct' }, n), h('span', { class: `who c-${party === 'D' ? 'dem' : 'rep'}` }, party === 'D' ? 'Democrats' : 'Republicans'),
+    leads ? h('span', { class: 'odds-lead' }, h('i', { style: { background: `var(--${party === 'D' ? 'dem' : 'rep'}-lean)` } }), `+${lead} leading`) : null);
 
   let odds;
   if (type === 'gov') {
@@ -69,12 +83,10 @@ function chamberLive(type) {
   return h('div', { class: 'card chamber-live' },
     h('div', { class: 'chamber-top' }, h('a', { class: 'chamber-name', href: C.url, style: { textDecoration: 'none' } }, C.name),
       ch.live ? h('span', { class: 'pill live' }, h('span', { class: 'live-dot' }), 'Live') : h('span', { class: 'pill' }, 'Before results')),
-    h('div', { class: 'odds-row', style: { marginTop: '6px' } },
-      h('div', { class: 'odds dem' }, h('span', { class: 'pct' }, s.D), h('span', { class: 'who c-dem' }, 'Democrats')),
-      h('div', { class: 'odds rep right' }, h('span', { class: 'pct' }, s.R), h('span', { class: 'who c-rep' }, 'Republicans'))),
+    h('div', { class: 'odds-row', style: { marginTop: '6px' } }, side('D', s.D, L.D), side('R', s.R, L.R)),
     bar,
     h('div', { class: 'compare-line', style: { marginTop: '10px' } },
-      h('span', null, h('b', null, und), ` ${type === 'gov' ? 'governorships' : 'seats'} not yet called`),
+      h('span', null, h('b', null, und), ` ${seats} not yet called`),
       type === 'house' ? null : h('span', null, 'Includes seats not up'),
       s.O ? h('span', null, h('b', null, s.O), ' other') : null),
     odds);

@@ -158,6 +158,8 @@ a.chamber-card:hover { border-color: var(--line-2); transform: translateY(-1px);
 .odds .pct { font: 800 40px/1 var(--sans); letter-spacing: -.035em; font-variant-numeric: tabular-nums; }
 .odds .who { font-size: 13px; font-weight: 600; margin-top: 4px; }
 .odds.right { text-align: right; align-items: flex-end; }
+.odds-lead { display: inline-flex; align-items: center; gap: 6px; margin-top: 3px; font-size: 12.5px; font-weight: 650; color: var(--ink-2); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.odds-lead i { width: 10px; height: 10px; border-radius: 3px; flex-shrink: 0; }
 .odds.dem .pct, .c-dem { color: var(--dem); }
 .odds.rep .pct, .c-rep { color: var(--rep); }
 .c-ind { color: var(--ind); }
