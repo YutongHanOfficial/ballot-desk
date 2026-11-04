@@ -180,10 +180,19 @@ nothing after the first polls close, so the site is not redeployed overnight unl
 ## Terms and privacy
 
 `/terms` and `/privacy` (`assets/js/views/legal.js`) describe what the site actually does: no accounts, cookies or
-analytics; three settings in local storage; requests to GitHub Pages, Polymarket and the NYT feed (fonts are
-self-hosted).
-The Polymarket, NYT and donation parts follow `config.js`. If the site starts storing or sending anything else (a
-new script, font host or data source), update both pages and their `UPDATED` date in the same change.
+ads; three settings in local storage; requests to GitHub Pages, Polymarket and the NYT feed (fonts are self-hosted);
+and visit counts once the counter below is switched on.
+The Polymarket, NYT, donation and visit-counter parts follow `config.js`. If the site starts storing or sending
+anything else (a new script, font host or data source), update both pages and their `UPDATED` date in the same change.
+
+## Visitor counts
+
+`assets/js/analytics.js` loads Cloudflare Web Analytics (no cookies or local storage, no fingerprinting) once
+`analytics.cloudflareToken` in `config.js` holds the site token: in Cloudflare's dashboard, Web Analytics > Add a
+site > `ballotdesk.org`, then copy the `token` from the JS snippet under Manage site. Empty means off, and the privacy
+policy then says there is no analytics. It counts only on `analytics.host`, never on local copies, `/broadcast` (the
+stream's OBS source) or browsers that send Do Not Track or Global Privacy Control. Page changes inside the app are
+counted by the beacon itself (it follows the History API). Ad and tracker blockers stop it, so the counts are a floor.
 
 ## Data sources and licenses
 

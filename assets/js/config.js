@@ -32,6 +32,11 @@ export const CONFIG = {
 
   liveSims: 6000,
 
+  // Visit counts from Cloudflare Web Analytics (no cookies; see /privacy, which follows this setting). To switch it on,
+  // paste the site token from Cloudflare's dashboard (Web Analytics > Manage site: the "token" in the JS snippet).
+  // Empty = off. Counted only on `host`, never on local copies, /broadcast or browsers sending Do Not Track or GPC.
+  analytics: { cloudflareToken: '', host: 'ballotdesk.org' },
+
   // Donations. List your donation pages (the first is the main button) to show a Support button in the header,
   // a line in the footer, a note on the live page and the /support page. With none, nothing shows.
   support: {

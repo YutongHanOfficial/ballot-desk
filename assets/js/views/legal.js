@@ -1,15 +1,19 @@
 // Terms of service and privacy policy, in plain language. Both describe what the site actually does (index.html,
-// store.js, live.js, config.js): when that changes, update them and bump UPDATED.
+// store.js, live.js, analytics.js, config.js): when that changes, update them and bump UPDATED.
 import { h, fmtDate } from '../ui.js';
 import { CONFIG, supportLinks } from '../config.js';
+import { analyticsOn } from '../analytics.js';
 
-const UPDATED = 'November 3, 2026';
+// The visit counter's paragraphs appear only once it is switched on, so the date moves with them.
+const UPDATED = analyticsOn() ? 'November 4, 2026' : 'November 3, 2026';
 const CONTACT = 'https://github.com/YutongHanOfficial/ballot-desk/issues';
 const POLICIES = {
   pages: 'https://docs.github.com/en/pages/getting-started-with-github-pages/what-is-github-pages#data-collection',
   github: 'https://docs.github.com/en/site-policy/privacy-policies/github-general-privacy-statement',
   polymarket: 'https://polymarket.com/privacy',
   nyt: 'https://www.nytimes.com/privacy/privacy-policy',
+  cloudflare: 'https://www.cloudflare.com/privacypolicy/',
+  cloudflareAnalytics: 'https://www.cloudflare.com/web-analytics/',
 };
 
 const p = (...kids) => h('p', null, ...kids);
@@ -61,12 +65,13 @@ export function renderTerms(root) {
       h('h2', null, 'Limits on liability'),
       p('To the fullest extent the law allows, we aren’t liable for any loss or damage that comes from using Ballot Desk, or from not being able to use it, including anything you decide based on it. Some places don’t allow these limits, so they may not all apply to you.'),
       h('h2', null, 'Changes'),
-      p('We may update these terms. The date at the top shows the current version, and using the site after a change means you accept the new terms. The ', h('a', { href: '/privacy' }, 'privacy policy'), ' explains what happens to your data (in short, we don’t collect any).'),
+      p('We may update these terms. The date at the top shows the current version, and using the site after a change means you accept the new terms. The ', h('a', { href: '/privacy' }, 'privacy policy'), ` explains what happens to your data (in short, ${analyticsOn() ? 'we count visits, but collect nothing that identifies you' : 'we don’t collect any'}).`),
       ...contact()));
 }
 
 export function renderPrivacy(root) {
   const d = donors();
+  const counted = analyticsOn();
   const kept = ['your light or dark theme', 'the House map view you picked'];
   if (d) kept.push('whether you closed the note asking for support');
   const day = (iso, year) => fmtDate(iso, { month: 'long', day: 'numeric', ...(year ? { year: 'numeric' } : {}) });
@@ -74,11 +79,17 @@ export function renderPrivacy(root) {
     h('li', null, h('b', null, 'GitHub Pages'), ' hosts the site. GitHub logs visitors’ IP addresses for security (', ext(POLICIES.pages, 'GitHub’s note'), ', ', ext(POLICIES.github, 'privacy statement'), ').'),
     CONFIG.markets.enabled ? h('li', null, h('b', null, 'Polymarket'), ` supplies live market prices, checked every ${CONFIG.markets.nightRefreshSec} to ${CONFIG.markets.refreshSec} seconds while a page is open (`, ext(POLICIES.polymarket, 'privacy policy'), ').') : null,
     CONFIG.results.provider === 'nyt' ? h('li', null, h('b', null, 'The New York Times'), ` supplies live vote counts from ${day(CONFIG.results.window.start)} to ${day(CONFIG.results.window.end, true)} (`, ext(POLICIES.nyt, 'privacy policy'), ').') : null,
+    counted ? h('li', null, h('b', null, 'Cloudflare Web Analytics'), ' counts visits, as described above (', ext(POLICIES.cloudflare, 'privacy policy'), ').') : null,
   ];
-  root.append(head('Privacy policy', `Last updated ${UPDATED}. The short version: Ballot Desk has no accounts, cookies, analytics or ads, and it doesn’t collect, sell or share personal information.`),
+  root.append(head('Privacy policy', counted
+    ? `Last updated ${UPDATED}. The short version: Ballot Desk has no accounts, cookies or ads. It counts visits, but nothing it records identifies you, and it doesn’t sell or share personal information.`
+    : `Last updated ${UPDATED}. The short version: Ballot Desk has no accounts, cookies, analytics or ads, and it doesn’t collect, sell or share personal information.`),
     h('div', { class: 'prose' },
       h('h2', null, 'What we collect'),
-      p('Nothing that identifies you. There is no sign-up, no contact form, no cookies and no analytics or advertising code, so we don’t know who visits or what they look at.'),
+      counted
+        ? [p('Nothing that identifies you. There is no sign-up, no contact form, no cookies and no advertising code.'),
+          p('To see how many people use the site and what they read, we count visits with ', ext(POLICIES.cloudflareAnalytics, 'Cloudflare Web Analytics'), '. For each page you open, it records the page’s address (without anything after a “?”), the site that linked you here, your browser, operating system and type of device, your country, and how quickly the page loaded. It doesn’t use cookies or local storage, and Cloudflare says it doesn’t fingerprint visitors or follow them across websites. We see only totals, such as visits per day or the most-read pages, never a record of any one person.')]
+        : p('Nothing that identifies you. There is no sign-up, no contact form, no cookies and no analytics or advertising code, so we don’t know who visits or what they look at.'),
       h('h2', null, 'What your browser keeps'),
       p(`A few settings are saved in your browser’s local storage so the site remembers them: ${listOf(kept)}. They stay on your device, are never sent to us, and you can clear them at any time in your browser’s settings.`),
       p('Your browser also keeps a copy of the site’s own pages, code and data, so Ballot Desk still opens if our host has a brief outage. The copy holds nothing about you, is refreshed as you browse, and goes away when you clear the site’s data.'),
@@ -93,7 +104,9 @@ export function renderPrivacy(root) {
       h('h2', null, 'Children'),
       p('Ballot Desk is for a general audience and isn’t aimed at children under 13. We don’t collect personal information from anyone, children included.'),
       h('h2', null, 'Do Not Track'),
-      p('Ballot Desk doesn’t track you, so there is nothing for Do Not Track or Global Privacy Control to switch off.'),
+      p(counted
+        ? 'If your browser sends Do Not Track or Global Privacy Control, the site doesn’t load the visit counter, so your visit isn’t counted at all.'
+        : 'Ballot Desk doesn’t track you, so there is nothing for Do Not Track or Global Privacy Control to switch off.'),
       h('h2', null, 'Changes'),
       p('If what the site does with data changes, this page changes first, with a new date at the top. See also the ', h('a', { href: '/terms' }, 'terms of service'), '.'),
       ...contact()));
