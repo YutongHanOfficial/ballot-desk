@@ -155,6 +155,11 @@ link-preview text, plus `sitemap.xml`. **After editing `index.html`, run `npm ru
 result. `404.html` sends other spellings (`/pennsylvania`, `/pa-07`) to the right page and shows a not-found
 page for anything else. Old `/#/…` links are rewritten to plain addresses when they load.
 
+The site icon is `favicon.svg`. Search engines need an icon they can fetch from a real address (Google shows
+none for one inlined as a `data:` URI), so `pipeline/build_icons.mjs` (`npm run icons`) draws the same shapes
+into `favicon.ico` (16, 32 and 48 px), `icon-192.png` and `apple-touch-icon.png`. If the logo changes, change
+both files, then run it and `npm run pages`.
+
 ## Deploying (GitHub Pages)
 
 1. Push this folder to a GitHub repository.
