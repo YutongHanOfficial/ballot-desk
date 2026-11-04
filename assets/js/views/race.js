@@ -166,6 +166,10 @@ function resultsCard(r, c) {
     h('td', { class: 'votes', style: { fontWeight: 700 } }, `${(k.pct * 100).toFixed(1)}%`)));
   const dw = r.duel ? res.duel?.won : null;
   const need = catchUpText(catchUp(r));   // what the trailing candidate needs of the votes left
+  const PLURAL = { D: 'Democrats', R: 'Republicans', L: 'Libertarians', G: 'Greens', I: 'independents' };
+  const byParty = res.allParty && res.byParty && tot && r.left && r.right
+    ? `All-party primary. By party, every candidate counted: ${[r.leftParty, r.rightParty].map(p => `${PLURAL[p] || PARTY_NAME[p] || p} ${((100 * (res.byParty[p] || 0)) / tot).toFixed(1)}%`).join(', ')}.`
+    : null;
   const status = r.duel ? (dw ? `Called for ${dw === 'a' ? r.duel.a : r.duel.b}` : tot ? 'Counting' : 'Polls closed, no votes yet')
     : res.called ? (res.called === 'other' ? 'Called' : `Called for ${res.called === 'left' ? r.left : r.right}`) : res.runoff ? 'Headed to a runoff' : tot ? 'Counting' : 'Polls closed, no votes yet';
   return h('section', { class: 'card', style: { marginBottom: '16px' } },
@@ -178,6 +182,7 @@ function resultsCard(r, c) {
       h('span', null, h('b', null, `${Math.round(c.eevp)}%`), ' of expected vote counted · ', `${num(tot)} votes`,
         liveOdds ? [' · live chance ', h('b', { style: { color: partyVar(liveOdds[2]) } }, `${lastName(liveOdds[0])} ${pct(Math.min(0.999, liveOdds[1]))}`)] : null),
       h('span', null, res.demo ? 'Simulated (demo)' : `Source: AP via The New York Times · updated ${timeAgo(res.updated)}`)),
+    byParty ? h('p', { class: 'xs muted', style: { margin: '8px 0 0' } }, byParty) : null,
     need ? h('p', { class: 'catch-up', title: 'Votes left: AP’s estimate of the total vote, less the votes counted so far. Other candidates are assumed to keep their share of the rest.' }, need) : null);
 }
 

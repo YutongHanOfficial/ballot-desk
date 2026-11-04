@@ -7,7 +7,7 @@
 //   ?panel=senate,house,gov,races,calls  ?rotate=15 (seconds per panel)  ?map=odds  ?theme=light
 //   ?demo=live&speed=10                 rehearse on a simulated night
 import { h, pct, num, partyVar, lastName, fmtTimeET, marginText } from '../ui.js';
-import { store, subscribe, cur, chamber, marketControl, racesOf, nightMode, awaiting, raceFill, projectionFill, counting, catchUp, catchUpText } from '../store.js';
+import { store, subscribe, cur, chamber, marketControl, racesOf, nightMode, awaiting, raceFill, projectionFill, counting, catchUp, catchUpText, seatCount } from '../store.js';
 import { calledSeats, resultsEnabled, houseVote } from '../live.js';
 import { CONFIG, pollCloseDate, POLL_CLOSE_ET } from '../config.js';
 import { CHAMBERS } from './common.js';
@@ -175,7 +175,7 @@ function leadingSeats(type) {
   const out = { D: 0, R: 0, O: 0 };
   for (const r of racesOf(type)) {
     if (!r.left || !r.right) continue;
-    const res = store.live.results[r.id];
+    const res = seatCount(r, store.live.results[r.id]);
     if (!res || res.called || !res.total || res.left === res.right) continue;
     const p = res.left > res.right ? r.leftParty : r.rightParty;
     out[p === 'D' || p === 'R' ? p : 'O']++;

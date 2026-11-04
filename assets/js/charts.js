@@ -247,6 +247,8 @@ export function raceTip(r) {
     const share = (v) => `${((v / tot) * 100).toFixed(1)}%<span class="tt-sub">${v.toLocaleString('en-US')}</span>`;
     rows.push(line(r.left, r.leftParty, null, share(res.left)));
     rows.push(line(r.right, r.rightParty, null, share(res.right)));
+    // All-party primary: the map colour comes from each party's total over all its candidates.
+    if (res.allParty && res.byParty) rows.push(`<div class="tt-row muted"><span>By party</span><span>${[r.leftParty, r.rightParty].map(p => `${p} ${((100 * (res.byParty[p] || 0)) / tot).toFixed(1)}%`).join(' · ')}</span></div>`);
     rows.push(`<div class="tt-row muted"><span>${Math.round(c.eevp)}% of expected vote</span><span>${res.called ? 'Called' : `Live odds ${fav(p)}`}</span></div>`, needRow);
   } else if (r.left && r.right) {
     rows.push(line(r.left, r.leftParty, p));

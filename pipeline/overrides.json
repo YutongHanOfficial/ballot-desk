@@ -1,4 +1,11 @@
 {
   "_comment": "Manual corrections applied after parsing Wikipedia. left/right = main candidates (exact names as listed).",
-  "AK-SEN": {"right": "Dan S. Sullivan", "incumbentCandidate": "Dan S. Sullivan", "note": "Top-four primary and ranked-choice general; a second, unrelated Dan Sullivan is also on the ballot."}
+  "AK-SEN": {"right": "Dan S. Sullivan", "incumbentCandidate": "Dan S. Sullivan", "note": "Top-four primary and ranked-choice general; a second, unrelated Dan Sullivan is also on the ballot."},
+  "_louisiana": "Louisiana's House races are all-party primaries with several candidates per party. LA-05 and LA-06 had no market or polls by candidate, so the parser picked minor ones; left/right here are the leading Democrat and Republican in the Nov. 3 AP count (LA-05's runoff pair).",
+  "LA-01": {"note": "All-party primary: every candidate, of any party, is on one ballot. If no one wins a majority, the top two meet in a December runoff."},
+  "LA-02": {"note": "All-party primary: every candidate, of any party, is on one ballot. If no one wins a majority, the top two meet in a December runoff."},
+  "LA-03": {"note": "All-party primary: every candidate, of any party, is on one ballot. If no one wins a majority, the top two meet in a December runoff."},
+  "LA-04": {"note": "All-party primary: every candidate, of any party, is on one ballot. If no one wins a majority, the top two meet in a December runoff."},
+  "LA-05": {"left": "Patricia Moore", "right": "Gabe Firment", "note": "All-party primary: every candidate, of any party, is on one ballot. If no one wins a majority, the top two meet in a December runoff."},
+  "LA-06": {"left": "Chauna Banks", "right": "Blake Miguez", "note": "All-party primary: every candidate, of any party, is on one ballot. If no one wins a majority, the top two meet in a December runoff."}
 }

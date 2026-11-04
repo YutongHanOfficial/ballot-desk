@@ -167,6 +167,16 @@ export const forecastFinal = () => Date.now() >= Date.parse(CONFIG.firstPollsClo
 const settledParty = (r) => (r.left ? r.leftParty : r.rightParty) || r.samePartyGeneral;
 
 /**
+ * A race's count as far as the seat goes: the two main candidates' votes (left, right), except in an all-party
+ * primary (Louisiana's House races), where each side is its party's total over all its candidates. The live model,
+ * the map colours and the broadcast's "leading" tallies read this; the results tables show each candidate's own count.
+ */
+export function seatCount(r, res) {
+  if (!res?.allParty || !res.byParty || !r) return res;
+  return { ...res, left: res.byParty[r.leftParty] || 0, right: res.byParty[r.rightParty] || 0 };
+}
+
+/**
  * What a race's colour on every map comes from: { party, margin } for the side ahead (points, >= 0), or { none }
  * with the grey to use instead. Before results, and on forecast pages, it is the final forecast's projected margin;
  * once votes are counted, the margin in the count. Settled seats (one major party, or two of the same) count as safe.
@@ -176,7 +186,7 @@ export function shade(r) {
   if (nightMode() && awaiting(r)) return { none: 'var(--await)' };
   if (!r.left || !r.right) return { party: settledParty(r), margin: 100 };
   if (nightMode()) {
-    const res = store.live.results[r.id];
+    const res = seatCount(r, store.live.results[r.id]);
     if (res && res.total > 0) {
       const m = (100 * (res.left - res.right)) / res.total;
       return { party: m >= 0 ? r.leftParty : r.rightParty, margin: Math.abs(m) };
@@ -211,7 +221,8 @@ const roughly = (n) => { if (n < 100) return Math.round(n); const m = 10 ** (Mat
 const NOT_A_CANDIDATE = /^(others?|write-ins?)$/i;
 
 /**
- * What the votes still to be counted would have to do to change a race that is being counted and not yet called.
+ * What the votes still to be counted would have to do to change a race while they could still change it: called
+ * races too, until the count puts them out of reach (called: true; their wording is "would need").
  * left: AP's estimate of the votes to come, its expected total less the count (from the share counted when the
  * feed has no total). Usually it is the share of them the runner-up needs to draw level, with the other
  * candidates keeping their share so far; out means even every vote left would not be enough. Where a winner
@@ -221,7 +232,8 @@ const NOT_A_CANDIDATE = /^(others?|write-ins?)$/i;
  */
 export function catchUp(r) {
   const res = r && !store.frozen && store.live.results[r.id];
-  if (!res || !(res.total > 0) || res.called || res.runoff || res.duel?.won) return null;
+  if (!res || !(res.total > 0) || res.runoff) return null;
+  const called = !!(res.called || res.duel?.won);
   const V = res.total;
   const left = res.expected ? res.expected - V : res.eevp > 0 && res.eevp < 100 ? (V * (100 - res.eevp)) / res.eevp : 0;
   if (!(left >= 1)) return null;
@@ -231,11 +243,15 @@ export function catchUp(r) {
   const sideOf = (name) => r.duel ? (samePerson(name, r.duel.a) ? 'a' : samePerson(name, r.duel.b) ? 'b' : null)
     : samePerson(name, r.left) ? 'left' : samePerson(name, r.right) ? 'right' : null;
   if (res.rule === 'majority') {
-    return { kind: 'majority', name: a.name, side: sideOf(a.name), rival: b.name, left, gap, runoffs: !!res.runoffs, share: (0.5 * (V + left) - a.votes) / left };
+    const share = (0.5 * (V + left) - a.votes) / left;
+    if (called && (share <= 0 || share >= 1)) return null;   // settled, and the votes left can't change it
+    return { kind: 'majority', name: a.name, side: sideOf(a.name), rival: b.name, left, gap, runoffs: !!res.runoffs, share, called };
   }
   const others = Math.max(0, V - a.votes - b.votes) / V;
+  const out = gap >= left;
+  if (called && out) return null;
   return { kind: res.rule === 'rcv' ? 'rcv' : 'plurality', name: b.name, side: sideOf(b.name), rival: a.name, left, gap,
-    share: (gap / left + 1 - others) / 2, out: gap >= left };
+    share: (gap / left + 1 - others) / 2, out, called };
 }
 
 /**
@@ -246,25 +262,26 @@ export function catchUpText(k, { short = false, bare = false } = {}) {
   if (!k) return null;
   const share = pct(Math.min(1, Math.max(0, k.share)));
   const ballots = k.kind === 'rcv' ? 'ballots' : 'votes';
+  const needs = k.called ? 'would need' : 'needs';   // a called race: what it would take to overturn the call
   if (!short && !bare) {
     const left = num(roughly(k.left));
     if (k.kind === 'majority') {
       if (k.share <= 0) return `${k.name} already has more than half of the votes expected${k.runoffs ? ', enough to avoid a runoff' : ''}.`;
       if (k.share >= 1) return `No one can reach 50% with the estimated ${left} votes left${k.runoffs ? ', so the race looks headed for a runoff' : ''}.`;
-      return `${k.name} needs ${share} of the estimated ${left} votes left to finish above 50%${k.runoffs ? ' and avoid a runoff' : ''}.`;
+      return `${k.name} ${needs} ${share} of the estimated ${left} votes left to finish above 50%${k.runoffs ? ' and avoid a runoff' : ''}.`;
     }
     const rcv = k.kind === 'rcv' ? ' If no one wins a majority, ranked choices decide.' : '';
     if (k.out) return `${k.rival}’s lead of ${num(k.gap)} ${k.kind === 'rcv' ? 'first-choice votes' : 'votes'} is bigger than the estimated ${left} ${ballots} left to count.${rcv}`;
-    return `${k.name} needs ${share} of the estimated ${left} ${ballots} left to ${k.kind === 'rcv' ? `pass ${k.rival} on first choices` : `overtake ${k.rival}`}.${rcv}`;
+    return `${k.name} ${needs} ${share} of the estimated ${left} ${ballots} left to ${k.kind === 'rcv' ? `pass ${k.rival} on first choices` : `overtake ${k.rival}`}.${rcv}`;
   }
   const said = (rest) => bare ? rest[0].toUpperCase() + rest.slice(1) : `${lastName(k.name)} ${rest}`;
   if (k.kind === 'majority') {
     if (k.share <= 0) return said('has a majority of the expected vote');
     if (k.share >= 1) return bare ? 'Can’t reach 50% with the votes left' : 'No one can reach 50%';
-    return said(`needs ${share} of votes left to finish over 50%`);
+    return said(`${needs} ${share} of votes left to finish over 50%`);
   }
   if (k.out) return bare ? `Needs more ${ballots} than are left` : `${lastName(k.rival)}’s lead is bigger than the ${ballots} left`;
-  return said(`needs ${share} of ${ballots} left`);
+  return said(`${needs} ${share} of ${ballots} left`);
 }
 
 /** On election night, true once a race is projected (maps draw a check mark on it). */

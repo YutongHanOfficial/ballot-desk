@@ -101,11 +101,17 @@ browser asks for those outcomes' last trades instead (`refreshMarkets()` in live
 near 1 won and the rest go to 0, since an empty book still reads 0.5. The race page's market card then says
 "Trading closed".
 
-While a race is counted and not yet called, `catchUp()` in store.js works out what the runner-up needs of the votes
-left to draw level: AP's expected total vote (`total_expected_vote` in the feed) less the count, with other
+While a race is counted, `catchUp()` in store.js works out what the runner-up needs of the votes left to draw level
+(called races too, worded "would need", until the count puts them out of reach): AP's expected total vote (`total_expected_vote` in the feed) less the count, with other
 candidates keeping their share. Races that need a majority (Georgia and Louisiana runoffs, Vermont) show what the
 leader needs to stay above 50% instead, and Alaska's and Maine's ranked-choice races are about first choices. It
 shows on the race page, race cards, map tooltips, the live results table and the broadcast.
+
+Louisiana's House races are all-party primaries with a December runoff (`race_type_id` 'L' in the feed). There,
+`seatCount()` gives the live model, the map colours and the broadcast's tallies each party's combined vote, while the
+tables show each candidate's own count. The race list's main candidates for LA-05 and LA-06 come from
+`pipeline/overrides.json` (the leading Democrat and Republican in the count), since Wikipedia's lists gave the parser
+no way to tell the contenders apart.
 
 ## Running locally
 

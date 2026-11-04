@@ -1,6 +1,6 @@
 // Live layer: Polymarket prices every minute, vote counts on election night, and the live projection model.
 import { CONFIG, pollCloseDate } from './config.js';
-import { store, notify, loadData } from './store.js';
+import { store, notify, loadData, seatCount } from './store.js';
 import { liveEstimate, estimateSwing, simulate, samePerson } from './model.js';
 import { makeScenario, startNight, registerSimHooks, ensureSimData } from './sim.js';
 
@@ -237,9 +237,15 @@ function normalizeNyt(race, nr) {
   // How the race is won: most votes, a majority (Georgia and Louisiana hold runoffs; Vermont's legislature decides),
   // or ranked choices (Alaska, Maine).
   const rule = nr.tabulation_method === 'ranked-choice' ? 'rcv' : nr.win_threshold >= 50 ? 'majority' : 'plurality';
+  // Louisiana's House races are all-party primaries ('Nonpartisan Election'), with several candidates of each party
+  // and the top two going to a runoff: each party's combined vote says more about the seat than the leaders' shares.
+  const allParty = nr.race_type_id === 'L' || /nonpartisan/i.test(nr.type || '');
+  const byParty = {};
+  for (const c of cands) byParty[c.party] = (byParty[c.party] || 0) + c.votes;
   return {
     eevp: tru.eevp || 0, total, cands, left: L ? L.votes : 0, right: R ? R.votes : 0, called, runoff, duel,
     expected: tru.total_expected_vote || 0, rule, runoffs: !!nr.max_runoff,   // expected: AP's estimate of the total vote
+    allParty, byParty: allParty ? byParty : null,
     status: nr.race_call_status, updated: tru.provider_updated_at || nr.updated_at, precincts: [tru.precincts_reporting, tru.precincts_total],
     calledAt: (nr.outcome?.winner_accepted_at || [])[0] || null,
     slug: String(nr.url || '').split('/').pop().replace(/\.html$/, '') || null,
@@ -361,7 +367,7 @@ export function recomputeNow({ sims = CONFIG.liveSims } = {}) {
   store.live.active = anyVotes;
   if (!anyVotes) { store.live.est = null; store.live.sim = null; store.live.swing = null; return; }
   const simRaces = store.races.filter(r => r.type === 'senate' || r.type === 'house' || r.type === 'gov');
-  const pairs = simRaces.map(r => ({ r, est: { mu: r.mu, sd: r.sd, pLeft: r.p, settled: r.settled }, live: results[r.id] }));
+  const pairs = simRaces.map(r => ({ r, est: { mu: r.mu, sd: r.sd, pLeft: r.p, settled: r.settled }, live: seatCount(r, results[r.id]) }));
   const sw = estimateSwing(pairs.map(x => ({ est: x.est, live: x.live })));
   const est = {};
   for (const x of pairs) est[x.r.id] = liveEstimate(x.est, x.live, sw.swing, sw.sd);
