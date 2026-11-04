@@ -1,5 +1,5 @@
 // Senate, House and Governor pages.
-import { h, pct, num, timeAgo, sortableTable } from '../ui.js';
+import { h, pct, num, timeAgo, sortableTable, simCount } from '../ui.js';
 import { store, cur, chamber, racesOf } from '../store.js';
 import { usMap, marginLegend, histogram, seatStrip } from '../charts.js';
 import { houseMap } from '../maps.js';
@@ -67,7 +67,7 @@ export function renderChamber(root, type) {
   const live = calledSeats(type);
   const distCard = h('div', { class: 'card span2' },
     h('div', { class: 'card-title' }, type === 'gov' ? 'Distribution of Democratic governorships' : 'Distribution of Democratic seats',
-      h('span', { class: 'muted', style: { textTransform: 'none', letterSpacing: 0 } }, `${num(ch.live ? store.live.sim?.sims : store.forecast.sims)} simulations`)),
+      h('span', { class: 'muted', style: { textTransform: 'none', letterSpacing: 0 } }, `${simCount(ch.live ? store.live.sim?.sims : store.forecast.sims)} simulations`)),
     histogram(ch.hist, { threshold: C.need, total: C.total, xLabel: type === 'gov' ? 'Democratic governors' : 'Democratic seats' }),
     ch.live ? h('p', { class: 'small', style: { marginBottom: 0 } }, h('b', null, 'Called so far: '), `${live.D} D · ${live.R} R${live.O ? ` · ${live.O} other` : ''}`) : null);
   root.append(h('div', { class: 'grid g3' }, chamberCard(type, { link: false }), distCard));

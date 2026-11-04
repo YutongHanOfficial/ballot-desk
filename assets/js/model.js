@@ -12,7 +12,9 @@
 
 export const MODEL = {
   version: '2026.1',
-  sims: 20000,
+  // Simulations per forecast run: about 40 s in Node, and the Monte Carlo error on a 75% chance drops to ±0.04 points,
+  // well under the one decimal the site shows (20,000 left ±0.3). The final 2026 forecast, frozen Nov. 3, ran 20,000.
+  sims: 1000000,
   convSd: 6,                 // points of margin per probit unit when turning probabilities into margins
   natSd: 2.6,                // shared national polling/environment error
   regSd: 1.5,                // Census-region error
@@ -356,6 +358,7 @@ export function simulate(races, ests, chambers, opts = {}) {
   });
   const senIdx = groups.senate.map(r => all.indexOf(r));
   const houseIdx = groups.house.map(r => all.indexOf(r));
+  const tipBuf = new Int32Array(Math.max(senIdx.length, houseIdx.length, 1));   // tippingPoint's workspace
 
   const tally = {
     senate: { D: new Int32Array(101), control: { D: 0, R: 0 }, tip: {} },
@@ -400,8 +403,8 @@ export function simulate(races, ests, chambers, opts = {}) {
     if (dGov >= 26) tally.gov.control.D++; else tally.gov.control.R++;
     flips.senate[s] = fSen; flips.house[s] = fHouse; flips.gov[s] = fGov;
     if (withTipping) {
-      tippingPoint(senIdx, all, margins, leftSeat, rightSeat, tally.senate.tip, chambers.senate.notUp.D, 51, chambers.senate.notUp.R, 50, dSen >= 51, rSen >= 50);
-      tippingPoint(houseIdx, all, margins, leftSeat, rightSeat, tally.house.tip, 0, 218, 0, 218, dHouse >= 218, rHouse >= 218);
+      tippingPoint(senIdx, all, margins, leftSeat, rightSeat, tally.senate.tip, chambers.senate.notUp.D, 51, chambers.senate.notUp.R, 50, dSen >= 51, rSen >= 50, tipBuf);
+      tippingPoint(houseIdx, all, margins, leftSeat, rightSeat, tally.house.tip, 0, 218, 0, 218, dHouse >= 218, rHouse >= 218, tipBuf);
     }
   }
 
@@ -428,23 +431,52 @@ export function simulate(races, ests, chambers, opts = {}) {
 }
 
 /** The race that delivers the majority when races are lined up from most left-leaning to most right-leaning. */
-function tippingPoint(idx, all, margins, leftSeat, rightSeat, tip, dBase, dNeed, rBase, rNeed, dCtl, rCtl) {
+// Walking the races in from the majority party's end (Democrats: highest margin first; Republicans: lowest first),
+// the race that hands it the seat it needs. Only races that give that party a seat move the count, so this is the
+// k-th of those in walking order: found by selection instead of sorting every race, since it runs in every
+// simulation (sorting the House each time was most of the run). Ties keep the races' listed order, as walking a
+// stable sort would. buf: workspace at least idx.length long.
+function tippingPoint(idx, all, margins, leftSeat, rightSeat, tip, dBase, dNeed, rBase, rNeed, dCtl, rCtl, buf) {
   if (!idx.length || (!dCtl && !rCtl)) return;
-  const order = idx.slice().sort((a, b) => margins[b] - margins[a]);
-  if (dCtl) {
-    let d = dBase;
-    for (const i of order) {
-      if (margins[i] > 0 ? leftSeat[i] === 'D' : rightSeat[i] === 'D') d++;
-      if (d >= dNeed) { tip[all[i].id] = (tip[all[i].id] || 0) + 1; return; }
-    }
+  const party = dCtl ? 'D' : 'R';
+  const k = dCtl ? dNeed - dBase : rNeed - rBase;
+  // Positions in idx; a comes before b on the walk.
+  const before = dCtl
+    ? (a, b) => { const x = margins[idx[a]], y = margins[idx[b]]; return x > y || (x === y && a < b); }
+    : (a, b) => { const x = margins[idx[a]], y = margins[idx[b]]; return x < y || (x === y && a > b); };
+  let pick;
+  if (k <= 0) {
+    pick = 0;   // the seats not up already make the majority: the first race on the walk
+    for (let p = 1; p < idx.length; p++) if (before(p, pick)) pick = p;
   } else {
-    let r = rBase;
-    for (let k = order.length - 1; k >= 0; k--) {
-      const i = order[k];
-      if (margins[i] > 0 ? leftSeat[i] === 'R' : rightSeat[i] === 'R') r++;
-      if (r >= rNeed) { tip[all[i].id] = (tip[all[i].id] || 0) + 1; return; }
+    let n = 0;
+    for (let p = 0; p < idx.length; p++) {
+      const i = idx[p];
+      if ((margins[i] > 0 ? leftSeat[i] : rightSeat[i]) === party) buf[n++] = p;
     }
+    if (n < k) return;
+    pick = selectKth(buf, n, k - 1, before);
   }
+  const id = all[idx[pick]].id;
+  tip[id] = (tip[id] || 0) + 1;
+}
+
+/** Quickselect: the item of a[0..n) that would sit at position target if a were sorted by before (a strict order). */
+function selectKth(a, n, target, before) {
+  let lo = 0, hi = n - 1;
+  while (lo < hi) {
+    const pivot = a[(lo + hi) >> 1];
+    let i = lo, j = hi;
+    while (i <= j) {
+      while (before(a[i], pivot)) i++;
+      while (before(pivot, a[j])) j--;
+      if (i <= j) { const t = a[i]; a[i] = a[j]; a[j] = t; i++; j--; }
+    }
+    if (target <= j) hi = j;
+    else if (target >= i) lo = i;
+    else return a[target];
+  }
+  return a[lo];
 }
 
 function meanHist(h) { let s = 0, n = 0; h.forEach((c, i) => { s += c * i; n += c; }); return n ? s / n : 0; }
@@ -462,7 +494,7 @@ function trimHist(h) {
   return { start: lo, p: h.slice(lo, hi + 1).map(c => round(c / n, 5)) };
 }
 function flipStats(arr) {
-  const s = Array.from(arr).sort((a, b) => a - b);
+  const s = arr.slice().sort();   // a typed array: sorts numerically
   const q = (p) => s[Math.min(s.length - 1, Math.floor(p * s.length))];
   return { median: q(0.5), p10: q(0.1), p90: q(0.9) };
 }

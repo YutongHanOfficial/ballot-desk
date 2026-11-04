@@ -19,6 +19,9 @@ const DATA = path.join(ROOT, 'data');
 const CACHE = path.join(ROOT, 'pipeline', '.cache', 'backcast');
 const UA = 'BallotDesk/1.0 (https://ballotdesk.org; https://github.com/YutongHanOfficial/ballot-desk)';
 const DAY = 864e5;
+// Simulations per re-run day. The forecast's own MODEL.sims (a million) would take well over an hour for ~150 days,
+// and the chart this feeds reads to the whole point. SIMS=1000000 node pipeline/backcast.mjs for the full count.
+const SIMS = Number(process.env.SIMS) || 100000;
 const log = (...a) => console.log(new Date().toISOString().slice(11, 19), ...a);
 const round = (x, d) => Math.round(x * 10 ** d) / 10 ** d;
 const read = async (f) => JSON.parse(await fs.readFile(f, 'utf8'));
@@ -161,7 +164,7 @@ async function main() {
       const market = p === null ? null : { pLeft: m.flip ? 1 - p : p, volume: m.volume };
       ests[r.id] = estimateRace(r, { poll, market }, env);
     }
-    const sim = simulate(asOf, ests, base.chambers, { sims: MODEL.sims });
+    const sim = simulate(asOf, ests, base.chambers, { sims: SIMS });
     return { sen: round(sim.senate.pD, 4), house: round(sim.house.pD, 4), senSeats: round(sim.senate.dSeats.mean, 2), houseSeats: round(sim.house.dSeats.mean, 2), generic: round(env.generic, 2) };
   };
   const snapFor = (t) => snapshots.filter(s => Date.parse(s.at) <= t).pop() || snapshots[0];

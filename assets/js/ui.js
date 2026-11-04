@@ -60,6 +60,11 @@ export function oddsText(p) {
   return fav ? `${n - 1} in ${n}` : `1 in ${n}`;
 }
 
+/** A simulation count as the site quotes it: "20,000", or "1 million" for round millions. */
+export function simCount(n) {
+  return n >= 1e6 && n % 1e6 === 0 ? `${n / 1e6} million` : num(n);
+}
+
 export function num(x, d = 0) {
   if (x === null || x === undefined || Number.isNaN(x)) return '—';
   return x.toLocaleString('en-US', { maximumFractionDigits: d, minimumFractionDigits: d });

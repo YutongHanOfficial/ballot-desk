@@ -1,5 +1,5 @@
 // Simulator page: draw one outcome instantly, or launch an election-night replay.
-import { h, pct, num, partyVar, partyChip, esc, lastName, PARTY_NAME, sortableTable } from '../ui.js';
+import { h, pct, num, partyVar, partyChip, esc, lastName, PARTY_NAME, sortableTable, simCount } from '../ui.js';
 import { store } from '../store.js';
 import { histogram, usMap, marginLegend } from '../charts.js';
 import { houseMap } from '../maps.js';
@@ -124,7 +124,7 @@ function resultView(sc, seed, err) {
         s.I ? h('div', { class: 'odds', style: { alignItems: 'center' } }, h('span', { class: 'pct c-ind', style: { fontSize: '28px' } }, s.I), h('span', { class: 'who c-ind' }, 'Ind.')) : null,
         h('div', { class: 'odds rep right' }, h('span', { class: 'pct' }, s.R), h('span', { class: 'who c-rep' }, 'Republicans'))),
       histogram(f.hist, { threshold: need, total, height: 150, xLabel: type === 'gov' ? 'Democratic governors' : 'Democratic seats', mark: s.D }),
-      h('p', { class: 'xs muted', style: { margin: '6px 0 0' } }, `Democrats did better than this in ${pct(better)} of our 20,000 forecast simulations.`));
+      h('p', { class: 'xs muted', style: { margin: '6px 0 0' } }, `Democrats did better than this in ${pct(better)} of our ${simCount(store.forecast.sims)} forecast simulations.`));
   };
   wrap.append(h('div', { class: 'grid g3', style: { marginTop: '16px' } }, card('senate', 'Senate', 100, 51), card('house', 'House', 435, 218), card('gov', 'Governors', 50, 26)));
 

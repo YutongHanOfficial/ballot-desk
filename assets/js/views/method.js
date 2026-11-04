@@ -1,4 +1,4 @@
-import { h, num, timeAgo } from '../ui.js';
+import { h, timeAgo, simCount } from '../ui.js';
 import { store } from '../store.js';
 import { MODEL } from '../model.js';
 
@@ -22,7 +22,7 @@ export function render(root) {
   const p = (...kids) => h('p', null, ...kids);
   const a = (href, text) => h('a', { href, target: '_blank', rel: 'noopener' }, text);
   root.append(h('header', { class: 'page-head' }, h('div', { class: 'eyebrow' }, 'Methodology'), h('h1', null, 'How the forecast works'),
-    h('p', { class: 'dek' }, `Model ${MODEL.version}. Last run ${timeAgo(f.updated)}, ${num(f.sims)} simulations.`)),
+    h('p', { class: 'dek' }, `Model ${MODEL.version}. Last run ${timeAgo(f.updated)}, ${simCount(f.sims)} simulations.`)),
   h('div', { class: 'prose' },
     h('h2', null, 'One number per race'),
     p('Every race is boiled down to the expected margin between its two leading candidates. Usually that is the Democrat and the Republican; where an independent is the main opposition (Dan Osborn in Nebraska, for example), the independent takes the Democratic side of the ledger. The top two are chosen from Polymarket prices and polls, so a minor nominee never displaces the real contender.'),
@@ -34,7 +34,7 @@ export function render(root) {
       h('li', null, h('b', null, 'Prediction markets. '), 'The Polymarket price of the leading candidate, read as a probability and turned into a margin. Thinly traded markets count for less.')),
     p('Each signal is an estimate of the margin with its own uncertainty, and the forecast is their precision-weighted average. Because the signals overlap (forecasters read the same polls traders do), the combined uncertainty is inflated and never drops below about five points for a single race. When ratings or markets sit at their ceiling ("Safe", 99 cents), they only say a race is lopsided, so partisan lean sets how lopsided.'),
     h('h2', null, 'Simulating the election'),
-    p(`The model plays out the election ${num(MODEL.sims)} times. Each simulation draws a national polling error (standard deviation ${MODEL.natSd} points) shared by every race, a regional error for each Census region (${MODEL.regSd}), a state error shared by every race in a state (${MODEL.stateSd}), and race-specific noise. That correlation matters: if polls underestimate one party in Ohio, they probably did in Michigan too.`),
+    p(`The model plays out the election ${simCount(f.sims)} times. Each simulation draws a national polling error (standard deviation ${MODEL.natSd} points) shared by every race, a regional error for each Census region (${MODEL.regSd}), a state error shared by every race in a state (${MODEL.stateSd}), and race-specific noise. That correlation matters: if polls underestimate one party in Ohio, they probably did in Michigan too.`),
     p('Democrats need 51 Senate seats, because Vice President JD Vance breaks ties, and 218 House seats. Independents count for neither party. The tipping-point race is the one that delivers the deciding seat when races are lined up from most to least Democratic.'),
     h('h2', null, 'Two candidates from one party'),
     p('California’s top-two primary sometimes sends two Democrats or two Republicans to November. The party keeps the seat either way, so these races count as settled for control, but we still forecast who wins: Polymarket’s market on the two candidates, nudged slightly toward the edge incumbents usually have in these races (about 3 in 4). With no market, that incumbent edge alone sets the odds. On election night the count between the two takes over, as in any other race.'),

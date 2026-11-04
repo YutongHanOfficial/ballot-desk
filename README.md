@@ -16,7 +16,7 @@ GitHub Action (about every 20 min until the polls close)
   pipeline/build_races.py   Wikipedia  ->  data/races.json     candidates, incumbents, Cook PVI, ratings (every 6 h)
   pipeline/refresh.mjs      VoteHub    ->  data/polls.json     every public poll, weighted averages
                             Polymarket ->  data/markets.json   ~530 race markets + chamber control
-                            model      ->  data/forecast.json  race probabilities, 20,000 simulations
+                            model      ->  data/forecast.json  race probabilities, 1 million simulations
                                        ->  data/history.json   topline over time
 
 Browser (index.html + assets/)
@@ -87,7 +87,9 @@ it and are combined by inverse-variance weighting:
 - **Ratings:** Cook, Inside Elections, Sabato, Economist, Split Ticket, DDHQ, FiftyPlusOne, Silver Bulletin and others, each mapped to a probability and then to a margin
 - **Markets:** Polymarket prices, discounted when thinly traded
 
-Chamber control comes from 20,000 simulations with correlated national, regional and state errors.
+Chamber control comes from a million simulations (`MODEL.sims`) with correlated national, regional and state
+errors, about 40 seconds a run; the final 2026 forecast, frozen on Nov. 3, ran 20,000. The backcast re-runs 100,000 a
+day (`SIMS=` to change).
 On election night the counted vote replaces the prior in proportion to the expected vote reported.
 A national swing estimated from mostly counted races shifts the races still out, and AP calls are locked in.
 The pre-election forecast freezes when the first polls close (6 p.m. ET), because markets then start

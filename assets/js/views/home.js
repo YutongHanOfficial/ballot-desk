@@ -1,4 +1,4 @@
-import { h, pct, num, timeAgo, partyVar, lastName, esc, fmtDate, fmtTimeET } from '../ui.js';
+import { h, pct, num, timeAgo, partyVar, lastName, esc, fmtDate, fmtTimeET, simCount } from '../ui.js';
 import { store, cur, chamber, racesOf, raceFill, projected, forecastFinal } from '../store.js';
 import { usMap, marginLegend, historyChart, raceTip } from '../charts.js';
 import { houseMap } from '../maps.js';
@@ -75,7 +75,7 @@ export function render(root) {
     h('header', { class: 'page-head' },
       h('div', { class: 'eyebrow' }, h('span', null, '2026 Midterm Forecast'), h('span', null, '·'), h('span', null, forecastFinal() ? `Final forecast, ${fmtDate(f.updated)} at ${fmtTimeET(new Date(f.updated))}` : `Updated ${timeAgo(f.updated)}`)),
       h('h1', null, headline()),
-      h('p', { class: 'dek' }, `We combine ${num(nPolls)} polls, the ratings of ${nRated} forecasters, Polymarket prices and each race's partisan lean, then simulate the election ${num(f.sims)} times. On election night, counted votes take over from the forecast.`)),
+      h('p', { class: 'dek' }, `We combine ${num(nPolls)} polls, the ratings of ${nRated} forecasters, Polymarket prices and each race's partisan lean, then simulate the election ${simCount(f.sims)} times. On election night, counted votes take over from the forecast.`)),
     h('div', { class: 'grid g3' }, chamberCard('senate'), chamberCard('house'), chamberCard('gov')),
     h('a', { class: 'card sim-cta', href: '/simulate' },
       h('span', { class: 'sim-cta-icon' }, '🎲'),
