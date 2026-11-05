@@ -93,6 +93,25 @@ export function normName(s) {
     .replace(/\b(jr|sr|ii|iii|iv|sen|rep|gov|dr)\b\.?/g, '').replace(/[^a-z\s-]/g, ' ').replace(/\s+/g, ' ').trim();
 }
 
+// Nicknames that don't start with the formal name's letter (same-letter ones, Jim and James, already match):
+// the results feed, Wikipedia and the markets don't always use the same one ('Bobby Charles', 'Robert B. Charles').
+const NICKNAMES = {
+  bob: ['robert'], bobby: ['robert'], bobbie: ['robert', 'roberta'], bert: ['robert', 'albert', 'herbert', 'gilbert'],
+  beto: ['robert', 'roberto', 'alberto', 'humberto'], bill: ['william'], billy: ['william'], liam: ['william'],
+  dick: ['richard'], ted: ['edward'], ned: ['edward', 'edmund'], tony: ['anthony', 'antonio'],
+  liz: ['elizabeth'], lizzie: ['elizabeth'], beth: ['elizabeth'], betty: ['elizabeth'], betsy: ['elizabeth'],
+  bess: ['elizabeth'], libby: ['elizabeth'], peggy: ['margaret'], peg: ['margaret'], molly: ['mary'], polly: ['mary'],
+  trish: ['patricia'], tricia: ['patricia'], becky: ['rebecca'], becca: ['rebecca'], sally: ['sarah', 'sara'],
+  sadie: ['sarah', 'sara'], sandy: ['alexander', 'alexandra'], nell: ['eleanor', 'helen', 'ellen'],
+  nellie: ['eleanor', 'helen', 'ellen'], nancy: ['ann', 'anne', 'anna'], ginny: ['virginia'], ginger: ['virginia'],
+  jerry: ['gerald', 'gerard'], drew: ['andrew'], kit: ['christopher', 'katherine', 'catherine'], zeke: ['ezekiel'],
+  ike: ['isaac', 'dwight'], gus: ['augustus', 'august', 'augustine'], tori: ['victoria'], cindy: ['lucinda'],
+  manny: ['emmanuel', 'emanuel'], paco: ['francisco'], pancho: ['francisco'], pepe: ['jose'], nacho: ['ignacio'],
+  lalo: ['eduardo'], chuy: ['jesus'], kathy: ['catherine'], cathy: ['katherine', 'kathryn', 'kathleen'],
+  kate: ['catherine'], katie: ['catherine'], kitty: ['catherine'],
+};
+const firstNames = (n) => [n, ...(NICKNAMES[n] || [])];
+
 export function samePerson(a, b) {
   const pa = normName(a).split(' ').filter(Boolean);
   const pb = normName(b).split(' ').filter(Boolean);
@@ -103,7 +122,9 @@ export function samePerson(a, b) {
     const ja = pa.slice(1).join(' '), jb = pb.slice(1).join(' ');
     if (!(ja && jb && (ja.endsWith(lb) || jb.endsWith(la) || ja.replace(/-/g, ' ') === jb.replace(/-/g, ' ')))) return false;
   }
-  return pa[0][0] === pb[0][0] || pa.length === 1 || pb.length === 1;
+  if (pa[0][0] === pb[0][0] || pa.length === 1 || pb.length === 1) return true;
+  const fb = firstNames(pb[0]);
+  return firstNames(pa[0]).some(n => fb.includes(n));
 }
 
 // ----------------------------------------------------------------------------------------------- polls

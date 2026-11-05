@@ -1,7 +1,7 @@
 // Live layer: Polymarket prices every minute, vote counts on election night, and the live projection model.
 import { CONFIG, pollCloseDate } from './config.js';
 import { store, notify, loadData, seatCount, racesOf } from './store.js';
-import { liveEstimate, estimateSwing, simulate, samePerson } from './model.js';
+import { liveEstimate, estimateSwing, simulate, samePerson, normName } from './model.js';
 import { makeScenario, startNight, registerSimHooks, ensureSimData } from './sim.js';
 
 const AT_LARGE = new Set(['AK', 'DE', 'ND', 'SD', 'VT', 'WY']);
@@ -209,7 +209,13 @@ function nytSides(race, nr) {
     if (exact) return exact;
     const hits = cands.filter(c => samePerson(c.name, name));
     if (hits.length > 1) return hits.find(c => c.incumbent) || hits[0];
-    return hits[0] || cands.find(c => c.party === party && cands.filter(x => x.party === party).length === 1);
+    if (hits[0]) return hits[0];
+    // A name the matcher can't pair: the party's one candidate with that surname, else its only one, not
+    // counting write-ins (Maine's governor race has a Republican write-in beside Bobby Charles).
+    const ofParty = cands.filter(c => c.party === party && !/write-?in/i.test(c.name));
+    const surname = (n) => normName(n).split(' ').filter(Boolean).pop();
+    const sur = ofParty.filter(c => surname(c.name) === surname(name));
+    return sur.length === 1 ? sur[0] : ofParty.length === 1 ? ofParty[0] : undefined;
   };
   return { cands, L: findSide(race.left, race.leftParty), R: findSide(race.right, race.rightParty) };
 }

@@ -162,14 +162,16 @@ export function countyCard(r) {
   const pick = (k) => { COUNTY_VIEW[r.id] = k; card.replaceWith(countyCard(r)); };
   const seg = canShift ? h('div', { class: 'seg', role: 'tablist', 'aria-label': 'County map view' },
     [['results', 'Results'], ['shift', 'Shift from 2024']].map(([k, label]) => h('button', { type: 'button', class: (k === 'shift') === shift ? 'on' : '', onclick: () => pick(k) }, label))) : null;
-  card.append(
+  // Element.append() would print a null as the text "null", so the optional parts are dropped first.
+  card.append(...[
     h('div', { class: 'card-title' }, title, live ? h('span', { class: 'pill live', style: { textTransform: 'none', letterSpacing: 0 } }, h('span', { class: 'live-dot' }), store.sim ? 'Simulated' : 'Live') : null),
     seg ? h('div', { class: 'map-toolbar' }, seg) : null,
     countyMap(r.state, { raceId: r.id, zoomKey: `county-${r.id}`, view: shift ? 'shift' : 'results',
       shiftKey: (bands) => shiftLegend({ caption: 'change from the 2024 presidential margin (points)', left: sides.party, right: 'R',
         leftName: sides.party === 'D' ? 'Democrats' : who, bands, extras: [['hatch', 'Still counting'], ['var(--novotes)', 'No votes yet']] }) }),
     r.state === 'AK' || shift ? null : countyLegend(r, !!live),
-    note ? h('p', { class: 'xs muted', style: { margin: '6px 0 0' } }, note) : null);
+    note ? h('p', { class: 'xs muted', style: { margin: '6px 0 0' } }, note) : null,
+  ].filter(Boolean));
   return card;
 }
 
