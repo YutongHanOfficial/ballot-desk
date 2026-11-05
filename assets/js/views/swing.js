@@ -192,11 +192,13 @@ function fillSummary(el, o, { pres, states, counties, topo, idx }) {
     { key: 'sh', label: 'Shift', num: true, render: x => h('b', { style: { color: partyVar(x.sh >= 0 ? 'D' : 'R') } }, shiftLabel(x.sh)), sort: x => x.sh },
     { key: 'tb', label: 'Votes cast', num: true, hideSm: true, render: x => `${num(x.tb)} (${turnout(x.ta, x.tb)})`, sort: x => x.tb },
   ], stRows, { sortKey: 'sh', desc: false, stateKey: 'swing-states', limit: 15 });
-  el.replaceChildren(
+  // replaceChildren() would print a missing part as the text "null" (h() skips it), so those are dropped first.
+  el.replaceChildren(...[
     h('div', { class: `grid ${counties ? 'g3' : 'g2'} sw-kpis` }, kpis),
     lists ? h('section', { class: 'section' }, h('div', { class: 'section-head' }, h('div', null, h('h2', null, 'Counties that moved most'), h('p', null, `Among counties with at least 10,000 votes in ${o.to}.`))), lists) : null,
     h('section', { class: 'section' }, h('div', { class: 'section-head' }, h('div', null, h('h2', null, 'Every state'), h('p', null, 'Margins are the Democrat’s share minus the Republican’s, in points of all votes cast.'))), table),
-    notes(o, idx));
+    notes(o, idx),
+  ].filter(Boolean));
 }
 
 function notes(o, idx) {
