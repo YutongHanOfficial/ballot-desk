@@ -1,9 +1,9 @@
 // Building blocks shared by several pages.
-import { h, pct, partyChip, partyVar, lastName, marginText, num, oddsText, ratingChip, fmtTimeET, PARTY_NAME, timeAgo, votePct } from '../ui.js';
+import { h, pct, partyChip, partyVar, lastName, marginText, num, oddsText, ratingChip, fmtTimeET, PARTY_NAME, timeAgo, votePct, skel } from '../ui.js';
 import { store, cur, chamber, marketControl, duelNow, catchUp, catchUpText, voteDigits } from '../store.js';
 import { avatar } from '../photos.js';
 import { splitBar, probCell } from '../charts.js';
-import { calledSeats, resultsEnabled } from '../live.js';
+import { calledSeats, resultsEnabled, resultsLoading } from '../live.js';
 import { CONFIG, pollCloseDate, supportLinks } from '../config.js';
 
 export const CHAMBERS = {
@@ -161,6 +161,9 @@ export function electionBanner() {
   const now = Date.now();
   const first = Date.parse(CONFIG.firstPollsClose);
   if (store.sim) return null;   // the simulation bar in the header says it all
+  // Until the results feed first answers, a placeholder of the banner's size: the "waiting for the first votes"
+  // banner would otherwise flash up on every page before the counts arrive.
+  if (resultsLoading()) return h('div', { class: 'banner' }, h('div', { class: 'grow' }, skel('min(520px, 90%)', 14), skel('min(340px, 60%)', 12, { marginTop: '8px' })));
   if (store.live.active && store.frozen) {
     return h('div', { class: 'banner live' }, h('span', { class: 'live-dot' }),
       h('div', { class: 'grow' }, h('b', null, 'This is our final forecast, locked when the first polls closed. '), 'Polymarket prices stay live. Results and live projections are on the live dashboard.'),

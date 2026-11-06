@@ -1,7 +1,7 @@
 // Election-night dashboard. From late afternoon on Election Day until the counting is done it is also the front page.
-import { h, pct, num, partyVar, partyChip, timeAgo, fmtTimeET, lastName, marginText, sortableTable, PARTY_NAME, votePct } from '../ui.js';
+import { h, pct, num, partyVar, partyChip, timeAgo, fmtTimeET, lastName, marginText, sortableTable, PARTY_NAME, votePct, skel } from '../ui.js';
 import { store, cur, chamber, marketControl, racesOf, nightMode, awaiting, raceFill, projectionFill, counting, duelNow, catchUp, catchUpText, voteDigits } from '../store.js';
-import { calledSeats, leadingSeats, resultsEnabled, wantCounties, houseVote } from '../live.js';
+import { calledSeats, leadingSeats, resultsEnabled, resultsLoading, wantCounties, houseVote } from '../live.js';
 import { CONFIG, POLL_CLOSE_ET, pollCloseDate } from '../config.js';
 import { raceCard, CHAMBERS, countdown, supportNote } from './common.js';
 import { eventsSoFar, clockLabel } from '../sim.js';
@@ -369,7 +369,36 @@ function timeline() {
 
 // ------------------------------------------------------------------------------------------- page
 
+/**
+ * While the first results load: the page's shape in shimmering blocks. Drawing the page as it stands would flash
+ * the pre-results screen (the final forecast's odds, only the seats not up, "waiting for results") for a second or
+ * two before the counts arrive.
+ */
+function renderLoading(root) {
+  const counting = Date.now() >= Date.parse(CONFIG.firstPollsClose);
+  const chamber = () => h('div', { class: 'card chamber-live sk-chamber' },
+    h('div', { class: 'chamber-top' }, skel('96px', 24), skel('58px', 22, { borderRadius: '99px' })),
+    h('div', { class: 'odds-row', style: { marginTop: '10px' } },
+      h('div', { class: 'odds' }, skel('88px', 40), skel('76px', 13, { marginTop: '8px' })),
+      h('div', { class: 'odds right' }, skel('88px', 40), skel('88px', 13, { marginTop: '8px' }))),
+    skel('100%', 26, { marginTop: '26px', borderRadius: '6px' }),
+    skel('46%', 13, { marginTop: '12px' }),
+    h('div', { class: 'cl-odds' }, skel('58%', 12), skel('100%', 10), skel('100%', 10)));
+  root.append(
+    h('header', { class: 'page-head' },
+      h('div', { class: 'eyebrow' }, 'Election night', h('span', null, '·'), 'Loading results'),
+      h('h1', null, counting ? 'Live results and projections' : 'Election night: live results'),
+      h('div', { class: 'dek' }, skel('min(640px, 100%)', 14, { marginTop: '8px' }), skel('min(420px, 70%)', 14, { marginTop: '10px' }))),
+    h('p', { class: 'sr-only', role: 'status' }, 'Loading the latest vote counts.'),
+    h('div', { class: 'grid g3' }, chamber(), chamber(), chamber()),
+    counting ? h('section', { class: 'card night-stats' }, [0, 1, 2, 3].map(() => h('div', { class: 'ns-cell' },
+      skel('58%', 12), skel('72%', 24, { marginTop: '10px' }), skel('84%', 10, { marginTop: '10px' })))) : null,
+    h('section', { class: 'section card hero-map' }, skel('min(330px, 70%)', 30, { borderRadius: '99px' }),
+      skel('100%', 0, { marginTop: '16px', aspectRatio: '975 / 610', height: 'auto', maxHeight: '560px', borderRadius: 'var(--radius)' })));
+}
+
 export function render(root) {
+  if (resultsLoading()) { renderLoading(root); return; }
   const enabled = resultsEnabled();
   const live = store.live;
   const last = Object.values(live.resultsAt || {}).sort().pop();

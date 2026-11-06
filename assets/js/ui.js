@@ -68,6 +68,9 @@ export function shareDigits(total, pairs) {
 /** A vote share (a fraction of the vote) as a percentage to d decimals, from shareDigits(): '53.52%'. */
 export const votePct = (x, d = 2) => `${(100 * x).toFixed(d)}%`;
 
+/** A shimmering placeholder block, for a number or a line still loading (.skeleton in app.css). */
+export const skel = (width, height, style = {}) => h('div', { class: 'skeleton', 'aria-hidden': 'true', style: { width, height: `${height}px`, ...style } });
+
 /** "3 in 4" style odds for a probability. */
 export function oddsText(p) {
   if (p >= 0.995) return 'almost certain';

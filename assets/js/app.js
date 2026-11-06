@@ -2,7 +2,7 @@
 import { CONFIG, supportLinks } from './config.js';
 import { h, timeAgo, fmtTimeET } from './ui.js';
 import { store, loadData, subscribe, forecastFinal } from './store.js';
-import { startLive, recompute, resultsEnabled, liveFrontPage } from './live.js';
+import { startLive, recompute, resultsEnabled, resultsLoading, liveFrontPage } from './live.js';
 import * as home from './views/home.js';
 import * as chamberView from './views/chamber.js';
 import * as states from './views/states.js';
@@ -162,6 +162,7 @@ function drawStatus() {
   const items = [];
   if (L.demo) items.push(h('span', { style: { display: 'inline-flex', gap: '6px', alignItems: 'center' } }, h('span', { class: 'live-dot' }), h('b', null, 'Simulated election night')));
   else if (L.active) items.push(h('span', { style: { display: 'inline-flex', gap: '6px', alignItems: 'center' } }, h('span', { class: 'live-dot' }), h('b', null, 'Live results')));
+  else if (resultsLoading()) items.push(h('span', null, h('b', null, 'Loading results…')));
   else if (resultsEnabled()) items.push(h('span', { style: { display: 'inline-flex', gap: '6px', alignItems: 'center' } }, h('span', { class: 'live-dot' }), h('b', null, 'Election night: awaiting results')));
   const fu = store.forecast?.updated;
   items.push(forecastFinal() && fu

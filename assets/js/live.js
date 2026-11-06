@@ -23,6 +23,21 @@ export function isDemo() { return params.get('demo') === 'live'; }
 /** From late afternoon on Election Day until the counting is done, the live dashboard is the front page. */
 export const liveFrontPage = () => resultsEnabled();
 
+// How long after the page opens a slow results feed can hold the placeholders before the page gives up on it.
+const LOADING_MAX_MS = 12000;
+const OFFICE = { senate: 'senate', gov: 'gov', house: 'house' };
+
+/**
+ * True from the moment the page opens until the results files have each answered once (or 12 seconds have passed):
+ * the live views draw placeholder shapes instead of the pre-results screen, whose forecast numbers and "waiting
+ * for results" text would otherwise flash up first. With a race type, only that office's file counts.
+ */
+export function resultsLoading(type) {
+  if (!resultsEnabled() || isDemo() || store.sim || performance.now() > LOADING_MAX_MS) return false;
+  const offices = type ? [OFFICE[type]].filter(Boolean) : Object.values(OFFICE);
+  return offices.some(o => !store.live.resultsTried[o]);
+}
+
 export function startLive() {
   stopLive();
   store.live.demo = isDemo();
@@ -39,6 +54,8 @@ export function startLive() {
     // ?speed=10 plays a rehearsal faster (1x = 2 simulated minutes per second)
     ensureSimData().then(() => startNight(makeScenario(), { speed: Math.min(60, Math.max(1, +params.get('speed') || 3)) }));
   } else if (resultsEnabled()) {
+    // If a file never answers, the placeholders give way at the deadline (nothing else would redraw the page).
+    if (resultsLoading()) timers.push(setTimeout(() => notify('results'), LOADING_MAX_MS - performance.now() + 50));
     for (const office of ['senate', 'gov', 'house']) {
       refreshResults(office);
       timers.push(setInterval(() => visible() && !store.sim && refreshResults(office), CONFIG.results.refreshSec[office] * 1000));
@@ -340,6 +357,7 @@ async function refreshResults(office) {
     const res = await fetch(`${CONFIG.results.urls[office]}?t=${Math.floor(Date.now() / 15000)}`, { cache: 'no-store' });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const data = await res.json();
+    store.live.resultsTried[office] = true;
     if (store.sim) return;   // a simulation owns the results while it runs
     for (const nr of data.races || []) {
       if (nr.coverage === 'national') { if (office === 'house') store.live.houseVote = nationalVote(nr); continue; }
@@ -353,6 +371,8 @@ async function refreshResults(office) {
   } catch (e) {
     console.warn(`results feed (${office}) unavailable:`, e.message);
     store.live.resultsOk = store.live.resultsOk === true ? true : false;
+    // The first failure ends the placeholders, so the page can say the feed isn't answering.
+    if (!store.live.resultsTried[office]) { store.live.resultsTried[office] = true; notify('results'); }
     return;
   }
   recompute();

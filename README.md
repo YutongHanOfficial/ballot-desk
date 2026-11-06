@@ -127,6 +127,11 @@ showing that final forecast while results come in: the router sets `store.frozen
 `chamber()` and the map colours return the frozen numbers. Polymarket prices stay live everywhere. The count and live
 odds are on the live dashboard, the race pages' results card, the state pages and the broadcast.
 
+Until each of the three results files has answered once (12 seconds at most), the live dashboard, race pages'
+results card and the banner on every page draw placeholder shapes (`resultsLoading()` in live.js) instead of the
+pre-results screen, which would otherwise flash the forecast's odds and "waiting for results" first. A file that
+fails ends the placeholders straight away, so the page can say the feed isn't answering.
+
 Polymarket closes a market's order book when the market resolves, and the midpoint API then has nothing for it. The
 browser asks for those outcomes' last trades instead (`refreshMarkets()` in live.js): the outcome that last traded
 near 1 won and the rest go to 0, since an empty book still reads 0.5. The race page's market card then says

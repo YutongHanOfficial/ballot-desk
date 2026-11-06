@@ -9,6 +9,7 @@ export const store = {
   live: {
     markets: {}, control: {}, marketsAt: null,       // live Polymarket prices
     results: {}, resultsAt: {}, resultsOk: null,     // live vote counts by race id
+    resultsTried: {},                                // results files (senate/gov/house) that have answered once
     est: null, sim: null, swing: null, active: false, demo: false,
     counties: {},                                    // live county results by race id (election night)
     houseVote: null,                                 // national House popular vote from the results feed

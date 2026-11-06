@@ -1,11 +1,11 @@
 // Individual race page.
-import { h, pct, num, partyChip, partyVar, ratingChip, marginText, lastName, fmtDate, oddsText, compact, timeAgo, PARTY_NAME, bandLabel, votePct } from '../ui.js';
+import { h, pct, num, partyChip, partyVar, ratingChip, marginText, lastName, fmtDate, oddsText, compact, timeAgo, PARTY_NAME, bandLabel, votePct, skel } from '../ui.js';
 import { store, cur, duelNow, forecastOf, forecastFinal, catchUp, catchUpText, voteDigits, partyShares } from '../store.js';
 import { splitBar, pollChart, marginCurve, signalRows } from '../charts.js';
 import { stateDistrictMap, countyMap, countyResults, countyLegend, shiftSides } from '../maps.js';
 import { shiftLegend } from '../archive.js';
 import { nightMode } from '../store.js';
-import { wantCounties } from '../live.js';
+import { wantCounties, resultsLoading } from '../live.js';
 import { electionBanner, pollCloseText, raceCard } from './common.js';
 import { avatar, photoCredits } from '../photos.js';
 
@@ -40,8 +40,9 @@ export function render(root, id) {
     h('div', { class: 'eyebrow' }, h('a', { href: '/states' }, 'States'), h('span', null, '›'), h('a', { href: `/state/${r.state}` }, r.stateName), h('span', null, '›'), h('span', null, r.office)),
     h('header', { class: 'page-head' }, h('h1', null, r.title), h('p', { class: 'dek' }, statusLine)));
 
-  // Live results first on election night
+  // Live results first on election night (placeholders while this office's results file loads)
   if (c.result && (c.result.total > 0 || c.result.called)) root.append(resultsCard(r, c));
+  else if (resultsLoading(r.type)) root.append(resultsSkeleton());
 
   if (r.duel) {
     root.append(duelHero(r));
@@ -173,6 +174,19 @@ export function countyCard(r) {
     note ? h('p', { class: 'xs muted', style: { margin: '6px 0 0' } }, note) : null,
   ].filter(Boolean));
   return card;
+}
+
+/** The live results card's shape while the results file loads, so the counts don't push the page down when they arrive. */
+function resultsSkeleton() {
+  const row = () => h('div', { class: 'sk-row' }, skel('30px', 30, { borderRadius: '50%', flexShrink: 0 }), skel('min(240px, 40%)', 15),
+    h('span', { style: { flex: 1 } }), skel('72px', 15), skel('58px', 15));
+  return h('section', { class: 'card', style: { marginBottom: '16px' } },
+    h('div', { class: 'card-title' }, h('span', { style: { display: 'inline-flex', gap: '8px', alignItems: 'center' } }, h('span', { class: 'live-dot' }), 'Live results'),
+      skel('120px', 22, { borderRadius: '99px' })),
+    h('p', { class: 'sr-only', role: 'status' }, 'Loading the latest vote counts.'),
+    row(), row(), row(),
+    skel('100%', 8, { marginTop: '14px', borderRadius: '99px' }),
+    skel('min(380px, 70%)', 13, { marginTop: '10px' }));
 }
 
 function resultsCard(r, c) {
