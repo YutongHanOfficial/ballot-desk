@@ -3,6 +3,7 @@ import { CONFIG, pollCloseDate } from './config.js';
 import { store, notify, loadData, seatCount, racesOf } from './store.js';
 import { liveEstimate, estimateSwing, simulate, samePerson, normName } from './model.js';
 import { makeScenario, startNight, registerSimHooks, ensureSimData } from './sim.js';
+import { CT_REGIONS } from './ct-towns.js';
 
 const AT_LARGE = new Set(['AK', 'DE', 'ND', 'SD', 'VT', 'WY']);
 const params = new URLSearchParams(location.search);
@@ -306,6 +307,51 @@ export function houseVote() {
 const countyWanted = new Map();   // race id -> { seen: last time a view asked, fetched: last fetch, wait: backoff }
 let countyTimer = null;
 
+// Connecticut's towns (Census county subdivision codes) -> the planning region each belongs to.
+const CT_TOWN = Object.fromEntries(Object.entries(CT_REGIONS).flatMap(([region, towns]) => towns.split(' ').map(t => [t, region])));
+
+/**
+ * The county-map area a reporting unit's votes go to, or null. Most states report by county. New England reports by
+ * town (byTown): towns are added up into their counties, Connecticut's into the planning regions its map shows, and
+ * wards and other parts of towns are skipped, as their town already counts them. Alaska reports by state House
+ * district, and its map shows those districts (ids 02H01 to 02H40, as built by pipeline/build_geo.mjs).
+ */
+function countyArea(u, byTown) {
+  if (byTown) {
+    if (u.level !== 'township' || !u.fips_county) return null;
+    return u.fips_state === '09' ? CT_TOWN[u.fips_suffix] || null : `${u.fips_state}${u.fips_county}`;
+  }
+  if (u.level === 'county' && u.fips_county) return `${u.fips_state}${u.fips_county}`;
+  if (u.level === 'state_house_district' && u.fips_state === '02' && u.fips_suffix) return `02H${String(parseInt(u.fips_suffix, 10)).padStart(2, '0')}`;
+  return null;
+}
+
+/** A race's county results from its NYT file: { area: [share counted, left votes, right votes, all votes, expected] }. */
+function countyEntries(nr, L, R) {
+  const units = nr.reporting_units || [];
+  const byTown = !units.some(u => u.level === 'county') && units.some(u => u.level === 'township');
+  const sum = {};   // area -> [counted share × weight, weight, left, right, votes, expected]
+  for (const u of units) {
+    const key = countyArea(u, byTown);
+    if (!key) continue;
+    const votes = (cid) => (u.candidates || []).find(c => c.nyt_id === cid)?.votes?.total || 0;
+    const tot = u.total_votes || 0, exp = u.total_expected_vote || 0, w = exp || tot;
+    const a = sum[key] ||= [0, 0, 0, 0, 0, 0];
+    a[0] += ((u.eevp || 0) / 100) * w; a[1] += w;
+    a[2] += L ? votes(L.id) : 0; a[3] += R ? votes(R.id) : 0;
+    a[4] += tot; a[5] += exp;
+  }
+  // The share counted is the AP's per unit (eevp), weighted by expected vote where a county is made of towns.
+  return Object.fromEntries(Object.entries(sum).map(([k, a]) => [k, [a[1] ? a[0] / a[1] : 0, a[2], a[3], a[4], a[5]]]));
+}
+
+/** Notes whether a race's county results are missing (its file failed or has none), as opposed to still loading. */
+function countyMissing(id, missing) {
+  if (!!store.live.countyMissing?.[id] === missing) return;
+  store.live.countyMissing = { ...(store.live.countyMissing || {}), [id]: missing };
+  notify('counties');
+}
+
 export function wantCounties(ids) {
   if (store.sim || !resultsEnabled() || isDemo()) return;
   const now = Date.now();
@@ -326,29 +372,26 @@ async function refreshCounties() {
     if (now - w.fetched < 90e3 || now < w.wait) continue;
     const race = store.byId[id];
     const res = store.live.results[id];
-    const close = pollCloseDate(race.state);
-    if (!race || !res?.slug || (close && now < close)) continue;
+    const close = race && pollCloseDate(race.state);
+    if (!race || (close && now < close)) continue;
+    if (!res?.slug) { if (res?.total > 0) countyMissing(id, true); continue; }
     w.fetched = now;
     try {
       const r = await fetch(`https://static01.nyt.com/elections-assets/pages/data/2026-11-03/${res.slug}.json?t=${Math.floor(now / 60000)}`, { cache: 'no-store' });
-      if (!r.ok) { w.wait = now + 300e3; continue; }          // race files go up on election night
+      if (!r.ok) { w.wait = now + 300e3; countyMissing(id, true); continue; }   // race files go up on election night
       const data = await r.json();
       const nr = (data.races || []).find(x => nytRaceId(x.nyt_id) === id) || (data.races || [])[0];
-      if (!nr) continue;
+      if (!nr) { countyMissing(id, true); continue; }
       const { L, R } = nytSides(race, nr);
-      const out = {};
-      for (const u of nr.reporting_units || []) {
-        if (u.level !== 'county' || !u.fips_county) continue;
-        const votes = (cid) => (u.candidates || []).find(c => c.nyt_id === cid)?.votes?.total || 0;
-        // [share of the expected vote counted, left side's votes, right side's, all votes, AP's expected total]
-        out[`${u.fips_state}${u.fips_county}`] = [(u.eevp || 0) / 100, L ? votes(L.id) : 0, R ? votes(R.id) : 0, u.total_votes || 0, u.total_expected_vote || 0];
-      }
+      const out = countyEntries(nr, L, R);
       if (Object.keys(out).length) {
         store.live.counties = { ...(store.live.counties || {}), [id]: out };
+        countyMissing(id, false);
         notify('counties');
-      }
+      } else countyMissing(id, true);
     } catch (e) {
       w.wait = now + 120e3;
+      countyMissing(id, true);
     }
   }
 }

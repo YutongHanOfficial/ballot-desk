@@ -179,7 +179,7 @@ function heroMap() {
 
 /** Small-multiple county maps of the most competitive statewide races, with votes and live odds. */
 function battlegrounds() {
-  const list = store.races.filter(r => (r.type === 'senate' || r.type === 'gov') && r.left && r.right && r.state !== 'AK' && r.p !== null)
+  const list = store.races.filter(r => (r.type === 'senate' || r.type === 'gov') && r.left && r.right && r.p !== null)
     .sort((a, b) => Math.abs(a.p - 0.5) - Math.abs(b.p - 0.5)).slice(0, 8);
   if (nightMode() && !store.sim) wantCounties(list.map(r => r.id));
   const card = (r) => {

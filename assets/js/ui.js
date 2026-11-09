@@ -243,6 +243,8 @@ export function ratingChip(r) {
 // ---------------------------------------------------------------- tooltip
 
 let tipEl = null;
+/** Hides the shared tooltip: on a new page, the element it was showing for is gone without a mouseleave. */
+export function hideTooltip() { tipEl?.classList.remove('on'); }
 export function tooltip() {
   if (!tipEl) {
     tipEl = h('div', { class: 'tooltip', role: 'tooltip' });

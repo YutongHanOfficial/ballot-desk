@@ -1,6 +1,6 @@
 // Boot, routing and live re-rendering.
 import { CONFIG, supportLinks } from './config.js';
-import { h, timeAgo, fmtTimeET } from './ui.js';
+import { h, timeAgo, fmtTimeET, hideTooltip } from './ui.js';
 import { store, loadData, subscribe, forecastFinal } from './store.js';
 import { startLive, recompute, resultsEnabled, resultsLoading, liveFrontPage } from './live.js';
 import * as home from './views/home.js';
@@ -137,6 +137,7 @@ function render({ keepScroll = false } = {}) {
   const key = `${path}|${navOf(r)}`;
   store.frozen = FORECAST_PAGES.has(navOf(r));
   const sameView = current && current.key === key;
+  if (!sameView) hideTooltip();
   document.body.classList.toggle('broadcast-mode', navOf(r) === 'broadcast');
   const y = window.scrollY;
   const root = h('div', { class: 'view' });

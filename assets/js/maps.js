@@ -317,6 +317,27 @@ export function countyResults(raceId) {
 }
 
 /**
+ * For a race with votes counted whose county results aren't in: 'loading', or 'missing' if its results file failed
+ * or has none. Its map then shows blank areas, not the 2024 vote, which could pass for this race's result. Null
+ * otherwise (county results in, polls still open, or no votes yet).
+ */
+export function countyPending(raceId) {
+  const race = raceId && store.byId[raceId];
+  if (!race || store.sim || !nightMode() || awaiting(race) || countyResults(raceId)) return null;
+  const res = store.live.results[raceId];
+  if (!(res && (res.total > 0 || res.called))) return null;
+  return store.live.countyMissing?.[raceId] ? 'missing' : 'loading';
+}
+
+/**
+ * What a state's county-map areas are called. Alaska counts its votes by state House district, so its map shows
+ * those; everywhere else, counties (Connecticut's are its planning regions, Louisiana's parishes).
+ */
+export const areaWord = (code, many = false) => code === 'AK' ? (many ? 'districts' : 'district') : (many ? 'counties' : 'county');
+/** 'by county', or for Alaska 'by state House district' ('by district' when short). */
+export const byArea = (code, short = false) => code === 'AK' ? (short ? 'by district' : 'by state House district') : 'by county';
+
+/**
  * Votes still to count in each county of a race, with who leads it so far: { total, counties: { fips: { left,
  * counted, share, m } } }, m being the left side's margin in points (null before any votes). Votes left are the AP's
  * expected vote less the count; without an expected vote (simulations), they follow from the share counted.
@@ -353,23 +374,24 @@ function votesLeftKey(race, maxLeft) {
 
 /** Under the votes-left map: how many votes are left, how they split by who leads each county, and where most are. */
 function votesLeftSummary(race, fc, VL, suffix) {
+  const one = areaWord(race.state), many = areaWord(race.state, true);
   const names = Object.fromEntries(fc.features.map(f => [f.properties.id, f.properties.n + suffix]));
   const rows = Object.entries(VL.counties).filter(([fips, x]) => x.left >= 1 && names[fips]).sort((a, b) => b[1].left - a[1].left);
-  if (!rows.length) return h('p', { class: 'small muted vl-summary' }, 'By the AP’s estimates, every county has finished counting.');
+  if (!rows.length) return h('p', { class: 'small muted vl-summary' }, `By the AP’s estimates, every ${one} has finished counting.`);
   const by = { left: 0, right: 0, none: 0 };
   for (const [, x] of rows) by[x.m === null ? 'none' : x.m >= 0 ? 'left' : 'right'] += x.left;
   const pctOf = (n) => `${Math.round((100 * n) / VL.total)}%`;
   const split = [
-    by.left ? `${pctOf(by.left)} in counties ${lastNameOf(race.left)} leads` : null,
-    by.right ? `${pctOf(by.right)} in counties ${lastNameOf(race.right)} leads` : null,
-    by.none ? `${pctOf(by.none)} in counties with no votes counted yet` : null,
+    by.left ? `${pctOf(by.left)} in ${many} ${lastNameOf(race.left)} leads` : null,
+    by.right ? `${pctOf(by.right)} in ${many} ${lastNameOf(race.right)} leads` : null,
+    by.none ? `${pctOf(by.none)} in ${many} with no votes counted yet` : null,
   ].filter(Boolean);
   const list = split.length < 2 ? split.join('') : `${split.slice(0, -1).join(', ')} and ${split.at(-1)}`;
   const top = rows.slice(0, 6);
   return h('div', { class: 'vl-summary' },
-    h('p', { class: 'small' }, h('b', null, `About ${num(roughly(VL.total))} votes left to count`), ` in ${rows.length} ${rows.length === 1 ? 'county' : 'counties'}: ${list}.`),
+    h('p', { class: 'small' }, h('b', null, `About ${num(roughly(VL.total))} votes left to count`), ` in ${rows.length} ${rows.length === 1 ? one : many}: ${list}.`),
     h('div', { class: 'table-wrap', style: { border: 0 } }, h('table', { class: 'data vl-table' },
-      h('thead', null, h('tr', null, h('th', null, 'County'), h('th', { class: 'num hide-sm' }, 'Counted'), h('th', { class: 'num' }, 'Votes left'), h('th', { class: 'num' }, 'Leads'))),
+      h('thead', null, h('tr', null, h('th', null, one[0].toUpperCase() + one.slice(1)), h('th', { class: 'num hide-sm' }, 'Counted'), h('th', { class: 'num' }, 'Votes left'), h('th', { class: 'num' }, 'Leads'))),
       h('tbody', null, top.map(([fips, x]) => h('tr', null,
         h('td', null, names[fips]),
         h('td', { class: 'num hide-sm' }, countedText(x.share)),
@@ -381,7 +403,7 @@ function votesLeftSummary(race, fc, VL, suffix) {
 /** Key for the county maps: the same margin scale, by candidate on election night, by party for 2024. */
 export function countyLegend(race = null, live = false) {
   if (!race || !live) return marginLegend({ results: false, caption: '2024 presidential margin (points)', leftName: 'Harris (D)', rightName: 'Trump (R)', extras: [] });
-  return marginLegend({ results: true, caption: 'lead in the county (points)', left: race.leftParty, right: race.rightParty,
+  return marginLegend({ results: true, caption: `lead in the ${areaWord(race.state)} (points)`, left: race.leftParty, right: race.rightParty,
     leftName: lastNameOf(race.left), rightName: lastNameOf(race.right), extras: [['var(--novotes)', 'No votes yet'], ['var(--await)', 'Polls open']] });
 }
 
@@ -399,12 +421,12 @@ export function shiftSides(race) {
 }
 
 /**
- * A state's counties. With a race and county results available (election night, or a simulation), counties
- * are shaded by who leads and by how much; otherwise by the 2024 presidential vote. view 'shift' shades them
- * instead by the change from the 2024 presidential margin (see shiftSides), striping counties still counting.
+ * A state's counties (Alaska's state House districts). With a race and county results available (election night, or
+ * a simulation), counties are shaded by who leads and by how much; otherwise by the 2024 presidential vote. view
+ * 'shift' shades them instead by the change from the 2024 presidential margin (see shiftSides), striping counties
+ * still counting.
  */
 export function countyMap(code, { raceId = null, width = 720, maxHeight = 540, compact = false, zoomKey = null, view = 'results', shiftKey = null } = {}) {
-  if (code === 'AK') return h('div', { class: 'empty small' }, 'Alaska reports results by state House district rather than by county, so there is no county map.');
   return withGeo([`/data/geo/counties/${code}.json`, COUNTY_BASE_URL], (topo, base) => buildCountyMap(code, topo, base, { raceId, width, maxHeight, compact, zoomKey, view, shiftKey }), compact ? 200 : 360);
 }
 
@@ -421,7 +443,9 @@ function buildCountyMap(code, topo, base, { raceId, width: W, maxHeight, compact
   const live = race ? countyResults(raceId) : null;
   const night = !!race && nightMode();
   const waiting = night && awaiting(race);
-  const liveMode = night && (!!live || waiting);
+  const pending = race ? countyPending(raceId) : null;   // votes in, county results not: blank areas, not 2024's map
+  const liveMode = night && (!!live || waiting || !!pending);
+  const one = areaWord(code), many = areaWord(code, true);
   const sides = view === 'shift' && liveMode && !waiting && live ? shiftSides(race) : null;
   const tag = sides ? (sides.party === 'D' ? 'D' : lastNameOf(sides.name)) : null;
   const stillCounting = [];   // shift view: counties under 95% of their expected vote, striped
@@ -438,7 +462,7 @@ function buildCountyMap(code, topo, base, { raceId, width: W, maxHeight, compact
   const VL = view === 'left' && liveMode && !waiting && live ? countyVotesLeft(raceId) : null;
   const tips = new Map(), shapes = new Map();
   const tip = tooltip();
-  const svg = s('svg', { viewBox: `0 0 ${W} ${H}`, class: `district-map county-map${compact ? ' compact' : ''}`, role: 'img', 'aria-label': `${store.stateByCode[code]?.name} counties` });
+  const svg = s('svg', { viewBox: `0 0 ${W} ${H}`, class: `district-map county-map${compact ? ' compact' : ''}`, role: 'img', 'aria-label': `${store.stateByCode[code]?.name} ${code === 'AK' ? 'state House districts' : many}` });
   const layer = s('g');
   const suffix = code === 'LA' ? ' Parish' : '';
   for (const f of fc.features) {
@@ -452,7 +476,7 @@ function buildCountyMap(code, topo, base, { raceId, width: W, maxHeight, compact
           `<div class="tt-row"><span>Leads so far</span><b style="color:${partyVar(x.m >= 0 ? race.leftParty : race.rightParty)}">${esc(leadText(race, x.m))}</b></div>` +
           `<div class="tt-row muted"><span>Counted so far</span><span>${x.counted.toLocaleString()} votes</span></div>`
         : x ? `<div class="tt-row"><span>Votes expected</span><b>${num(Math.round(x.left))}</b></div><div class="muted">No votes counted yet</div>`
-        : '<div class="muted">No results for this county yet</div>');
+        : `<div class="muted">No results for this ${one} yet</div>`);
       tips.set(fips, html);
     } else if (sides) {
       const v = live[fips], x = shiftOf(fips);
@@ -467,7 +491,7 @@ function buildCountyMap(code, topo, base, { raceId, width: W, maxHeight, compact
           `<div class="tt-row muted"><span>${Math.round(v[0] * 100)}% counted</span><span>${v[3].toLocaleString()} votes</span></div>`;
       } else {
         fill = v && v[3] > 0 ? 'var(--none)' : 'var(--novotes)';
-        html = `<div class="tt-title">${esc(name)}</div><div class="muted">${v && v[3] > 0 ? 'No 2024 county result to compare with' : 'No votes counted yet'}</div>`;
+        html = `<div class="tt-title">${esc(name)}</div><div class="muted">${v && v[3] > 0 ? `No 2024 ${one} result to compare with` : 'No votes counted yet'}</div>`;
       }
     } else if (liveMode) {
       const v = live && live[fips];
@@ -481,7 +505,7 @@ function buildCountyMap(code, topo, base, { raceId, width: W, maxHeight, compact
         ? `<div class="tt-row"><span><span class="party-chip ${race.leftParty}" style="margin-right:6px">${race.leftParty}</span>${esc(lastNameOf(race.left))}</span><b>${votePct(v[1] / v[3], dg)}</b></div>` +
           `<div class="tt-row"><span><span class="party-chip ${race.rightParty}" style="margin-right:6px">${race.rightParty}</span>${esc(lastNameOf(race.right))}</span><b>${votePct(v[2] / v[3], dg)}</b></div>` +
           `<div class="tt-row muted"><span>${Math.round(v[0] * 100)}% counted</span><span>${v[3].toLocaleString()} votes</span></div>`
-        : `<div class="muted">${waiting ? 'Polls still open' : 'No votes counted yet'}</div>`);
+        : `<div class="muted">${waiting ? 'Polls still open' : pending === 'loading' ? `Loading ${one} results` : pending ? `${one[0].toUpperCase() + one.slice(1)} results not available yet` : 'No votes counted yet'}</div>`);
       if (!waiting && !(v && v[3] > 0)) fill = 'var(--novotes)';
     } else {
       const b = base[fips];
@@ -490,7 +514,7 @@ function buildCountyMap(code, topo, base, { raceId, width: W, maxHeight, compact
         fill = marginFill(m >= 0 ? 'D' : 'R', m);
         const dg = voteDigits({ left: b[1], right: b[2], total: b[0] });
         html = `<div class="tt-title">${esc(name)}</div><div class="tt-row"><span>Harris (D)</span><b>${votePct(b[1] / b[0], dg)}</b></div><div class="tt-row"><span>Trump (R)</span><b>${votePct(b[2] / b[0], dg)}</b></div><div class="tt-row muted"><span>2024 president</span><span>${b[0].toLocaleString()} votes</span></div>`;
-      } else html = `<div class="tt-title">${esc(name)}</div><div class="muted">No 2024 county result</div>`;
+      } else html = `<div class="tt-title">${esc(name)}</div><div class="muted">No 2024 ${one} result</div>`;
     }
     const p = s('path', { d: path(f), fill, class: 'county' });
     if (VL) shapes.set(fips, p);
@@ -510,7 +534,10 @@ function buildCountyMap(code, topo, base, { raceId, width: W, maxHeight, compact
     // outlines its county.
     const items = fc.features.map(f => ({ f, x: VL.counties[f.properties.id] })).filter(b => b.x && b.x.left >= 1).sort((a, b) => b.x.left - a.x.left);
     maxLeft = items.length ? items[0].x.left : 0;
-    const rMax = Math.min(W, H) * 0.06;
+    // The circles together cover at most about 6% of the map, so where many areas are of similar size (Alaska's House
+    // districts are drawn to equal population) they stay small enough to sit near home.
+    const sumRatio = items.reduce((t, b) => t + b.x.left / maxLeft, 0);
+    const rMax = Math.min(Math.min(W, H) * 0.06, Math.sqrt((0.06 * W * H) / (Math.PI * Math.max(1, sumRatio))));
     const nodes = [];
     for (const { f, x } of items) {
       const [cx, cy] = path.centroid(f);
@@ -545,9 +572,12 @@ function buildCountyMap(code, topo, base, { raceId, width: W, maxHeight, compact
   }
   svg.appendChild(layer);
   const frame = h('div', { class: 'map-frame' }, svg);
-  if (zoomKey && !compact) frame.appendChild(zoomButtons(attachZoom(svg, layer, { key: zoomKey, width: W, height: H, maxK: 10 })));
-  frame.dataset.mode = VL ? 'left' : sides ? 'shift' : liveMode ? 'live' : 'baseline';
-  if (compact && night) frame.appendChild(h('span', { class: 'map-tag' }, waiting ? 'Polls open' : liveMode ? (store.sim ? 'Simulated counts' : 'Live counts') : '2024 vote'));
+  // Alaska's map is mostly vast rural districts; zooming further lets Anchorage's small ones be told apart.
+  if (zoomKey && !compact) frame.appendChild(zoomButtons(attachZoom(svg, layer, { key: zoomKey, width: W, height: H, maxK: code === 'AK' ? 40 : 10 })));
+  frame.dataset.mode = VL ? 'left' : sides ? 'shift' : pending ? 'pending' : liveMode ? 'live' : 'baseline';
+  if (compact && night) frame.appendChild(h('span', { class: 'map-tag' }, waiting ? 'Polls open'
+    : pending ? (pending === 'loading' ? `Loading ${many}` : `No ${one} results yet`)
+    : liveMode ? (store.sim ? 'Simulated counts' : 'Live counts') : '2024 vote'));
   if (VL) return h('div', null, frame, maxLeft ? votesLeftKey(race, maxLeft) : null, votesLeftSummary(race, fc, VL, suffix));
   return sides && shiftKey ? h('div', null, frame, shiftKey(bands)) : frame;
 }

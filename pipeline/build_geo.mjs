@@ -5,12 +5,16 @@
 //   data/geo/districts-2026.json   all 435 districts (TopoJSON, lon/lat), simplified for the national map
 //   data/geo/cd/XX.json            one state's districts at higher detail, for state and race pages
 //   data/geo/house-hex.json        equal-size hexagon layout, one hex per district (hex_layout.mjs)
-//   data/geo/counties/XX.json      a state's counties (Census cartographic boundaries, 2025)
+//   data/geo/counties/XX.json      a state's counties (Census cartographic boundaries, 2025); for Alaska, which
+//                                  counts its votes by state House district, its 40 House districts instead
 //   data/geo/counties-2024.json    2024 presidential vote by county: { fips: [total, dem, gop] }
-//                                  (tonmcg/US_County_Level_Election_Results_08-24, MIT licence)
+//                                  (tonmcg/US_County_Level_Election_Results_08-24, MIT licence), and by Alaska
+//                                  House district (Alaska Division of Elections, official results by precinct)
+//   assets/js/ct-towns.js          Connecticut's towns by planning region, for adding its town results into the
+//                                  county map (Census cartographic county subdivisions, 2025)
 //
 // One-time build: `npm install && npm run geo` (needs `unzip`). The output is committed; the GitHub Action
-// never runs this.
+// never runs this. `npm run geo -- alaska connecticut` rebuilds just those parts.
 import { execFileSync } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -68,7 +72,8 @@ async function buildCounties() {
   const csvFile = path.join(CACHE, 'county_president_2024.csv');
   await download('https://raw.githubusercontent.com/tonmcg/US_County_Level_Election_Results_08-24/master/2024_US_County_Level_Presidential_Results.csv', csvFile);
 
-  // 2024 baseline. Alaska reports by state House district and D.C. by ward, so neither has county shapes.
+  // 2024 baseline. Alaska reports by state House district (buildAlaska adds those) and D.C. by ward, so neither is
+  // taken from this file.
   const lines = fs.readFileSync(csvFile, 'utf8').trim().split(/\r?\n/);
   const head = lines.shift().split(',');
   const col = (n) => head.indexOf(n);
@@ -97,6 +102,124 @@ async function buildCounties() {
     t.objects = { counties: obj };
     fs.writeFileSync(path.join(OUT, 'counties', `${FIPS[fips]}.json`), JSON.stringify(t));
   }
+}
+
+/** The fields of one CSV line, allowing for quoted fields with commas and doubled quotes. */
+function csvFields(line) {
+  const out = [];
+  let cur = '', quoted = false;
+  for (let i = 0; i < line.length; i++) {
+    const ch = line[i];
+    if (quoted) {
+      if (ch !== '"') cur += ch;
+      else if (line[i + 1] === '"') { cur += '"'; i++; }
+      else quoted = false;
+    } else if (ch === '"') quoted = true;
+    else if (ch === ',') { out.push(cur); cur = ''; }
+    else cur += ch;
+  }
+  out.push(cur);
+  return out;
+}
+
+// ------------------------------------------------------------------------------------------- Alaska
+
+// Alaska counts its votes by state House district rather than by borough, and the results feed reports it the same
+// way, so its county map is its 40 House districts (the lines used since 2022). Their ids aren't borough FIPS codes,
+// so the two can never be mixed up: 02H01 to 02H40.
+const akDistrictId = (n) => `02H${String(n).padStart(2, '0')}`;
+
+async function buildAlaska() {
+  log('Alaska House districts');
+  const dir = path.join(CACHE, 'ak-sldl');
+  const zip = path.join(dir, 'cb_2025_02_sldl_500k.zip');
+  await download('https://www2.census.gov/geo/tiger/GENZ2025/shp/cb_2025_02_sldl_500k.zip', zip);
+  if (!fs.existsSync(path.join(dir, 'cb_2025_02_sldl_500k.shp'))) execFileSync('unzip', ['-oq', zip, '-d', dir]);
+  // Simplified by size: to 150 m for the city districts (Anchorage's are 6 to 100 km²), so they keep their shape when
+  // zoomed in, and to 600 m and 2 km for the larger and the vast rural ones, whose long coastlines would otherwise
+  // make the map slow to draw (about 5,000 points in all, like Texas). Islands under 5 km² are dropped. Alaska spans
+  // 180°, so its bounding box is nearly 360° wide and needs a finer grid than other states.
+  const out = path.join(dir, 'AK.json');
+  ms('-i', path.join(dir, 'cb_2025_02_sldl_500k.shp'), '-simplify', 'variable', 'interval=ALAND < 1e9 ? 150 : ALAND < 2e10 ? 600 : 2000',
+    'keep-shapes', '-filter-islands', 'min-area=5km2', '-filter-fields', 'SLDLST', '-o', 'format=topojson', 'quantization=1000000', out);
+  const t = JSON.parse(fs.readFileSync(out, 'utf8'));
+  const obj = Object.values(t.objects)[0];
+  for (const g of obj.geometries) {
+    const n = parseInt(g.properties.SLDLST, 10);
+    g.properties = { id: akDistrictId(n), n: `District ${n}` };
+  }
+  obj.geometries.sort((a, b) => a.properties.id.localeCompare(b.properties.id));
+  t.objects = { counties: obj };
+  fs.writeFileSync(path.join(OUT, 'counties', 'AK.json'), JSON.stringify(t));
+
+  // 2024 presidential vote by district, from the official results by precinct. Precinct names start with their
+  // district ("01-600 Ketchikan No. 1"); absentee, early and questioned ballots come as district rows ("District 1 -
+  // Absentee"). Only overseas voters' federal ballots ("HD99 Fed Overseas Absentee", about 400) belong to no district.
+  const csv = path.join(CACHE, 'ak-2024', 'ENRbyPrecinct.csv');
+  await download('https://www.elections.alaska.gov/results/24GENR/ENRbyPrecinct.csv', csv);
+  const lines = fs.readFileSync(csv, 'utf8').replace(/^\uFEFF/, '').trim().split(/\r?\n/);
+  const head = csvFields(lines.shift());
+  const col = (n) => { const i = head.indexOf(n); if (i < 0) throw new Error(`ENRbyPrecinct.csv: no ${n} column`); return i; };
+  const [cPct, cContest, cParty, cVotes] = ['Precinct_name', 'Contest_title', 'Party_Code', 'total_votes'].map(col);
+  const by = {};
+  for (const line of lines) {
+    const c = csvFields(line);
+    if (!c[cContest].startsWith('U.S. President')) continue;
+    if (/^HD99\b/.test(c[cPct])) continue;
+    const m = c[cPct].match(/^(\d\d)-\d/) || c[cPct].match(/^District (\d+)\b/);
+    if (!m) throw new Error(`ENRbyPrecinct.csv: no district in "${c[cPct]}"`);
+    const v = by[akDistrictId(parseInt(m[1], 10))] ||= [0, 0, 0];
+    const n = parseInt(c[cVotes], 10) || 0;
+    v[0] += n;
+    if (c[cParty] === 'DEM') v[1] += n;
+    if (c[cParty] === 'REP') v[2] += n;
+  }
+  if (Object.keys(by).length !== 40) throw new Error(`Alaska: ${Object.keys(by).length} districts in the 2024 results, not 40`);
+  const baseFile = path.join(OUT, 'counties-2024.json');
+  const base = JSON.parse(fs.readFileSync(baseFile, 'utf8'));
+  for (const k of Object.keys(base)) if (k.startsWith('02')) delete base[k];
+  Object.assign(base, Object.fromEntries(Object.entries(by).sort()));
+  fs.writeFileSync(baseFile, JSON.stringify(base));
+  const sum = Object.values(by).reduce((a, v) => a.map((x, i) => x + v[i]), [0, 0, 0]);
+  log(`Alaska: ${obj.geometries.length} districts, ${(fs.statSync(path.join(OUT, 'counties', 'AK.json')).size / 1024).toFixed(0)}KB; 2024: ${sum[0]} votes, Harris ${sum[1]}, Trump ${sum[2]}`);
+}
+
+// ------------------------------------------------------------------------------------------- Connecticut towns
+
+// The results feed reports New England by town. Towns elsewhere carry their county's code, but Connecticut's carry
+// the old counties, while the county map shows the nine planning regions that replaced them as the state's county
+// equivalents in 2022. live.js adds each town into its region with this table, keyed by the towns' Census county
+// subdivision codes (the feed uses the same codes).
+async function buildConnecticutTowns() {
+  log('Connecticut towns');
+  const dir = path.join(CACHE, 'ct-cousub');
+  const zip = path.join(dir, 'cb_2025_09_cousub_500k.zip');
+  await download('https://www2.census.gov/geo/tiger/GENZ2025/shp/cb_2025_09_cousub_500k.zip', zip);
+  if (!fs.existsSync(path.join(dir, 'cb_2025_09_cousub_500k.shp'))) execFileSync('unzip', ['-oq', zip, '-d', dir]);
+  const csv = path.join(dir, 'towns.csv');
+  ms('-i', path.join(dir, 'cb_2025_09_cousub_500k.shp'), '-filter-fields', 'COUNTYFP,COUSUBFP,NAMELSADCO', '-o', 'format=csv', csv);
+  const lines = fs.readFileSync(csv, 'utf8').trim().split(/\r?\n/);
+  const head = csvFields(lines.shift());
+  const regions = {};
+  for (const line of lines) {
+    const c = Object.fromEntries(csvFields(line).map((v, i) => [head[i], v]));
+    (regions[`09${c.COUNTYFP}`] ||= { name: c.NAMELSADCO, towns: [] }).towns.push(c.COUSUBFP);
+  }
+  const keys = Object.keys(regions).sort();
+  const n = keys.reduce((t, k) => t + regions[k].towns.length, 0);
+  if (keys.length !== 9 || n !== 169) throw new Error(`Connecticut: ${n} towns in ${keys.length} regions, not 169 in 9`);
+  const js = [
+    '// Connecticut\'s 169 towns by planning region (the state\'s county equivalents since 2022), as Census county',
+    '// subdivision codes. The results feed tags Connecticut\'s towns with the old counties, so live.js uses this to add',
+    '// each town into its region on the county map. Generated by pipeline/build_geo.mjs from the Census Bureau\'s 2025',
+    '// cartographic county subdivisions; don\'t edit by hand.',
+    'export const CT_REGIONS = {',
+    ...keys.map(k => `  '${k}': '${regions[k].towns.sort().join(' ')}',   // ${regions[k].name}`),
+    '};',
+    '',
+  ].join('\n');
+  fs.writeFileSync(path.join(ROOT, 'assets', 'js', 'ct-towns.js'), js);
+  log(`Connecticut: ${n} towns in ${keys.length} planning regions`);
 }
 
 // ------------------------------------------------------------------------------------------- main
@@ -146,9 +269,17 @@ async function main() {
   fs.writeFileSync(path.join(OUT, 'house-hex.json'), JSON.stringify(hex));
 
   await buildCounties();
+  await buildAlaska();
+  await buildConnecticutTowns();
 
   const sizes = ['districts-2026.json', 'house-hex.json', 'counties-2024.json'].map(f => `${f} ${(fs.statSync(path.join(OUT, f)).size / 1024).toFixed(0)}KB`);
   log(`done: ${dists.length} districts; ${sizes.join(', ')}; ${fs.readdirSync(path.join(OUT, 'cd')).length} state files`);
 }
 
-main().catch(e => { console.error(e); process.exit(1); });
+// `node pipeline/build_geo.mjs alaska connecticut` runs just those steps; with no arguments, everything.
+const STEPS = { alaska: buildAlaska, connecticut: buildConnecticutTowns };
+const only = process.argv.slice(2);
+const run = only.length
+  ? async () => { for (const s of only) { if (!STEPS[s]) throw new Error(`unknown step "${s}" (have: ${Object.keys(STEPS).join(', ')})`); await STEPS[s](); } }
+  : main;
+run().catch(e => { console.error(e); process.exit(1); });

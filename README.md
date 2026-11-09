@@ -48,8 +48,21 @@ turns them into:
 - `data/geo/cd/XX.json`: each state at higher detail, for state pages and the district locator on race pages
 - `data/geo/house-hex.json`: the equal-size hexagon map, a cartogram of the states (each sized by its House seats) cut into one hexagon per district (`pipeline/hex_layout.mjs`; `npm run hex` rebuilds just this file)
 - `data/geo/counties/XX.json` + `data/geo/counties-2024.json`: county maps and the 2024 presidential vote by county
+- `assets/js/ct-towns.js`: Connecticut's towns by planning region (see below)
 
-They are built once and committed. To rebuild: `npm install && npm run geo` (needs `unzip`).
+They are built once and committed. To rebuild: `npm install && npm run geo` (needs `unzip`);
+`npm run geo -- alaska connecticut` rebuilds just Alaska's map and the Connecticut table.
+
+The live county results come from each race's NYT file. Most states report by county. New England reports by town:
+`countyEntries()` in live.js adds the towns into their counties, skipping wards and other parts of towns (their town
+already counts them). Connecticut's towns carry the old counties while its map shows the nine planning regions, so
+`assets/js/ct-towns.js` (from the Census Bureau's 2025 county subdivisions) says which region each town is in. Alaska
+reports by state House district, so its "county" map is its 40 House districts (Census 2025 cartographic boundaries,
+ids `02H01` to `02H40`, simplified more for the vast rural districts than for Anchorage's), with the 2024
+presidential vote by district added up from the Alaska Division of Elections' official results by precinct
+(`ENRbyPrecinct.csv`). `areaWord()` in maps.js calls them districts in the text. Once a race has votes, its map never
+falls back to the 2024 vote while its county results load or if they're missing (`countyPending()`): it shows blank
+areas with "Loading counties" or "No county results yet" instead, since a 2024 map could pass for this year's.
 
 Every map shades a race by its margin on one scale (`MARGIN_BANDS` in `assets/js/ui.js`, colours `--dem-safe` etc.
 in `app.css`): tilt under 1 point, lean 1–5, likely 5–15, safe 15+, darker for bigger margins in both themes. Before
