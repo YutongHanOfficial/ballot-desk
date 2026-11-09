@@ -478,6 +478,7 @@ footer.site-footer { border-top: 1px solid var(--line); background: var(--surfac
 .county-map .state-outline { stroke: var(--ink-2); stroke-width: .9; opacity: .5; }
 .vl-bubble { stroke: var(--surface); stroke-width: 1; vector-effect: non-scaling-stroke; fill-opacity: .92; }
 .vl-bubble:hover { stroke: var(--ink); stroke-width: 1.6; }
+.county-map .vl-outline { fill: var(--ink); fill-opacity: .1; stroke: var(--ink); stroke-width: 1.6; vector-effect: non-scaling-stroke; pointer-events: none; }
 .vl-key { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 10px 22px; margin-top: 10px; font-size: 12px; color: var(--muted); }
 .vl-sizes { display: flex; align-items: flex-end; gap: 12px; }
 .vl-sizes span { display: flex; flex-direction: column; align-items: center; gap: 4px; font-variant-numeric: tabular-nums; }

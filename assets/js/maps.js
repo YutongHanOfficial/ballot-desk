@@ -436,7 +436,7 @@ function buildCountyMap(code, topo, base, { raceId, width: W, maxHeight, compact
   const bands = sides ? shiftScaleFor(fc.features.map(f => shiftOf(f.properties.id)?.sh)) : null;
   // Votes-left view: a circle on each county still counting, sized by its votes left, coloured by who leads it so far.
   const VL = view === 'left' && liveMode && !waiting && live ? countyVotesLeft(raceId) : null;
-  const tips = new Map();
+  const tips = new Map(), shapes = new Map();
   const tip = tooltip();
   const svg = s('svg', { viewBox: `0 0 ${W} ${H}`, class: `district-map county-map${compact ? ' compact' : ''}`, role: 'img', 'aria-label': `${store.stateByCode[code]?.name} counties` });
   const layer = s('g');
@@ -493,6 +493,7 @@ function buildCountyMap(code, topo, base, { raceId, width: W, maxHeight, compact
       } else html = `<div class="tt-title">${esc(name)}</div><div class="muted">No 2024 county result</div>`;
     }
     const p = s('path', { d: path(f), fill, class: 'county' });
+    if (VL) shapes.set(fips, p);
     p.addEventListener('mousemove', (e) => tip.show(html, e));
     p.addEventListener('mouseleave', () => tip.hide());
     layer.appendChild(p);
@@ -504,23 +505,43 @@ function buildCountyMap(code, topo, base, { raceId, width: W, maxHeight, compact
   layer.appendChild(s('path', { d: path(topojson.mesh(topo, topo.objects.counties, (a, b) => a === b)), class: 'coast state-outline' }));
   let maxLeft = 0;
   if (VL) {
-    // Largest first, so the small circles sit on top; area is proportional to the votes left.
+    // Circle area is proportional to the votes left. Where big counties crowd together (a metro area), the circles
+    // are nudged apart until none overlap, each kept as close to its own county as it can be; hovering a circle
+    // outlines its county.
     const items = fc.features.map(f => ({ f, x: VL.counties[f.properties.id] })).filter(b => b.x && b.x.left >= 1).sort((a, b) => b.x.left - a.x.left);
     maxLeft = items.length ? items[0].x.left : 0;
-    const rMax = Math.min(W, H) * 0.07;
-    const g = s('g', { class: 'vl-bubbles' });
+    const rMax = Math.min(W, H) * 0.06;
+    const nodes = [];
     for (const { f, x } of items) {
       const [cx, cy] = path.centroid(f);
-      if (!Number.isFinite(cx) || !Number.isFinite(cy)) continue;
-      const party = x.m === null ? null : x.m >= 0 ? race.leftParty : race.rightParty;
-      const c = s('circle', { cx: cx.toFixed(1), cy: cy.toFixed(1), r: Math.max(1.5, rMax * Math.sqrt(x.left / maxLeft)).toFixed(2),
-        fill: party ? marginFill(party, Math.abs(x.m)) : 'var(--novotes)', class: 'vl-bubble' });
-      const html = tips.get(f.properties.id);
+      if (Number.isFinite(cx) && Number.isFinite(cy)) nodes.push({ f, v: x, hx: cx, hy: cy, x: cx, y: cy, r: Math.max(1.5, rMax * Math.sqrt(x.left / maxLeft)) });
+    }
+    // 80 steps, cooling to rest by the last: about 30 ms for Texas's 254 counties. Circles are kept inside the frame
+    // at every step, so a metro area on the state's edge (New York City, Detroit) spreads inward instead of being
+    // pushed out and clamped back on top of its neighbours.
+    const TICKS = 80;
+    const inFrame = () => { for (const n of nodes) { n.x = Math.min(W - n.r, Math.max(n.r, n.x)); n.y = Math.min(H - n.r, Math.max(n.r, n.y)); } };
+    const sim = d3.forceSimulation(nodes)
+      .alphaDecay(1 - Math.pow(0.001, 1 / TICKS))
+      .force('x', d3.forceX(n => n.hx).strength(0.35))
+      .force('y', d3.forceY(n => n.hy).strength(0.35))
+      .force('collide', d3.forceCollide(n => n.r + 1).strength(1).iterations(2))
+      .stop();
+    for (let i = 0; i < TICKS; i++) { sim.tick(); inFrame(); }
+    const g = s('g', { class: 'vl-bubbles' });
+    const outline = s('path', { class: 'vl-outline', d: '' });   // the hovered circle's county, drawn above everything
+    for (const n of nodes) {
+      const cx = n.x, cy = n.y;
+      const party = n.v.m === null ? null : n.v.m >= 0 ? race.leftParty : race.rightParty;
+      const c = s('circle', { cx: cx.toFixed(1), cy: cy.toFixed(1), r: n.r.toFixed(2),
+        fill: party ? marginFill(party, Math.abs(n.v.m)) : 'var(--novotes)', class: 'vl-bubble' });
+      const fips = n.f.properties.id, html = tips.get(fips), shape = shapes.get(fips);
+      c.addEventListener('mouseenter', () => outline.setAttribute('d', shape?.getAttribute('d') || ''));
       c.addEventListener('mousemove', (e) => tip.show(html, e));
-      c.addEventListener('mouseleave', () => tip.hide());
+      c.addEventListener('mouseleave', () => { tip.hide(); outline.setAttribute('d', ''); });
       g.appendChild(c);
     }
-    layer.appendChild(g);
+    layer.append(g, outline);
   }
   svg.appendChild(layer);
   const frame = h('div', { class: 'map-frame' }, svg);
