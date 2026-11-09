@@ -476,6 +476,26 @@ footer.site-footer { border-top: 1px solid var(--line); background: var(--surfac
 .county-map .county:hover { stroke: var(--ink); stroke-width: 1.2; }
 .county-map.compact .county { stroke-width: .25; }
 .county-map .state-outline { stroke: var(--ink-2); stroke-width: .9; opacity: .5; }
+.vl-bubble { stroke: var(--surface); stroke-width: 1; vector-effect: non-scaling-stroke; fill-opacity: .92; }
+.vl-bubble:hover { stroke: var(--ink); stroke-width: 1.6; }
+.vl-key { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 10px 22px; margin-top: 10px; font-size: 12px; color: var(--muted); }
+.vl-sizes { display: flex; align-items: flex-end; gap: 12px; }
+.vl-sizes span { display: flex; flex-direction: column; align-items: center; gap: 4px; font-variant-numeric: tabular-nums; }
+.vl-sizes i { display: block; border: 1.5px solid var(--muted); border-radius: 50%; }
+.vl-sizes .vl-cap { align-self: flex-end; }
+.vl-cols { display: flex; align-items: center; gap: 4px; }
+.vl-cols i { width: 11px; height: 11px; border-radius: 50%; }
+.vl-cols span { margin-left: 3px; }
+.vl-summary { margin-top: 14px; }
+.vl-summary > p { margin: 0 0 8px; }
+table.vl-table th, table.vl-table td { padding: 7px 10px; }
+table.vl-table th:first-child, table.vl-table td:first-child { padding-left: 0; }
+table.vl-table th:last-child, table.vl-table td:last-child { padding-right: 0; }
+@media (max-width: 640px) {
+  table.vl-table { font-size: 13px; }
+  table.data.vl-table th, table.data.vl-table td { padding: 6px 5px; }
+  table.data.vl-table th { font-size: 11px; letter-spacing: .02em; }
+}
 .feed { max-height: 980px; overflow: auto; }
 
 .map-tag { position: absolute; left: 4px; bottom: 4px; font-size: 10px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: var(--muted); background: color-mix(in srgb, var(--surface) 85%, transparent); padding: 2px 6px; border-radius: 4px; pointer-events: none; }

@@ -1,7 +1,7 @@
 // District maps: the national House map (geographic or equal-size hexagons) and per-state district maps.
 // Boundaries are the Census Bureau's 2026 (120th Congress) districts, built by pipeline/build_geo.mjs.
-import { h, s, tooltip, esc, marginFill, hatchFill, votePct, shiftFill, shiftScaleFor } from './ui.js';
-import { store, awaiting, raceFill, nightMode, counting, voteDigits } from './store.js';
+import { h, s, tooltip, esc, marginFill, hatchFill, votePct, shiftFill, shiftScaleFor, num, partyVar } from './ui.js';
+import { store, awaiting, raceFill, nightMode, counting, voteDigits, roughly } from './store.js';
 import { raceTip, mapLegend, marginLegend } from './charts.js';
 
 const d3 = window.d3;
@@ -316,6 +316,68 @@ export function countyResults(raceId) {
   return store.live.counties?.[raceId] || null;
 }
 
+/**
+ * Votes still to count in each county of a race, with who leads it so far: { total, counties: { fips: { left,
+ * counted, share, m } } }, m being the left side's margin in points (null before any votes). Votes left are the AP's
+ * expected vote less the count; without an expected vote (simulations), they follow from the share counted.
+ */
+export function countyVotesLeft(raceId) {
+  const live = countyResults(raceId);
+  if (!live) return null;
+  const counties = {};
+  let total = 0;
+  for (const [fips, [share, l, r, counted, expected]] of Object.entries(live)) {
+    const left = expected > 0 ? Math.max(0, expected - counted) : share > 0 && share < 1 ? (counted * (1 - share)) / share : 0;
+    counties[fips] = { left, counted, share, m: counted > 0 ? (100 * (l - r)) / counted : null };
+    total += left;
+  }
+  return { total, counties };
+}
+
+// The share of a county's expected vote counted: '93%', or '99.6%' near the end (rounded down, so "100%" never sits
+// beside votes left).
+const countedText = (share) => share >= 0.99 && share < 1 ? `${Math.floor(share * 1000) / 10}%` : `${Math.round(share * 100)}%`;
+const leadText = (race, m) => Math.abs(m) < 0.05 ? 'Even' : `${lastNameOf(m >= 0 ? race.left : race.right)} +${Math.abs(m).toFixed(1)}`;
+
+/** Under the votes-left map: what the circle sizes and colours mean. */
+function votesLeftKey(race, maxLeft) {
+  const sizes = [1, 1 / 4, 1 / 16].map(f => [roughly(maxLeft * f), 15 * Math.sqrt(f)]).filter(([v], i, a) => v >= 1 && a.findIndex(x => x[0] === v) === i);
+  const swatches = (party) => [3, 10, 20].map(m => h('i', { style: { background: marginFill(party, m) } }));
+  return h('div', { class: 'vl-key' },
+    h('div', { class: 'vl-sizes' }, sizes.map(([v, r]) => h('span', null, h('i', { style: { width: `${2 * r}px`, height: `${2 * r}px` } }), num(v))),
+      h('span', { class: 'vl-cap' }, 'votes left')),
+    h('div', { class: 'vl-cols' }, swatches(race.leftParty), h('span', null, `${lastNameOf(race.left)} leads`)),
+    h('div', { class: 'vl-cols' }, swatches(race.rightParty), h('span', null, `${lastNameOf(race.right)} leads`)),
+    h('span', null, 'darker: a bigger lead'));
+}
+
+/** Under the votes-left map: how many votes are left, how they split by who leads each county, and where most are. */
+function votesLeftSummary(race, fc, VL, suffix) {
+  const names = Object.fromEntries(fc.features.map(f => [f.properties.id, f.properties.n + suffix]));
+  const rows = Object.entries(VL.counties).filter(([fips, x]) => x.left >= 1 && names[fips]).sort((a, b) => b[1].left - a[1].left);
+  if (!rows.length) return h('p', { class: 'small muted vl-summary' }, 'By the AP’s estimates, every county has finished counting.');
+  const by = { left: 0, right: 0, none: 0 };
+  for (const [, x] of rows) by[x.m === null ? 'none' : x.m >= 0 ? 'left' : 'right'] += x.left;
+  const pctOf = (n) => `${Math.round((100 * n) / VL.total)}%`;
+  const split = [
+    by.left ? `${pctOf(by.left)} in counties ${lastNameOf(race.left)} leads` : null,
+    by.right ? `${pctOf(by.right)} in counties ${lastNameOf(race.right)} leads` : null,
+    by.none ? `${pctOf(by.none)} in counties with no votes counted yet` : null,
+  ].filter(Boolean);
+  const list = split.length < 2 ? split.join('') : `${split.slice(0, -1).join(', ')} and ${split.at(-1)}`;
+  const top = rows.slice(0, 6);
+  return h('div', { class: 'vl-summary' },
+    h('p', { class: 'small' }, h('b', null, `About ${num(roughly(VL.total))} votes left to count`), ` in ${rows.length} ${rows.length === 1 ? 'county' : 'counties'}: ${list}.`),
+    h('div', { class: 'table-wrap', style: { border: 0 } }, h('table', { class: 'data vl-table' },
+      h('thead', null, h('tr', null, h('th', null, 'County'), h('th', { class: 'num hide-sm' }, 'Counted'), h('th', { class: 'num' }, 'Votes left'), h('th', { class: 'num' }, 'Leads'))),
+      h('tbody', null, top.map(([fips, x]) => h('tr', null,
+        h('td', null, names[fips]),
+        h('td', { class: 'num hide-sm' }, countedText(x.share)),
+        h('td', { class: 'num' }, num(Math.round(x.left))),
+        h('td', { class: 'num', style: { color: x.m === null ? 'var(--muted)' : partyVar(x.m >= 0 ? race.leftParty : race.rightParty), fontWeight: 650, whiteSpace: 'nowrap' } },
+          x.m === null ? 'No votes yet' : leadText(race, x.m))))))));
+}
+
 /** Key for the county maps: the same margin scale, by candidate on election night, by party for 2024. */
 export function countyLegend(race = null, live = false) {
   if (!race || !live) return marginLegend({ results: false, caption: '2024 presidential margin (points)', leftName: 'Harris (D)', rightName: 'Trump (R)', extras: [] });
@@ -372,6 +434,9 @@ function buildCountyMap(code, topo, base, { raceId, width: W, maxHeight, compact
     return { now, then, sh: now - then };
   };
   const bands = sides ? shiftScaleFor(fc.features.map(f => shiftOf(f.properties.id)?.sh)) : null;
+  // Votes-left view: a circle on each county still counting, sized by its votes left, coloured by who leads it so far.
+  const VL = view === 'left' && liveMode && !waiting && live ? countyVotesLeft(raceId) : null;
+  const tips = new Map();
   const tip = tooltip();
   const svg = s('svg', { viewBox: `0 0 ${W} ${H}`, class: `district-map county-map${compact ? ' compact' : ''}`, role: 'img', 'aria-label': `${store.stateByCode[code]?.name} counties` });
   const layer = s('g');
@@ -379,7 +444,17 @@ function buildCountyMap(code, topo, base, { raceId, width: W, maxHeight, compact
   for (const f of fc.features) {
     const fips = f.properties.id, name = f.properties.n + suffix;
     let fill = 'var(--none)', html;
-    if (sides) {
+    if (VL) {
+      const x = VL.counties[fips];
+      html = `<div class="tt-title">${esc(name)}</div>` + (x && x.counted > 0
+        ? `<div class="tt-row"><span>Votes left (estimate)</span><b>${num(Math.round(x.left))}</b></div>` +
+          `<div class="tt-row"><span>Counted</span><b>${countedText(x.share)}</b></div>` +
+          `<div class="tt-row"><span>Leads so far</span><b style="color:${partyVar(x.m >= 0 ? race.leftParty : race.rightParty)}">${esc(leadText(race, x.m))}</b></div>` +
+          `<div class="tt-row muted"><span>Counted so far</span><span>${x.counted.toLocaleString()} votes</span></div>`
+        : x ? `<div class="tt-row"><span>Votes expected</span><b>${num(Math.round(x.left))}</b></div><div class="muted">No votes counted yet</div>`
+        : '<div class="muted">No results for this county yet</div>');
+      tips.set(fips, html);
+    } else if (sides) {
       const v = live[fips], x = shiftOf(fips);
       if (x) {
         const { now, then, sh } = x;
@@ -427,11 +502,32 @@ function buildCountyMap(code, topo, base, { raceId, width: W, maxHeight, compact
     layer.appendChild(s('path', { d: stillCounting.map(f => path(f)).join(''), fill: stripes, class: 'hatch' }));
   }
   layer.appendChild(s('path', { d: path(topojson.mesh(topo, topo.objects.counties, (a, b) => a === b)), class: 'coast state-outline' }));
+  let maxLeft = 0;
+  if (VL) {
+    // Largest first, so the small circles sit on top; area is proportional to the votes left.
+    const items = fc.features.map(f => ({ f, x: VL.counties[f.properties.id] })).filter(b => b.x && b.x.left >= 1).sort((a, b) => b.x.left - a.x.left);
+    maxLeft = items.length ? items[0].x.left : 0;
+    const rMax = Math.min(W, H) * 0.07;
+    const g = s('g', { class: 'vl-bubbles' });
+    for (const { f, x } of items) {
+      const [cx, cy] = path.centroid(f);
+      if (!Number.isFinite(cx) || !Number.isFinite(cy)) continue;
+      const party = x.m === null ? null : x.m >= 0 ? race.leftParty : race.rightParty;
+      const c = s('circle', { cx: cx.toFixed(1), cy: cy.toFixed(1), r: Math.max(1.5, rMax * Math.sqrt(x.left / maxLeft)).toFixed(2),
+        fill: party ? marginFill(party, Math.abs(x.m)) : 'var(--novotes)', class: 'vl-bubble' });
+      const html = tips.get(f.properties.id);
+      c.addEventListener('mousemove', (e) => tip.show(html, e));
+      c.addEventListener('mouseleave', () => tip.hide());
+      g.appendChild(c);
+    }
+    layer.appendChild(g);
+  }
   svg.appendChild(layer);
   const frame = h('div', { class: 'map-frame' }, svg);
   if (zoomKey && !compact) frame.appendChild(zoomButtons(attachZoom(svg, layer, { key: zoomKey, width: W, height: H, maxK: 10 })));
-  frame.dataset.mode = sides ? 'shift' : liveMode ? 'live' : 'baseline';
+  frame.dataset.mode = VL ? 'left' : sides ? 'shift' : liveMode ? 'live' : 'baseline';
   if (compact && night) frame.appendChild(h('span', { class: 'map-tag' }, waiting ? 'Polls open' : liveMode ? (store.sim ? 'Simulated counts' : 'Live counts') : '2024 vote'));
+  if (VL) return h('div', null, frame, maxLeft ? votesLeftKey(race, maxLeft) : null, votesLeftSummary(race, fc, VL, suffix));
   return sides && shiftKey ? h('div', null, frame, shiftKey(bands)) : frame;
 }
 

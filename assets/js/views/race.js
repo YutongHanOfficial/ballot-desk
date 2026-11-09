@@ -2,7 +2,7 @@
 import { h, pct, num, partyChip, partyVar, ratingChip, marginText, lastName, fmtDate, oddsText, compact, timeAgo, PARTY_NAME, bandLabel, votePct, skel } from '../ui.js';
 import { store, cur, duelNow, forecastOf, forecastFinal, catchUp, catchUpText, voteDigits, partyShares } from '../store.js';
 import { splitBar, pollChart, marginCurve, signalRows } from '../charts.js';
-import { stateDistrictMap, countyMap, countyResults, countyLegend, shiftSides } from '../maps.js';
+import { stateDistrictMap, countyMap, countyResults, countyLegend, shiftSides, countyVotesLeft } from '../maps.js';
 import { shiftLegend } from '../archive.js';
 import { nightMode } from '../store.js';
 import { wantCounties, resultsLoading } from '../live.js';
@@ -140,8 +140,8 @@ function duelHero(r) {
     photoCredits(r, [d.a, d.b]));
 }
 
-// Each race page's county view: 'results', or 'shift' (the change from the 2024 presidential vote). Kept for the
-// visit, so the live redraw every minute doesn't switch it back.
+// Each race page's county view: 'results', 'left' (votes still to count) or 'shift' (the change from the 2024
+// presidential vote). Kept for the visit, so the live redraw every minute doesn't switch it back.
 const COUNTY_VIEW = {};
 
 /** Statewide races: county map, live on election night, otherwise the 2024 presidential vote. */
@@ -152,25 +152,32 @@ export function countyCard(r) {
   // margin in each county against Harris's.
   const sides = shiftSides(r);
   const canShift = !!live && !!sides && (r.type === 'senate' || r.type === 'gov') && r.state !== 'AK';
-  const shift = canShift && COUNTY_VIEW[r.id] === 'shift';
+  // Votes left: offered while any county still has votes to count, by the AP's estimates.
+  const vl = live && r.state !== 'AK' ? countyVotesLeft(r.id) : null;
+  const canLeft = !!vl && vl.total >= 1;
+  const view = COUNTY_VIEW[r.id] === 'shift' && canShift ? 'shift' : COUNTY_VIEW[r.id] === 'left' && canLeft ? 'left' : 'results';
+  const shift = view === 'shift';
   const who = sides ? lastName(sides.name) : '';
-  const title = shift ? 'Shift from 2024, by county' : live ? 'Results by county' : 'How the counties voted in 2024';
-  const note = r.state === 'AK' ? '' : shift
+  const title = view === 'left' ? 'Votes left to count, by county' : shift ? 'Shift from 2024, by county' : live ? 'Results by county' : 'How the counties voted in 2024';
+  const note = r.state === 'AK' ? '' : view === 'left'
+    ? `Each circle is a county’s votes still to count: the AP’s estimate of its total vote, less the votes counted so far. Its colour is who leads the county so far, though late ballots don’t always break the way a county’s early count did. ${store.sim ? 'Simulated counts.' : 'AP counts via The New York Times.'}`
+    : shift
     ? `How ${who}’s margin over ${lastName(sides.rival)} in each county compares with Kamala Harris’s over Donald Trump in 2024, in points. Striped where less than 95% of the expected vote is counted: early counts can lean one way. ${store.sim ? 'Simulated counts.' : 'AP counts via The New York Times.'}`
     : live ? `Shaded by who leads each county and by how much. ${store.sim ? 'Simulated counts.' : 'AP counts via The New York Times.'}`
     : nightMode() ? 'County results appear as soon as counties report.' : 'Presidential vote by county, 2024 (Harris vs. Trump). On election night this map switches to live county results.';
   const card = h('section', { class: 'section card' });
   const pick = (k) => { COUNTY_VIEW[r.id] = k; card.replaceWith(countyCard(r)); };
-  const seg = canShift ? h('div', { class: 'seg', role: 'tablist', 'aria-label': 'County map view' },
-    [['results', 'Results'], ['shift', 'Shift from 2024']].map(([k, label]) => h('button', { type: 'button', class: (k === 'shift') === shift ? 'on' : '', onclick: () => pick(k) }, label))) : null;
+  const options = [['results', 'Results'], canLeft ? ['left', 'Votes left'] : null, canShift ? ['shift', 'Shift from 2024'] : null].filter(Boolean);
+  const seg = options.length > 1 ? h('div', { class: 'seg', role: 'tablist', 'aria-label': 'County map view' },
+    options.map(([k, label]) => h('button', { type: 'button', class: k === view ? 'on' : '', onclick: () => pick(k) }, label))) : null;
   // Element.append() would print a null as the text "null", so the optional parts are dropped first.
   card.append(...[
     h('div', { class: 'card-title' }, title, live ? h('span', { class: 'pill live', style: { textTransform: 'none', letterSpacing: 0 } }, h('span', { class: 'live-dot' }), store.sim ? 'Simulated' : 'Live') : null),
     seg ? h('div', { class: 'map-toolbar' }, seg) : null,
-    countyMap(r.state, { raceId: r.id, zoomKey: `county-${r.id}`, view: shift ? 'shift' : 'results',
+    countyMap(r.state, { raceId: r.id, zoomKey: `county-${r.id}`, view,
       shiftKey: (bands) => shiftLegend({ caption: 'change from the 2024 presidential margin (points)', left: sides.party, right: 'R',
         leftName: sides.party === 'D' ? 'Democrats' : who, bands, extras: [['hatch', 'Still counting'], ['var(--novotes)', 'No votes yet']] }) }),
-    r.state === 'AK' || shift ? null : countyLegend(r, !!live),
+    r.state === 'AK' || shift || view === 'left' ? null : countyLegend(r, !!live),
     note ? h('p', { class: 'xs muted', style: { margin: '6px 0 0' } }, note) : null,
   ].filter(Boolean));
   return card;

@@ -340,7 +340,8 @@ async function refreshCounties() {
       for (const u of nr.reporting_units || []) {
         if (u.level !== 'county' || !u.fips_county) continue;
         const votes = (cid) => (u.candidates || []).find(c => c.nyt_id === cid)?.votes?.total || 0;
-        out[`${u.fips_state}${u.fips_county}`] = [(u.eevp || 0) / 100, L ? votes(L.id) : 0, R ? votes(R.id) : 0, u.total_votes || 0];
+        // [share of the expected vote counted, left side's votes, right side's, all votes, AP's expected total]
+        out[`${u.fips_state}${u.fips_county}`] = [(u.eevp || 0) / 100, L ? votes(L.id) : 0, R ? votes(R.id) : 0, u.total_votes || 0, u.total_expected_vote || 0];
       }
       if (Object.keys(out).length) {
         store.live.counties = { ...(store.live.counties || {}), [id]: out };

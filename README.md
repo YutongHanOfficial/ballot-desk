@@ -127,6 +127,11 @@ showing that final forecast while results come in: the router sets `store.frozen
 `chamber()` and the map colours return the frozen numbers. Polymarket prices stay live everywhere. The count and live
 odds are on the live dashboard, the race pages' results card, the state pages and the broadcast.
 
+Statewide race pages' county maps have a "Votes left" view (`countyVotesLeft()` in maps.js): a circle on each
+county still counting, sized by its votes left (the AP's expected vote for the county, `total_expected_vote` in its
+race file, less the count) and coloured by who leads it so far, with the total, how it splits between counties each
+side leads and the counties with the most left. It only describes the count; the live model doesn't use it yet.
+
 Until each of the three results files has answered once (12 seconds at most), the live dashboard, race pages'
 results card and the banner on every page draw placeholder shapes (`resultsLoading()` in live.js) instead of the
 pre-results screen, which would otherwise flash the forecast's odds and "waiting for results" first. A file that

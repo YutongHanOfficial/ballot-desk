@@ -244,7 +244,8 @@ export function resultsAt(sc, t) {
     let counties;
     if (p.counties) {
       counties = {};
-      for (const c of p.counties) { const cv = oneCount(c, t); counties[c.fips] = [cv.f, cv.left, cv.right, cv.counted]; }
+      // Same shape as the live feed's: [share counted, left, right, counted, expected total]
+      for (const c of p.counties) { const cv = oneCount(c, t); counties[c.fips] = [cv.f, cv.left, cv.right, cv.counted, c.total]; }
     }
     out[id] = {
       counties,

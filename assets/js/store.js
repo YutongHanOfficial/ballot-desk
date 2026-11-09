@@ -218,7 +218,7 @@ export function counting(r) {
 }
 
 // "410,000": an estimate shown to two significant figures (to the ten below 1,000, exact below 100).
-const roughly = (n) => { if (n < 100) return Math.round(n); const m = 10 ** (Math.floor(Math.log10(n)) - 1); return Math.round(n / m) * m; };
+export const roughly = (n) => { if (n < 100) return Math.round(n); const m = 10 ** (Math.floor(Math.log10(n)) - 1); return Math.round(n / m) * m; };
 const NOT_A_CANDIDATE = /^(others?|write-ins?)$/i;
 
 /**
