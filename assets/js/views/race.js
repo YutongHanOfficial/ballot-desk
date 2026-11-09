@@ -6,6 +6,7 @@ import { stateDistrictMap, countyMap, countyResults, countyLegend, shiftSides, c
 import { shiftLegend } from '../archive.js';
 import { nightMode } from '../store.js';
 import { wantCounties, resultsLoading } from '../live.js';
+import { CONFIG } from '../config.js';
 import { electionBanner, pollCloseText, raceCard } from './common.js';
 import { avatar, photoCredits } from '../photos.js';
 
@@ -164,6 +165,9 @@ export function countyCard(r) {
   const who = sides ? lastName(sides.name) : '';
   const title = view === 'left' ? `Votes left to count, ${by}` : shift ? `Shift from 2024, ${by}` : live || pending ? `Results ${by}` : `How the ${r.state === 'AK' ? 'state House districts' : many} voted in 2024`;
   const source = store.sim ? 'Simulated counts.' : 'AP counts via The New York Times.';
+  // Down-ballot races (lieutenant governor, attorney general, secretary of state) aren't in the results feed, so
+  // their map stays the 2024 vote and mustn't promise live results.
+  const tracked = !!CONFIG.results.urls?.[r.type];
   const note = [view === 'left'
     ? `Each circle is a ${one}’s votes still to count: the AP’s estimate of its total vote, less the votes counted so far. Its colour is who leads the ${one} so far, though late ballots don’t always break the way a ${one}’s early count did. ${source}`
     : shift
@@ -171,6 +175,7 @@ export function countyCard(r) {
     : live ? `Shaded by who leads each ${one} and by how much. ${source}`
     : pending === 'loading' ? `Loading the ${one} results…`
     : pending ? `The ${one} results for this race aren’t available yet.`
+    : !tracked ? `Presidential vote ${by}, 2024 (Harris vs. Trump), for reference. Ballot Desk follows the count only in Senate, House and governor races.`
     : nightMode() ? `${one[0].toUpperCase() + one.slice(1)} results appear as soon as ${many} report.` : `Presidential vote ${by}, 2024 (Harris vs. Trump). On election night this map switches to live ${one} results.`,
     r.state === 'AK' ? 'Alaska counts its votes by state House district rather than by borough, so the map shows its 40 House districts. Zoom in for Anchorage.' : null,
   ].filter(Boolean).join(' ');
