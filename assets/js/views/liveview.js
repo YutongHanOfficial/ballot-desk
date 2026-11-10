@@ -213,7 +213,7 @@ function battlegrounds() {
       countyMap(r.state, { raceId: r.id, width: 380, maxHeight: 250, compact: true }));
   };
   return h('div', { class: 'card span2' },
-    h('div', { class: 'card-title' }, 'Battlegrounds, county by county', h('span', { class: 'muted', style: { textTransform: 'none', letterSpacing: 0 } }, nightMode() ? 'Shaded by leader and margin' : 'Shaded by the 2024 vote until counting starts')),
+    h('div', { class: 'card-title' }, 'Battleground maps', h('span', { class: 'muted', style: { textTransform: 'none', letterSpacing: 0 } }, nightMode() ? 'Shaded by leader and margin' : 'Shaded by the 2024 vote until counting starts')),
     h('div', { class: 'bg-grid' }, list.map(card)));
 }
 

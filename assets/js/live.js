@@ -3,7 +3,6 @@ import { CONFIG, pollCloseDate } from './config.js';
 import { store, notify, loadData, seatCount, racesOf } from './store.js';
 import { liveEstimate, estimateSwing, simulate, samePerson, normName } from './model.js';
 import { makeScenario, startNight, registerSimHooks, ensureSimData } from './sim.js';
-import { CT_REGIONS } from './ct-towns.js';
 
 const AT_LARGE = new Set(['AK', 'DE', 'ND', 'SD', 'VT', 'WY']);
 const params = new URLSearchParams(location.search);
@@ -307,42 +306,82 @@ export function houseVote() {
 const countyWanted = new Map();   // race id -> { seen: last time a view asked, fetched: last fetch, wait: backoff }
 let countyTimer = null;
 
-// Connecticut's towns (Census county subdivision codes) -> the planning region each belongs to.
-const CT_TOWN = Object.fromEntries(Object.entries(CT_REGIONS).flatMap(([region, towns]) => towns.split(' ').map(t => [t, region])));
+// New England's town table (ne-towns.js, built by pipeline/build_geo.mjs), loaded the first time a race reported by
+// town is read, plus Connecticut's towns -> planning region. A browser remembers a module that failed to load (a
+// GitHub Pages 503 during a deploy, a dropped connection) and fails every later import of that address without
+// asking the server again, so a retry asks for a new one.
+let neTowns = null, neTries = 0;
+const loadNeTowns = () => (neTowns ||= import(neTries ? `./ne-towns.js?retry=${neTries}` : './ne-towns.js').then(m => ({ ...m,
+  CT_TOWN: Object.fromEntries(Object.entries(m.CT_REGIONS).flatMap(([region, towns]) => towns.split(' ').map(t => [t, region]))),
+})).catch(e => { neTowns = null; neTries++; throw e; }));
 
 /**
- * The county-map area a reporting unit's votes go to, or null. Most states report by county. New England reports by
- * town (byTown): towns are added up into their counties, Connecticut's into the planning regions its map shows, and
- * wards and other parts of towns are skipped, as their town already counts them. Alaska reports by state House
- * district, and its map shows those districts (ids 02H01 to 02H40, as built by pipeline/build_geo.mjs).
+ * The map areas a reporting unit's votes go to, { county, town }, or null to skip it. Most states report by county.
+ * New England reports by town (byTown): each town goes on the town map and into its county (Connecticut's into the
+ * planning regions its county map shows). Wards and other parts of towns are skipped, as their town already counts
+ * them, and so are Maine's unorganized townships, which the feed also counts in their unorganized territory. Alaska
+ * reports by state House district, and its map shows those (ids 02H01 to 02H40, as built by pipeline/build_geo.mjs).
  */
-function countyArea(u, byTown) {
+function unitAreas(u, byTown, NE) {
   if (byTown) {
     if (u.level !== 'township' || !u.fips_county) return null;
-    return u.fips_state === '09' ? CT_TOWN[u.fips_suffix] || null : `${u.fips_state}${u.fips_county}`;
+    const st = u.fips_state, ex = NE.TOWNS[st];
+    const code = ex && u.fips_suffix in ex ? ex[u.fips_suffix] : NE.SAME_CODES.includes(st) ? u.fips_suffix : null;
+    if (!code) return null;
+    return { town: `${st}${code}`, county: st === '09' ? NE.CT_TOWN[code] || null : `${st}${u.fips_county}` };
   }
-  if (u.level === 'county' && u.fips_county) return `${u.fips_state}${u.fips_county}`;
-  if (u.level === 'state_house_district' && u.fips_state === '02' && u.fips_suffix) return `02H${String(parseInt(u.fips_suffix, 10)).padStart(2, '0')}`;
+  if (u.level === 'county' && u.fips_county) return { county: `${u.fips_state}${u.fips_county}` };
+  if (u.level === 'state_house_district' && u.fips_state === '02' && u.fips_suffix) return { county: `02H${String(parseInt(u.fips_suffix, 10)).padStart(2, '0')}` };
   return null;
 }
 
-/** A race's county results from its NYT file: { area: [share counted, left votes, right votes, all votes, expected] }. */
-function countyEntries(nr, L, R) {
+/** A unit's 2024 presidential vote, from the comparison the feed carries: [total, Harris, Trump], or null. */
+function unit2024(u) {
+  const h = Object.entries(u.historical_comparison_race_data || {}).find(([k]) => /-G-P-2024-11-05$/.test(k))?.[1];
+  return h && h.votes > 0 ? [h.votes, (h.votes * (h.pct_dem || 0)) / 100, (h.votes * (h.pct_rep || 0)) / 100] : null;
+}
+
+/**
+ * A race's map results from its NYT file. counties: { area: [share counted, left votes, right votes, all votes,
+ * expected, all precincts in] }; for races reported by town, also towns (the same, by town) and towns2024 (each
+ * town's 2024 presidential vote, [total, Harris, Trump], for the shift view). NE is the town table, loaded for those
+ * races. "All precincts in" lets the maps tell an area that reported no votes (some of Maine's unorganized
+ * territories, whose few voters vote elsewhere) from one that hasn't reported yet.
+ */
+function countyEntries(nr, L, R, NE) {
   const units = nr.reporting_units || [];
   const byTown = !units.some(u => u.level === 'county') && units.some(u => u.level === 'township');
-  const sum = {};   // area -> [counted share × weight, weight, left, right, votes, expected]
+  const sums = { county: {}, town: {} };   // area -> [counted share × weight, weight, left, right, votes, expected, precincts in, precincts]
+  const base = {};
+  const add24 = (town, v) => { if (!v) return; const b = base[town] ||= [0, 0, 0]; b[0] += v[0]; b[1] += v[1]; b[2] += v[2]; };
   for (const u of units) {
-    const key = countyArea(u, byTown);
-    if (!key) continue;
+    const areas = unitAreas(u, byTown, NE);
+    if (!areas) {
+      // A skipped Maine township that is its territory's only polling place hands its 2024 vote to the territory.
+      const into = byTown && u.level === 'township' && NE.TOWN_2024_INTO[u.fips_state]?.[u.fips_suffix];
+      if (into) add24(`${u.fips_state}${into}`, unit2024(u));
+      continue;
+    }
     const votes = (cid) => (u.candidates || []).find(c => c.nyt_id === cid)?.votes?.total || 0;
     const tot = u.total_votes || 0, exp = u.total_expected_vote || 0, w = exp || tot;
-    const a = sum[key] ||= [0, 0, 0, 0, 0, 0];
-    a[0] += ((u.eevp || 0) / 100) * w; a[1] += w;
-    a[2] += L ? votes(L.id) : 0; a[3] += R ? votes(R.id) : 0;
-    a[4] += tot; a[5] += exp;
+    for (const level of ['county', 'town']) {
+      const key = areas[level];
+      if (!key) continue;
+      const a = sums[level][key] ||= [0, 0, 0, 0, 0, 0, 0, 0];
+      a[0] += ((u.eevp || 0) / 100) * w; a[1] += w;
+      a[2] += L ? votes(L.id) : 0; a[3] += R ? votes(R.id) : 0;
+      a[4] += tot; a[5] += exp;
+      a[6] += u.precincts_reporting || 0; a[7] += u.precincts_total || 0;
+    }
+    if (areas.town) add24(areas.town, unit2024(u));
   }
-  // The share counted is the AP's per unit (eevp), weighted by expected vote where a county is made of towns.
-  return Object.fromEntries(Object.entries(sum).map(([k, a]) => [k, [a[1] ? a[0] / a[1] : 0, a[2], a[3], a[4], a[5]]]));
+  // The share counted is the AP's per unit (eevp), weighted by expected vote where an area is made of several units.
+  const done = (sum) => Object.fromEntries(Object.entries(sum).map(([k, a]) => [k, [a[1] ? a[0] / a[1] : 0, a[2], a[3], a[4], a[5], a[7] > 0 && a[6] >= a[7]]]));
+  return {
+    counties: done(sums.county),
+    towns: byTown ? done(sums.town) : null,
+    towns2024: byTown ? Object.fromEntries(Object.entries(base).map(([k, b]) => [k, b.map(Math.round)])) : null,
+  };
 }
 
 /** Notes whether a race's county results are missing (its file failed or has none), as opposed to still loading. */
@@ -383,9 +422,14 @@ async function refreshCounties() {
       const nr = (data.races || []).find(x => nytRaceId(x.nyt_id) === id) || (data.races || [])[0];
       if (!nr) { countyMissing(id, true); continue; }
       const { L, R } = nytSides(race, nr);
-      const out = countyEntries(nr, L, R);
-      if (Object.keys(out).length) {
-        store.live.counties = { ...(store.live.counties || {}), [id]: out };
+      const NE = (nr.reporting_units || []).some(u => u.level === 'township') ? await loadNeTowns() : null;
+      const { counties, towns, towns2024 } = countyEntries(nr, L, R, NE);
+      if (Object.keys(counties).length) {
+        store.live.counties = { ...(store.live.counties || {}), [id]: counties };
+        if (towns) {
+          store.live.towns = { ...(store.live.towns || {}), [id]: towns };
+          store.live.towns2024 = { ...(store.live.towns2024 || {}), [id]: towns2024 };
+        }
         countyMissing(id, false);
         notify('counties');
       } else countyMissing(id, true);

@@ -2,7 +2,7 @@
 import { h, pct, num, partyChip, partyVar, ratingChip, marginText, lastName, fmtDate, oddsText, compact, timeAgo, PARTY_NAME, bandLabel, votePct, skel } from '../ui.js';
 import { store, cur, duelNow, forecastOf, forecastFinal, catchUp, catchUpText, voteDigits, partyShares } from '../store.js';
 import { splitBar, pollChart, marginCurve, signalRows } from '../charts.js';
-import { stateDistrictMap, countyMap, countyResults, countyLegend, shiftSides, countyVotesLeft, countyPending, areaWord, byArea } from '../maps.js';
+import { stateDistrictMap, countyMap, countyResults, countyLegend, shiftSides, countyVotesLeft, countyPending, areaLevel, liveLevel, areaWord, byArea } from '../maps.js';
 import { shiftLegend } from '../archive.js';
 import { nightMode } from '../store.js';
 import { wantCounties, resultsLoading } from '../live.js';
@@ -141,6 +141,8 @@ function duelHero(r) {
     photoCredits(r, [d.a, d.b]));
 }
 
+const upper = (w) => w[0].toUpperCase() + w.slice(1);
+
 // Each race page's county view: 'results', 'left' (votes still to count) or 'shift' (the change from the 2024
 // presidential vote). Kept for the visit, so the live redraw every minute doesn't switch it back.
 const COUNTY_VIEW = {};
@@ -151,8 +153,10 @@ export function countyCard(r) {
   const live = nightMode() && countyResults(r.id);
   // Votes are in but the county results aren't (yet): the map stays blank rather than show the 2024 vote.
   const pending = countyPending(r.id);
-  // Alaska's map shows state House districts, the units it counts votes in; everywhere else, counties.
-  const one = areaWord(r.state), many = areaWord(r.state, true), by = byArea(r.state);
+  // The map shows the places votes are counted in: Alaska's state House districts, New England's towns (live), and
+  // counties everywhere else.
+  const level = areaLevel(r.state, r.id);
+  const one = areaWord(level), many = areaWord(level, true), by = byArea(level);
   // Senate and governor races can also be shown as the shift from 2024: the Democrat's (or an independent's)
   // margin in each county against Harris's.
   const sides = shiftSides(r);
@@ -163,7 +167,7 @@ export function countyCard(r) {
   const view = COUNTY_VIEW[r.id] === 'shift' && canShift ? 'shift' : COUNTY_VIEW[r.id] === 'left' && canLeft ? 'left' : 'results';
   const shift = view === 'shift';
   const who = sides ? lastName(sides.name) : '';
-  const title = view === 'left' ? `Votes left to count, ${by}` : shift ? `Shift from 2024, ${by}` : live || pending ? `Results ${by}` : `How the ${r.state === 'AK' ? 'state House districts' : many} voted in 2024`;
+  const title = view === 'left' ? `Votes left to count, ${by}` : shift ? `Shift from 2024, ${by}` : live || pending ? `Results ${by}` : `How the ${level === 'district' ? 'state House districts' : many} voted in 2024`;
   const source = store.sim ? 'Simulated counts.' : 'AP counts via The New York Times.';
   // Down-ballot races (lieutenant governor, attorney general, secretary of state) aren't in the results feed, so
   // their map stays the 2024 vote and mustn't promise live results.
@@ -176,8 +180,10 @@ export function countyCard(r) {
     : pending === 'loading' ? `Loading the ${one} results…`
     : pending ? `The ${one} results for this race aren’t available yet.`
     : !tracked ? `Presidential vote ${by}, 2024 (Harris vs. Trump), for reference. Ballot Desk follows the count only in Senate, House and governor races.`
-    : nightMode() ? `${one[0].toUpperCase() + one.slice(1)} results appear as soon as ${many} report.` : `Presidential vote ${by}, 2024 (Harris vs. Trump). On election night this map switches to live ${one} results.`,
-    r.state === 'AK' ? 'Alaska counts its votes by state House district rather than by borough, so the map shows its 40 House districts. Zoom in for Anchorage.' : null,
+    : nightMode() ? `${upper(areaWord(liveLevel(r.state)))} results appear as soon as ${areaWord(liveLevel(r.state), true)} report.`
+    : `Presidential vote ${by}, 2024 (Harris vs. Trump). On election night this map switches to live ${areaWord(liveLevel(r.state))} results.`,
+    level === 'district' ? 'Alaska counts its votes by state House district rather than by borough, so the map shows its 40 House districts. Zoom in for Anchorage.' : null,
+    level === 'town' ? 'New England counts its votes by town, so the map shows towns.' : null,
   ].filter(Boolean).join(' ');
   const card = h('section', { class: 'section card' });
   const pick = (k) => { COUNTY_VIEW[r.id] = k; card.replaceWith(countyCard(r)); };
@@ -191,7 +197,7 @@ export function countyCard(r) {
     countyMap(r.state, { raceId: r.id, zoomKey: `county-${r.id}`, view,
       shiftKey: (bands) => shiftLegend({ caption: 'change from the 2024 presidential margin (points)', left: sides.party, right: 'R',
         leftName: sides.party === 'D' ? 'Democrats' : who, bands, extras: [['hatch', 'Still counting'], ['var(--novotes)', 'No votes yet']] }) }),
-    shift || view === 'left' ? null : countyLegend(r, !!live || !!pending),
+    shift || view === 'left' ? null : countyLegend(r, !!live || !!pending, level),
     note ? h('p', { class: 'xs muted', style: { margin: '6px 0 0' } }, note) : null,
   ].filter(Boolean));
   return card;

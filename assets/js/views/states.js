@@ -4,7 +4,7 @@ import { store, cur } from '../store.js';
 import { raceCard, raceColumns, electionBanner, pollCloseText } from './common.js';
 import { stateGrid } from './home.js';
 import { usMap, mapLegend, probMini, marginLegend } from '../charts.js';
-import { stateDistrictMap, countyMap, countyResults, countyLegend, countyPending, areaWord, byArea } from '../maps.js';
+import { stateDistrictMap, countyMap, countyResults, countyLegend, countyPending, areaLevel, areaWord, byArea } from '../maps.js';
 import { nightMode } from '../store.js';
 import { wantCounties } from '../live.js';
 import { navigate } from '../nav.js';
@@ -100,23 +100,23 @@ function stateMapCard(st, house, statewide) {
   const hint = h('span', { class: 'xs muted' });
   const seg = h('div', { class: 'seg' });
   // Alaska's county-style maps show its state House districts, so its U.S. House map gets a name that can't be
-  // mistaken for them.
-  const one = areaWord(code), by = byArea(code, true);
+  // mistaken for them. New England's live maps show towns; its 2024 map, counties.
   const opts = [['districts', code === 'AK' ? 'U.S. House' : 'House districts']];
-  if (nightMode()) countyRaces.forEach(r => opts.push([r.id, `${r.office} ${by}`]));
-  opts.push(['pres24', `2024 ${by}`]);
+  if (nightMode()) countyRaces.forEach(r => opts.push([r.id, `${r.office} ${byArea(areaLevel(code, r.id), true)}`]));
+  opts.push(['pres24', `2024 ${byArea(areaLevel(code), true)}`]);
   const draw = () => {
     seg.querySelectorAll('button').forEach((b, i) => b.classList.toggle('on', opts[i][0] === view));
+    const level = areaLevel(code, view === 'districts' || view === 'pres24' ? null : view), one = areaWord(level);
     hint.textContent = view === 'districts' ? `${house.length > 1 ? `${house.length} districts` : 'At-large district'} · 2026 lines` : `Hover a ${one} for details`;
     if (view === 'districts') {
       body.replaceChildren(stateDistrictMap(code, { zoomKey: `state-${code}` }), marginLegend({ check: false, ind: false }));
     } else {
       const raceId = view === 'pres24' ? null : view;
       const live = !!(raceId && countyResults(raceId)), pending = raceId ? countyPending(raceId) : null;
-      body.replaceChildren(countyMap(code, { raceId, zoomKey: `stcounty-${code}-${view}` }), countyLegend(raceId ? store.byId[raceId] : null, live || !!pending),
+      body.replaceChildren(countyMap(code, { raceId, zoomKey: `stcounty-${code}-${view}` }), countyLegend(raceId ? store.byId[raceId] : null, live || !!pending, level),
         h('p', { class: 'xs muted', style: { margin: '6px 0 0' } }, live ? `Live ${one} results, shaded by leader and margin.`
           : pending === 'loading' ? `Loading the ${one} results…` : pending ? `The ${one} results for this race aren’t available yet.`
-          : `2024 presidential vote ${byArea(code)} (Harris vs. Trump).`));
+          : `2024 presidential vote ${byArea(level)} (Harris vs. Trump).`));
     }
   };
   opts.forEach(([k, label]) => seg.appendChild(h('button', { type: 'button', onclick: () => { view = k; MAPVIEW[code] = k; draw(); } }, label)));

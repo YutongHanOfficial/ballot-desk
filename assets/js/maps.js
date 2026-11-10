@@ -310,10 +310,13 @@ function buildStateMap(code, topo, { highlight, width: W, maxHeight, zoomKey }) 
 
 // ------------------------------------------------------------------------------------------- county maps
 
-/** County results for a race right now: a simulation's synthetic counts, or the live NYT race file. */
+/**
+ * Map results for a race right now: a simulation's synthetic counts, or the live NYT race file's, by town for New
+ * England (see areaLevel) and by county (Alaska: state House district) everywhere else.
+ */
 export function countyResults(raceId) {
   if (store.sim) return store.live.results[raceId]?.counties || null;
-  return store.live.counties?.[raceId] || null;
+  return store.live.towns?.[raceId] || store.live.counties?.[raceId] || null;
 }
 
 /**
@@ -329,13 +332,28 @@ export function countyPending(raceId) {
   return store.live.countyMissing?.[raceId] ? 'missing' : 'loading';
 }
 
+const TOWN_STATES = new Set(['CT', 'ME', 'MA', 'NH', 'RI', 'VT']);
+
 /**
- * What a state's county-map areas are called. Alaska counts its votes by state House district, so its map shows
- * those; everywhere else, counties (Connecticut's are its planning regions, Louisiana's parishes).
+ * What a state's map shows for a race: 'district' for Alaska, which counts its votes by state House district; 'town'
+ * for New England's live race maps, as it counts by town (from the race's town results, or while they load); and
+ * 'county' otherwise, including the 2024 map and simulations (Connecticut's counties are its planning regions,
+ * Louisiana's parishes).
  */
-export const areaWord = (code, many = false) => code === 'AK' ? (many ? 'districts' : 'district') : (many ? 'counties' : 'county');
-/** 'by county', or for Alaska 'by state House district' ('by district' when short). */
-export const byArea = (code, short = false) => code === 'AK' ? (short ? 'by district' : 'by state House district') : 'by county';
+export function areaLevel(code, raceId = null) {
+  if (code === 'AK') return 'district';
+  const race = raceId && store.byId[raceId];
+  if (!TOWN_STATES.has(code) || !race || store.sim || !nightMode() || awaiting(race)) return 'county';
+  return store.live.towns?.[raceId] || countyPending(raceId) ? 'town' : 'county';
+}
+
+const AREA_WORDS = { county: ['county', 'counties'], district: ['district', 'districts'], town: ['town', 'towns'] };
+/** What a map level's areas are called: 'county' / 'counties', 'district', 'town'. */
+export const areaWord = (level, many = false) => AREA_WORDS[level][many ? 1 : 0];
+/** 'by county', 'by town', or for Alaska 'by state House district' ('by district' when short). */
+export const byArea = (level, short = false) => level === 'district' ? (short ? 'by district' : 'by state House district') : `by ${level}`;
+/** The level a state's live race maps use once votes come in, for text written before they do. */
+export const liveLevel = (code) => code === 'AK' ? 'district' : TOWN_STATES.has(code) ? 'town' : 'county';
 
 /**
  * Votes still to count in each county of a race, with who leads it so far: { total, counties: { fips: { left,
@@ -347,9 +365,11 @@ export function countyVotesLeft(raceId) {
   if (!live) return null;
   const counties = {};
   let total = 0;
-  for (const [fips, [share, l, r, counted, expected]] of Object.entries(live)) {
+  for (const [fips, [share, l, r, counted, expected, allIn]] of Object.entries(live)) {
+    // The AP's estimate even where every precinct is in with no votes (some of Maine's unorganized territories): absentee
+    // ballots can still come, and the race's own count of votes left uses the same estimate.
     const left = expected > 0 ? Math.max(0, expected - counted) : share > 0 && share < 1 ? (counted * (1 - share)) / share : 0;
-    counties[fips] = { left, counted, share, m: counted > 0 ? (100 * (l - r)) / counted : null };
+    counties[fips] = { left, counted, share, m: counted > 0 ? (100 * (l - r)) / counted : null, allIn: !!allIn };
     total += left;
   }
   return { total, counties };
@@ -373,8 +393,8 @@ function votesLeftKey(race, maxLeft) {
 }
 
 /** Under the votes-left map: how many votes are left, how they split by who leads each county, and where most are. */
-function votesLeftSummary(race, fc, VL, suffix) {
-  const one = areaWord(race.state), many = areaWord(race.state, true);
+function votesLeftSummary(race, fc, VL, suffix, level) {
+  const one = areaWord(level), many = areaWord(level, true);
   const names = Object.fromEntries(fc.features.map(f => [f.properties.id, f.properties.n + suffix]));
   const rows = Object.entries(VL.counties).filter(([fips, x]) => x.left >= 1 && names[fips]).sort((a, b) => b[1].left - a[1].left);
   if (!rows.length) return h('p', { class: 'small muted vl-summary' }, `By the AP’s estimates, every ${one} has finished counting.`);
@@ -401,10 +421,13 @@ function votesLeftSummary(race, fc, VL, suffix) {
 }
 
 /** Key for the county maps: the same margin scale, by candidate on election night, by party for 2024. */
-export function countyLegend(race = null, live = false) {
+export function countyLegend(race = null, live = false, level = 'county') {
   if (!race || !live) return marginLegend({ results: false, caption: '2024 presidential margin (points)', leftName: 'Harris (D)', rightName: 'Trump (R)', extras: [] });
-  return marginLegend({ results: true, caption: `lead in the ${areaWord(race.state)} (points)`, left: race.leftParty, right: race.rightParty,
-    leftName: lastNameOf(race.left), rightName: lastNameOf(race.right), extras: [['var(--novotes)', 'No votes yet'], ['var(--await)', 'Polls open']] });
+  // Town maps are only drawn once polls close; some of their areas report no votes of their own (unorganized
+  // territories, grants and gores), drawn in the plain map colour.
+  const extras = level === 'town' ? [['var(--novotes)', 'No votes yet'], ['var(--none)', 'No votes reported']] : [['var(--novotes)', 'No votes yet'], ['var(--await)', 'Polls open']];
+  return marginLegend({ results: true, caption: `lead in the ${areaWord(level)} (points)`, left: race.leftParty, right: race.rightParty,
+    leftName: lastNameOf(race.left), rightName: lastNameOf(race.right), extras });
 }
 
 /**
@@ -427,7 +450,11 @@ export function shiftSides(race) {
  * still counting.
  */
 export function countyMap(code, { raceId = null, width = 720, maxHeight = 540, compact = false, zoomKey = null, view = 'results', shiftKey = null } = {}) {
-  return withGeo([`/data/geo/counties/${code}.json`, COUNTY_BASE_URL], (topo, base) => buildCountyMap(code, topo, base, { raceId, width, maxHeight, compact, zoomKey, view, shiftKey }), compact ? 200 : 360);
+  // New England's live maps show towns, compared in the shift view with each town's 2024 vote from the race file.
+  const level = areaLevel(code, raceId);
+  const shapes = level === 'town' ? `/data/geo/towns/${code}.json` : `/data/geo/counties/${code}.json`;
+  return withGeo([shapes, COUNTY_BASE_URL], (topo, base) => buildCountyMap(code, topo, level === 'town' ? store.live.towns2024?.[raceId] || {} : base,
+    { level, raceId, width, maxHeight, compact, zoomKey, view, shiftKey }), compact ? 200 : 360);
 }
 
 /** 'D+4.2', 'R+3.1', an independent's 'Osborn +2.0', or 'Even'. */
@@ -436,7 +463,7 @@ function sideLabel(m, tag) {
   return v < 0.05 ? 'Even' : `${m > 0 ? tag : 'R'}${m > 0 && tag.length > 1 ? ' ' : ''}+${v.toFixed(1)}`;
 }
 
-function buildCountyMap(code, topo, base, { raceId, width: W, maxHeight, compact, zoomKey, view, shiftKey }) {
+function buildCountyMap(code, topo, base, { level, raceId, width: W, maxHeight, compact, zoomKey, view, shiftKey }) {
   const fc = topojson.feature(topo, topo.objects.counties);
   const { path, H } = stateFrame(fc, W, maxHeight);
   const race = raceId ? store.byId[raceId] : null;
@@ -445,7 +472,7 @@ function buildCountyMap(code, topo, base, { raceId, width: W, maxHeight, compact
   const waiting = night && awaiting(race);
   const pending = race ? countyPending(raceId) : null;   // votes in, county results not: blank areas, not 2024's map
   const liveMode = night && (!!live || waiting || !!pending);
-  const one = areaWord(code), many = areaWord(code, true);
+  const one = areaWord(level), many = areaWord(level, true);
   const sides = view === 'shift' && liveMode && !waiting && live ? shiftSides(race) : null;
   const tag = sides ? (sides.party === 'D' ? 'D' : lastNameOf(sides.name)) : null;
   const stillCounting = [];   // shift view: counties under 95% of their expected vote, striped
@@ -462,20 +489,26 @@ function buildCountyMap(code, topo, base, { raceId, width: W, maxHeight, compact
   const VL = view === 'left' && liveMode && !waiting && live ? countyVotesLeft(raceId) : null;
   const tips = new Map(), shapes = new Map();
   const tip = tooltip();
-  const svg = s('svg', { viewBox: `0 0 ${W} ${H}`, class: `district-map county-map${compact ? ' compact' : ''}`, role: 'img', 'aria-label': `${store.stateByCode[code]?.name} ${code === 'AK' ? 'state House districts' : many}` });
+  const svg = s('svg', { viewBox: `0 0 ${W} ${H}`, class: `district-map county-map${compact ? ' compact' : ''}`, role: 'img', 'aria-label': `${store.stateByCode[code]?.name} ${level === 'district' ? 'state House districts' : many}` });
   const layer = s('g');
   const suffix = code === 'LA' ? ' Parish' : '';
   for (const f of fc.features) {
     const fips = f.properties.id, name = f.properties.n + suffix;
     let fill = 'var(--none)', html;
-    if (VL) {
+    const v0 = live && live[fips];
+    if (f.properties.x || (liveMode && !waiting && !VL && v0 && !v0[3] && v0[5])) {
+      // A town-map area the results feed has no count for (an unorganized territory, grant or gore), or one that has
+      // reported every precinct with no votes: plain, like the land around the map, and never "no votes yet". (The
+      // votes-left view still shows what the AP expects there.)
+      html = `<div class="tt-title">${esc(name)}</div><div class="muted">${f.properties.x ? 'No separate count is reported here' : 'All precincts in; no votes reported here'}</div>`;
+    } else if (VL) {
       const x = VL.counties[fips];
       html = `<div class="tt-title">${esc(name)}</div>` + (x && x.counted > 0
         ? `<div class="tt-row"><span>Votes left (estimate)</span><b>${num(Math.round(x.left))}</b></div>` +
           `<div class="tt-row"><span>Counted</span><b>${countedText(x.share)}</b></div>` +
           `<div class="tt-row"><span>Leads so far</span><b style="color:${partyVar(x.m >= 0 ? race.leftParty : race.rightParty)}">${esc(leadText(race, x.m))}</b></div>` +
           `<div class="tt-row muted"><span>Counted so far</span><span>${x.counted.toLocaleString()} votes</span></div>`
-        : x ? `<div class="tt-row"><span>Votes expected</span><b>${num(Math.round(x.left))}</b></div><div class="muted">No votes counted yet</div>`
+        : x ? `<div class="tt-row"><span>Votes expected</span><b>${num(Math.round(x.left))}</b></div><div class="muted">${x.allIn ? 'All precincts in, but the AP still expects votes' : 'No votes counted yet'}</div>`
         : `<div class="muted">No results for this ${one} yet</div>`);
       tips.set(fips, html);
     } else if (sides) {
@@ -572,13 +605,13 @@ function buildCountyMap(code, topo, base, { raceId, width: W, maxHeight, compact
   }
   svg.appendChild(layer);
   const frame = h('div', { class: 'map-frame' }, svg);
-  // Alaska's map is mostly vast rural districts; zooming further lets Anchorage's small ones be told apart.
-  if (zoomKey && !compact) frame.appendChild(zoomButtons(attachZoom(svg, layer, { key: zoomKey, width: W, height: H, maxK: code === 'AK' ? 40 : 10 })));
+  // Alaska's map is mostly vast rural districts, New England's towns are small: zooming further lets them be told apart.
+  if (zoomKey && !compact) frame.appendChild(zoomButtons(attachZoom(svg, layer, { key: zoomKey, width: W, height: H, maxK: code === 'AK' || level === 'town' ? 40 : 10 })));
   frame.dataset.mode = VL ? 'left' : sides ? 'shift' : pending ? 'pending' : liveMode ? 'live' : 'baseline';
   if (compact && night) frame.appendChild(h('span', { class: 'map-tag' }, waiting ? 'Polls open'
     : pending ? (pending === 'loading' ? `Loading ${many}` : `No ${one} results yet`)
     : liveMode ? (store.sim ? 'Simulated counts' : 'Live counts') : '2024 vote'));
-  if (VL) return h('div', null, frame, maxLeft ? votesLeftKey(race, maxLeft) : null, votesLeftSummary(race, fc, VL, suffix));
+  if (VL) return h('div', null, frame, maxLeft ? votesLeftKey(race, maxLeft) : null, votesLeftSummary(race, fc, VL, suffix, level));
   return sides && shiftKey ? h('div', null, frame, shiftKey(bands)) : frame;
 }
 

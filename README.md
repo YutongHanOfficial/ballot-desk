@@ -48,15 +48,23 @@ turns them into:
 - `data/geo/cd/XX.json`: each state at higher detail, for state pages and the district locator on race pages
 - `data/geo/house-hex.json`: the equal-size hexagon map, a cartogram of the states (each sized by its House seats) cut into one hexagon per district (`pipeline/hex_layout.mjs`; `npm run hex` rebuilds just this file)
 - `data/geo/counties/XX.json` + `data/geo/counties-2024.json`: county maps and the 2024 presidential vote by county
-- `assets/js/ct-towns.js`: Connecticut's towns by planning region (see below)
+- `data/geo/towns/XX.json` + `assets/js/ne-towns.js`: New England's towns for its live race maps, and the table that
+  matches the results feed's towns to them and Connecticut's towns to its planning regions (see below)
 
 They are built once and committed. To rebuild: `npm install && npm run geo` (needs `unzip`);
-`npm run geo -- alaska connecticut` rebuilds just Alaska's map and the Connecticut table.
+`npm run geo -- alaska towns` rebuilds just Alaska's map and New England's towns.
 
-The live county results come from each race's NYT file. Most states report by county. New England reports by town:
-`countyEntries()` in live.js adds the towns into their counties, skipping wards and other parts of towns (their town
-already counts them). Connecticut's towns carry the old counties while its map shows the nine planning regions, so
-`assets/js/ct-towns.js` (from the Census Bureau's 2025 county subdivisions) says which region each town is in. Alaska
+The live county results come from each race's NYT file. Most states report by county. New England reports by town,
+so its live race maps show towns (`areaLevel()` in maps.js; the 2024 map and simulations stay by county).
+`countyEntries()` in live.js builds both levels and each town's 2024 vote (from the units' historical comparison) for
+the shift view, skipping wards and other parts of towns, which their town already counts. `buildNewEnglandTowns()` in
+build_geo.mjs matches the feed's towns to the Census Bureau's 2025 county subdivisions: by code, except Maine (by name
+and kind: town, plantation, unorganized territory, reservation) and four Massachusetts towns with new codes. Maine's
+feed also lists unorganized townships its territories already include; they are skipped (the build checks every
+state's towns add up to its total). Connecticut's towns carry the old counties while its county map shows the nine
+planning regions. Areas with no count of their own (unorganized grants, gores) and ones that reported every precinct
+with no votes are drawn plain (the votes-left view keeps the AP's estimate for the latter, as the race's total does). `assets/js/ne-towns.js` is loaded only for those races, at a new address on a retry,
+since browsers remember a module that failed. Alaska
 reports by state House district, so its "county" map is its 40 House districts (Census 2025 cartographic boundaries,
 ids `02H01` to `02H40`, simplified more for the vast rural districts than for Anchorage's), with the 2024
 presidential vote by district added up from the Alaska Division of Elections' official results by precinct
