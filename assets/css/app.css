@@ -28,11 +28,16 @@
   --dem-tilt: #89b3fd; --dem-lean: #6798ef; --dem-likely: #447ce0; --dem-safe: #1f5fd1;
   --rep-tilt: #fc978c; --rep-lean: #ef796d; --rep-likely: #e0584e; --rep-safe: #d0312d;
   --ind-tilt: #bea7f2; --ind-lean: #a78ae3; --ind-likely: #906dd4; --ind-safe: #7b4fc4;
+  /* Two more families for the archive's other parties (Whigs, Democratic-Republicans and the like), same steps. */
+  --gold-tilt: #f2d48c; --gold-lean: #e3b550; --gold-likely: #c99624; --gold-safe: #a3780d;
+  --teal-tilt: #94d6cd; --teal-lean: #5cbbae; --teal-likely: #2e9a8e; --teal-safe: #13786d; --teal: #1d8a7f;
   --oth: #8d8a84;
   --toss: #d8d1e2;
   --none: #e9e6e0;
   --live: #e0322b;
   --gold: #b88a12;
+  /* text versions of the gold, teal and grey families: 4.5:1 or better on white */
+  --gold-text: #8a6508; --teal-text: #13786d; --oth-text: var(--muted);
 
   --radius: 10px;
   --radius-sm: 6px;
@@ -53,7 +58,9 @@
     --dem-tilt: #c2d4f7; --dem-lean: #86a8ef; --dem-likely: #4f83e8; --dem-safe: #2d63d3;
     --rep-tilt: #f7cbc8; --rep-lean: #f08f8a; --rep-likely: #e8504a; --rep-safe: #c93a34;
     --ind-tilt: #ddd2f7; --ind-lean: #bba5f0; --ind-likely: #9b74e8; --ind-safe: #7f55d0;
-    --oth: #8e939a; --toss: #cbc4d8; --none: #1f2329; --gold: #d9a92c;
+    --gold-tilt: #f5e4b3; --gold-lean: #eac76d; --gold-likely: #d1a234; --gold-safe: #a88016;
+    --teal-tilt: #b6e7e0; --teal-lean: #7ccbc1; --teal-likely: #43aa9e; --teal-safe: #20877c; --teal: #3fb3a6;
+    --oth: #8e939a; --toss: #cbc4d8; --none: #1f2329; --gold: #d9a92c; --gold-text: #d9a92c; --teal-text: #3fb3a6; --oth-text: #8e939a;
     --shadow: 0 1px 2px rgba(0, 0, 0, .3), 0 2px 10px rgba(0, 0, 0, .25);
     color-scheme: dark;
   }
@@ -67,7 +74,9 @@
   --dem-tilt: #c2d4f7; --dem-lean: #86a8ef; --dem-likely: #4f83e8; --dem-safe: #2d63d3;
   --rep-tilt: #f7cbc8; --rep-lean: #f08f8a; --rep-likely: #e8504a; --rep-safe: #c93a34;
   --ind-tilt: #ddd2f7; --ind-lean: #bba5f0; --ind-likely: #9b74e8; --ind-safe: #7f55d0;
-  --oth: #8e939a; --toss: #cbc4d8; --none: #1f2329; --gold: #d9a92c;
+  --gold-tilt: #f5e4b3; --gold-lean: #eac76d; --gold-likely: #d1a234; --gold-safe: #a88016;
+  --teal-tilt: #b6e7e0; --teal-lean: #7ccbc1; --teal-likely: #43aa9e; --teal-safe: #20877c; --teal: #3fb3a6;
+  --oth: #8e939a; --toss: #cbc4d8; --none: #1f2329; --gold: #d9a92c; --gold-text: #d9a92c; --teal-text: #3fb3a6; --oth-text: #8e939a;
   --shadow: 0 1px 2px rgba(0, 0, 0, .3), 0 2px 10px rgba(0, 0, 0, .25);
   color-scheme: dark;
 }
@@ -865,6 +874,12 @@ html.bc-transparent, html.bc-transparent body { background: transparent !importa
 .ar-cand .cand-line { gap: 7px; }
 .ar-note { margin-top: 2px; padding-left: 26px; line-height: 1.35; max-width: 340px; }
 .ar-filter { display: flex; justify-content: flex-end; margin: 16px 0 8px; }
+.ar-eras { margin-bottom: 14px; }
+.legend i.lg-hatch { background: repeating-linear-gradient(135deg, var(--oth) 0 3px, var(--surface) 3px 5px); }
+.legend i.lg-blank { background: var(--norace); box-shadow: inset 0 0 0 1px var(--line-2); }
+.fam-chip { display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 6px; vertical-align: -1px; }
+.ar-ev-list { display: flex; flex-wrap: wrap; gap: 4px 14px; margin-top: 8px; font-size: 14px; font-variant-numeric: tabular-nums; }
+.ar-evs { white-space: nowrap; }
 .ar-filter select { max-width: 240px; }
 .yr-nav { display: flex; align-items: center; gap: 8px; margin-top: 14px; }
 .yr-list { position: relative; display: flex; gap: 4px; overflow-x: auto; scrollbar-width: thin; padding-bottom: 4px; min-width: 0; }

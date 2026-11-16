@@ -1,5 +1,7 @@
-// The archive: every federal general election since 1976 (/archive) and a page for each one (/archive/2024).
-// Data from pipeline/build_archive.mjs: official returns compiled by the MIT Election Data and Science Lab.
+// The archive: every federal general election since the first in 1788-89 (/archive) and a page for each one
+// (/archive/2024). Data from pipeline/build_archive.mjs: from 1976, official returns compiled by the MIT Election Data
+// and Science Lab; before that, less complete, presidential results from Wikipedia's tables and the House and Senate
+// splits from the two chambers' historians (views/archive-early.js).
 import { h, num, partyChip, partyVar, sortableTable, esc, marginFill } from '../ui.js';
 import { store } from '../store.js';
 import {
@@ -7,6 +9,7 @@ import {
   marginLabel, shiftLabel, pctOf, stateName, WHOLE_STATE, nationalCountyMap, nationalStateMap, resultLegend, ttRow, ttTitle,
 } from '../archive.js';
 import { shiftMap, swingUrl } from './swing.js';
+import { earlyCard, earlyYearPage, earlySummary } from './archive-early.js';
 
 const PARTY_WORD = { D: 'Democrats', R: 'Republicans', O: 'independents' };
 const colored = (party, text, tag = 'span') => h(tag, { style: { color: partyVar(party) } }, text);
@@ -17,7 +20,7 @@ const marginCell = (m) => (m === null ? h('span', { class: 'muted' }, '—') : c
 export function renderIndex(root) {
   root.append(
     h('header', { class: 'page-head' }, h('div', { class: 'eyebrow' }, 'Archive'), h('h1', null, 'Past elections'),
-      h('p', { class: 'dek' }, 'Every federal general election since 1976: who won the White House, the Senate races and the House, with maps by state and, from 2000, by county. The results are official returns compiled by the MIT Election Data and Science Lab.')),
+      h('p', { class: 'dek' }, 'Every federal general election since the first, in 1788–89: who won the White House and how each state voted, and who held the House and Senate. From 1976 there is more: every Senate and House race, and maps by county from 2000. Results since 1976 are official returns compiled by the MIT Election Data and Science Lab. Earlier presidential results come from Wikipedia’s tables, and the House and Senate splits from the two chambers’ historians.')),
     h('section', { class: 'card sw-teaser' },
       h('div', { class: 'card-title' }, 'How the map has shifted', h('a', { class: 'more', href: '/swing' }, 'Open the swing map →')),
       h('p', { class: 'small', style: { margin: '0 0 10px' } }, 'From 2020 to 2024, county by county. Each arrow points left where the margin moved toward Democrats and right where it moved toward Republicans; the longer the arrow, the bigger the shift.'),
@@ -25,7 +28,25 @@ export function renderIndex(root) {
       h('div', { class: 'sw-teaser-foot' }, h('a', { class: 'btn small', href: swingUrl({ from: 2020, to: 2024, level: 'counties', style: 'arrows' }) }, 'Compare any two elections'))),
     h('section', { class: 'section' },
       h('div', { class: 'section-head' }, h('div', null, h('h2', null, 'Every election'), h('p', null, 'Presidential years and midterms, newest first.'))),
-      withData([INDEX_URL], (idx) => h('div', { class: 'ar-grid' }, [...idx.years].reverse().map(electionCard)), 640)));
+      withData([INDEX_URL], (idx) => eraGrid(idx), 640)));
+}
+
+// 119 elections are too many for one grid: one era at a time, remembered for the visit.
+const ERAS = [['1976', 'Since 1976', (y) => y >= 1976], ['1900', '1900–1974', (y) => y >= 1900 && y < 1976], ['1788', '1788–1898', (y) => y < 1900]];
+let era = '1976';
+function eraGrid(idx) {
+  const wrap = h('div');
+  const seg = h('div', { class: 'seg ar-eras', role: 'group', 'aria-label': 'Era' });
+  const draw = () => {
+    seg.querySelectorAll('button').forEach((b, i) => { const on = ERAS[i][0] === era; b.classList.toggle('on', on); b.setAttribute('aria-pressed', String(on)); });
+    const keep = ERAS.find(x => x[0] === era)[2];
+    grid.replaceChildren(...[...idx.years].reverse().filter(e => keep(e.year)).map(e => (e.early ? earlyCard(e) : electionCard(e))));
+  };
+  for (const [k, label] of ERAS) seg.appendChild(h('button', { type: 'button', onclick: () => { era = k; draw(); } }, label));
+  const grid = h('div', { class: 'ar-grid' });
+  wrap.append(seg, grid);
+  draw();
+  return wrap;
 }
 
 function seats(w) {
@@ -65,8 +86,9 @@ export function renderYear(root, year) {
     const e = idx.years.find(x => x.year === y);
     if (!e) {
       return h('div', { class: 'card not-found' }, h('div', { class: 'eyebrow' }, 'Archive'), h('h1', null, `No ${year} election in the archive`),
-        h('p', { class: 'dek' }, 'The archive covers the general elections from 1976 to 2024.'), h('a', { class: 'btn primary', href: '/archive' }, 'Every election'));
+        h('p', { class: 'dek' }, 'The archive covers the general elections from 1788–89 to 2024, held in even years.'), h('a', { class: 'btn primary', href: '/archive' }, 'Every election'));
     }
+    if (e.early) return withData([yearUrl(y)], (data) => h('div', null, yearHead(e, idx, earlySummary(e, data)), earlyYearPage(e, data)), 900);
     const urls = [yearUrl(y), ...(e.presidential ? [PRESIDENT_URL] : [])];
     return h('div', null, yearHead(e, idx), withData(urls, (data, pres) => h('div', null,
       e.presidential ? presidentSection(e, pres) : null,
@@ -76,32 +98,35 @@ export function renderYear(root, year) {
   }, 600));
 }
 
-function yearHead(e, idx) {
+function yearHead(e, idx, summary = null) {
   const y = e.year;
   const p = e.president;
-  const parts = [];
-  if (p) {
+  const parts = summary ? [summary] : [];
+  if (p && !summary) {
     const win = p.ev.D > p.ev.R ? 'D' : 'R', lose = win === 'D' ? 'R' : 'D';
     const pw = pctOf(p.votes[win], p.votes.total), pl = pctOf(p.votes[lose], p.votes.total);
     parts.push(`${p[win]} won the presidency with ${p.ev[win]} electoral votes to ${p[lose]}’s ${p.ev[lose]}, ${p.votes[win] > p.votes[lose] ? `and ${pw} of the popular vote to ${pl}` : `while losing the popular vote, ${pw} to ${pl}`}.`);
   }
-  const hs = e.house.seats, hw = hs.D > hs.R ? 'D' : 'R', hl = hw === 'D' ? 'R' : 'D';
-  parts.push(`${PARTY_WORD[hw]} won ${hs[hw]} House seats to ${PARTY_WORD[hl].replace(/s$/, 's’')} ${hs[hl]}${hs.O ? `, with ${hs.O} independent${hs.O > 1 ? 's' : ''}` : ''}.`);
-  const sw = e.senate.won;
-  parts.push(`Of the ${e.senate.races} Senate races, Democrats won ${sw.D} and Republicans ${sw.R}${sw.O ? `; independents won ${sw.O}` : ''}.`);
+  if (!summary) {
+    const hs = e.house.seats, hw = hs.D > hs.R ? 'D' : 'R', hl = hw === 'D' ? 'R' : 'D';
+    parts.push(`${PARTY_WORD[hw]} won ${hs[hw]} House seats to ${PARTY_WORD[hl].replace(/s$/, 's’')} ${hs[hl]}${hs.O ? `, with ${hs.O} independent${hs.O > 1 ? 's' : ''}` : ''}.`);
+    const sw = e.senate.won;
+    parts.push(`Of the ${e.senate.races} Senate races, Democrats won ${sw.D} and Republicans ${sw.R}${sw.O ? `; independents won ${sw.O}` : ''}.`);
+  }
   const years = idx.years.map(x => x.year);
+  const label = (x) => idx.years.find(z => z.year === x)?.label || String(x);
   const i = years.indexOf(y);
-  const list = h('div', { class: 'yr-list' }, years.map(x => h('a', { href: `/archive/${x}`, class: x === y ? 'on' : '', 'aria-current': x === y ? 'page' : null }, String(x))));
+  const list = h('div', { class: 'yr-list' }, years.map(x => h('a', { href: `/archive/${x}`, class: x === y ? 'on' : '', 'aria-current': x === y ? 'page' : null }, label(x))));
   // Scroll the strip to this year (on a phone it starts at 1976 otherwise).
   requestAnimationFrame(() => { const on = list.querySelector('a.on'); if (on) list.scrollLeft = on.offsetLeft - (list.clientWidth - on.offsetWidth) / 2; });
   return h('header', { class: 'page-head' },
-    h('div', { class: 'eyebrow' }, h('a', { href: '/archive' }, 'Archive'), h('span', null, '›'), h('span', null, String(y))),
-    h('h1', null, `The ${y} elections`),
+    h('div', { class: 'eyebrow' }, h('a', { href: '/archive' }, 'Archive'), h('span', null, '›'), h('span', null, label(y))),
+    h('h1', null, `The ${label(y)} elections`),
     h('p', { class: 'dek' }, parts.join(' ')),
     h('nav', { class: 'yr-nav', 'aria-label': 'Other elections' },
-      i > 0 ? h('a', { class: 'yr-step', href: `/archive/${years[i - 1]}` }, `← ${years[i - 1]}`) : null,
+      i > 0 ? h('a', { class: 'yr-step', href: `/archive/${years[i - 1]}` }, `← ${label(years[i - 1])}`) : null,
       list,
-      i < years.length - 1 ? h('a', { class: 'yr-step', href: `/archive/${years[i + 1]}` }, `${years[i + 1]} →`) : h('a', { class: 'yr-step', href: '/forecast' }, '2026 →')));
+      i < years.length - 1 ? h('a', { class: 'yr-step', href: `/archive/${years[i + 1]}` }, `${label(years[i + 1])} →`) : h('a', { class: 'yr-step', href: '/forecast' }, '2026 →')));
 }
 
 const sectionHead = (title, sub) => h('div', { class: 'section-head' }, h('div', null, h('h2', null, title), sub ? h('p', null, sub) : null));
@@ -276,8 +301,9 @@ function footnote(e, data) {
   return h('section', { class: 'section' }, h('p', { class: 'xs muted', style: { maxWidth: '760px' } },
     'Official returns compiled by the MIT Election Data and Science Lab (Harvard Dataverse, CC0). Margins are the winner’s lead over the runner-up, in points of all votes cast. ',
     fixed ? 'Races decided after election night, such as Louisiana’s December runoffs and Maine’s ranked-choice counts, carry a note; where the data mixes a runoff with the first round, only the winner and the runoff opponent are shown. ' : '',
-    'A few races missing from that data were added from the official results reported on Wikipedia.'));
+    'A few races missing from that data were added from the official results reported on Wikipedia.',
+    e.year === 1976 && e.presidential ? ' The shift from 1972 uses 1972 state results from Wikipedia (CC BY-SA 4.0).' : ''));
 }
 
 export const indexTitle = () => 'Past elections';
-export const yearTitle = (y) => `${y} elections`;
+export const yearTitle = (y) => `${+y === 1788 ? '1788–89' : y} elections`;

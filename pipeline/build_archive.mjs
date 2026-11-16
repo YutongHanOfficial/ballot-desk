@@ -8,11 +8,16 @@
 // The House and county files sit behind a Dataverse guestbook, so they are downloaded by hand in a browser.
 //
 // Writes:
-//   data/archive/index.json          one entry per general election, 1976-2024, with the headline numbers
+//   data/archive/index.json          one entry per general election, 1788-2024, with the headline numbers
 //   data/archive/president.json      president by state, every year: { years: { 2024: { D, R, ev, states } } }
 //   data/archive/YYYY.json           one election's Senate and House races
 //   data/archive/counties-YYYY.json  president by county, 2000-2024: { fips: [total, dem, gop] }
 //   data/geo/counties-us.json        every county in one TopoJSON file, simplified for a national map
+//
+// Before 1976 (less complete, no county maps): presidential results by state for 1788-1972, read from each
+// election's Wikipedia article (CC BY-SA 4.0) into pipeline/early/president.json, with the electoral votes checked
+// against the National Archives' records; and the party split of every Congress from the House's and Senate's own
+// historians, in pipeline/early/congress.json. Those files are committed sources.
 //
 // One-time build: `npm run archive` (needs `npm install` for mapshaper, and pipeline/.cache/geo from `npm run geo`).
 // The output is committed; the GitHub Action never runs this. Checks against official electoral votes and House
@@ -469,6 +474,169 @@ function buildCountyMap() {
   return new Set(obj.geometries.map(g => g.properties.id));
 }
 
+// ------------------------------------------------------------------------------------------- before 1976
+
+const EARLY = path.join(ROOT, 'pipeline', 'early');
+// Each year's Democratic and Republican nominees, so the swing map's state view reaches back to 1856. Lincoln ran
+// on the National Union ticket in 1864; the Democrats endorsed the Liberal Republican Horace Greeley in 1872.
+const DR_NOMINEES = {
+  1856: ['buchanan', 'fremont'], 1860: ['douglas', 'lincoln'], 1864: ['mcclellan', 'lincoln'], 1868: ['seymour', 'grant'],
+  1872: ['greeley', 'grant'], 1876: ['tilden', 'hayes'], 1880: ['hancock', 'garfield'], 1884: ['cleveland', 'blaine'],
+  1888: ['cleveland', 'harrison'], 1892: ['cleveland', 'harrison'], 1896: ['bryan', 'mckinley'], 1900: ['bryan', 'mckinley'],
+  1904: ['parker', 'roosevelt'], 1908: ['bryan', 'taft'], 1912: ['wilson', 'taft'], 1916: ['wilson', 'hughes'],
+  1920: ['cox', 'harding'], 1924: ['davis', 'coolidge'], 1928: ['smith', 'hoover'], 1932: ['roosevelt', 'hoover'],
+  1936: ['roosevelt', 'landon'], 1940: ['roosevelt', 'willkie'], 1944: ['roosevelt', 'dewey'], 1948: ['truman', 'dewey'],
+  1952: ['stevenson', 'eisenhower'], 1956: ['stevenson', 'eisenhower'], 1960: ['kennedy', 'nixon'], 1964: ['johnson', 'goldwater'],
+  1968: ['humphrey', 'nixon'], 1972: ['mcgovern', 'nixon'],
+};
+// Electoral votes cast by electors chosen on another candidate's slate: Greeley's, who split their votes after he died in
+// November 1872, and the unpledged Democratic slates whose electors voted for Harry Byrd in 1960. The map gives those
+// states the slate's colour and takes the margin from its popular vote.
+const SLATES = {
+  1872: { greeley: { label: 'Horace Greeley’s electors', cast: ['hendricks', 'brown', 'jenkins', 'davis'] } },
+  1960: { unpledged: { label: 'Harry F. Byrd (unpledged electors)', cast: ['byrd'] } },
+};
+// The two elections the House of Representatives decided: everywhere else the president is the one with the most
+// electoral votes.
+const HOUSE_CHOSE = { 1800: 'jefferson', 1824: 'adams' };
+// Colour hints where a year's candidates share a party: in 1824 all four were Democratic-Republicans, but Jackson's and
+// Adams's followers are the Jacksonians and Adams men of the Congress split on the same page (blue and gold).
+const FAMILY_HINTS = { 1824: { jackson: 'D', adams: 'Y', crawford: 'T' } };
+// States left out of the swing map although both nominees had votes there, because the margin between them means
+// nothing: in 1860 the vote against Lincoln in New Jersey, New York and Pennsylvania went to fusion tickets (counted for
+// Douglas or Breckinridge on the year page), Harrison's 1892 Louisiana slate was shared with the Populists, and Taft had
+// only write-ins in California in 1912.
+const SWING_SKIP = {
+  1860: {
+    PA: ['D', 'most of the vote against Lincoln went to a fusion ticket, not to Douglas'],
+    NJ: ['D', 'the vote against Lincoln went to a fusion ticket, so Douglas’s figure there is the whole anti-Lincoln vote'],
+    NY: ['D', 'the vote against Lincoln went to a fusion ticket, so Douglas’s figure there is the whole anti-Lincoln vote'],
+  },
+  1892: { LA: ['R', 'the Republicans shared their elector slate with the Populists, so Harrison’s figure includes Weaver’s vote'] },
+  1912: { CA: ['R', 'Taft was not on the ballot, so his votes were write-ins'] },
+};
+const plainId = (x) => String(x || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+
+/**
+ * An early year's president for the index card: one entry per slate, most electoral votes first, as [name, party for
+ * its colour, electoral votes, colour hint], and which entry won. A slate keeps the party of its first candidate, as the
+ * year page colours it (archive-early.js earlyFamilies).
+ */
+function indexPresident(r) {
+  const groupOf = Object.fromEntries(r.candidates.map(x => [x.id, x.id]));
+  for (const [key, s] of Object.entries(r.slates || {})) for (const id of s.cast) groupOf[id] = key;
+  const first = new Map();
+  for (const x of r.candidates) if (!first.has(groupOf[x.id])) first.set(groupOf[x.id], x);
+  const groups = [];
+  for (const x of r.candidates.filter(x => x.ev > 0)) {
+    const g = groupOf[x.id], prior = groups.find(q => q.g === g);
+    if (prior) { prior.ev += x.ev; prior.many = true; } else groups.push({ g, ev: x.ev, x });
+  }
+  groups.sort((a, b) => b.ev - a.ev);
+  const won = groups.findIndex(q => q.g === groupOf[r.winner]);
+  const keep = groups.slice(0, 4);
+  if (won >= 4) keep.push(groups[won]);
+  return {
+    cands: keep.map(q => { const lead = first.get(q.g); return [q.many ? r.slates[q.g].label : q.x.name, lead.party, q.ev, lead.family || null]; }),
+    winner: keep.indexOf(groups[won]), popular: r.candidates.some(x => x.pv),
+  };
+}
+
+function buildEarly() {
+  const pres = JSON.parse(fs.readFileSync(path.join(EARLY, 'president.json'), 'utf8'));
+  const cong = JSON.parse(fs.readFileSync(path.join(EARLY, 'congress.json'), 'utf8'));
+  const byElection = Object.fromEntries(cong.congresses.map(c => [c.election, c]));
+  const files = {}, index = [], compat = {};
+  const problems = [];
+  for (const c of cong.congresses) {
+    const y = c.election;
+    const r = pres.years[y] || null;
+    if (r) {
+      // A state's total is at least its candidates' votes (a few totals on the pages are typos, or a margin), and each
+      // candidate's popular vote is the sum of the state returns, so the national shares add up. Where Wikipedia's national
+      // table gives a different figure, the year's notes say so. The exception is a state marked overlap, where voters could
+      // pick electors from more than one slate (Alabama, 1960): its total is the ballots cast, below the sum of the votes.
+      for (const [code, st] of Object.entries(r.states)) {
+        if (!st.votes) continue;
+        const sum = Object.values(st.votes).reduce((t, v) => t + (v || 0), 0);
+        if (st.overlap) { if (!(st.total > 0 && st.total < sum)) problems.push(`${y} ${code}: overlap, but its total isn't below its votes`); }
+        else if (!(st.total >= sum)) st.total = sum;
+      }
+      for (const cand of r.candidates) {
+        const sum = Object.values(r.states).reduce((t, st) => t + (st.votes?.[cand.id] || 0), 0);
+        if (sum > 0) cand.pv = sum;
+      }
+      r.winner = HOUSE_CHOSE[y] || r.candidates[0].id;
+      if (!r.candidates.some(cand => cand.id === r.winner)) problems.push(`${y}: no winner ${r.winner}`);
+      for (const [id, fam] of Object.entries(FAMILY_HINTS[y] || {})) {
+        const cand = r.candidates.find(x => x.id === id);
+        if (cand) cand.family = fam; else problems.push(`${y}: no candidate ${id} for a colour hint`);
+      }
+      if (SLATES[y]) {
+        r.slates = SLATES[y];
+        for (const [key, s] of Object.entries(r.slates)) for (const id of [key, ...s.cast]) {
+          if (!r.candidates.some(cand => cand.id === id)) problems.push(`${y}: slate ${key} names ${id}, not a candidate`);
+        }
+      }
+      // Every candidate's electoral votes must add up across the states, and no state's to more than it had (before 1804
+      // a state's ev is already the votes cast, two per elector).
+      for (const cand of r.candidates) {
+        const sum = Object.values(r.states).reduce((t, st) => t + (st.evs?.[cand.id] || 0), 0);
+        if (sum !== cand.ev) problems.push(`${y} ${cand.name}: states add up to ${sum}, national ${cand.ev}`);
+      }
+      for (const [code, st] of Object.entries(r.states)) {
+        const sum = Object.values(st.evs || {}).reduce((t, v) => t + v, 0);
+        if (sum > st.ev) problems.push(`${y} ${code}: ${sum} electoral votes, more than its ${st.ev}`);
+      }
+      const pair = DR_NOMINEES[y];
+      if (pair) {
+        const find = (id) => r.candidates.find(cand => plainId(cand.id) === id);
+        const D = find(pair[0]), R = find(pair[1]);
+        if (!D || !R) problems.push(`${y}: no candidate ${!D ? pair[0] : pair[1]} for the swing map`);
+        else {
+          const states = {}, offBallot = {}, offNotes = {};
+          let total = 0;
+          for (const [code, st] of Object.entries(r.states)) {
+            if (!st.votes || !(st.total > 0)) continue;   // electors chosen by the legislature: no popular vote
+            total += st.total;
+            // A margin between the two means nothing where one of them had no votes counted: off the ballot (Lincoln in
+            // most of the South, Truman in Alabama) or folded into a fusion ticket (Douglas in New York). Left out.
+            const d = st.votes[D.id] || 0, rv = st.votes[R.id] || 0;
+            if (!d || !rv) { offBallot[code] = `${d ? '' : 'D'}${rv ? '' : 'R'}`; continue; }
+            const skip = SWING_SKIP[y]?.[code];
+            if (skip) { offBallot[code] = skip[0]; offNotes[code] = skip[1]; continue; }
+            states[code] = [st.total, d, rv];
+          }
+          for (const code of Object.keys(SWING_SKIP[y] || {})) if (!offNotes[code]) problems.push(`${y} ${code}: in SWING_SKIP but has no popular vote for both`);
+          compat[y] = {
+            D: D.name, R: R.name, early: true,
+            ev: { D: D.ev, R: R.ev, other: r.candidates.filter(x => x !== D && x !== R && x.ev > 0).map(x => [x.name, x.ev]), note: null },
+            votes: { D: D.pv || 0, R: R.pv || 0, total }, others: [], states,
+            ...(Object.keys(offBallot).length ? { offBallot } : {}), ...(Object.keys(offNotes).length ? { offNotes } : {}),
+          };
+        }
+      }
+    }
+    const label = y === 1788 ? '1788–89' : String(y);
+    const seats = (ch) => ch.seats.filter(([, n]) => n > 0).map(([party, n]) => [party, n]);
+    index.push({
+      year: y, label, early: true, presidential: !!r, counties: false,
+      president: r ? indexPresident(r) : null,
+      congress: { number: c.congress, house: seats(c.house), senate: seats(c.senate) },
+    });
+    // sourceNotes (how each figure was read) stay in the committed source; the page shows only the notes.
+    const pub = r ? Object.fromEntries(Object.entries(r).filter(([k]) => k !== 'sourceNotes')) : null;
+    files[y] = { year: y, label, early: true, president: pub, congress: { number: c.congress, years: c.years, house: c.house, senate: c.senate },
+      sources: [r ? { title: `Wikipedia, "${label} United States presidential election"`, url: r.url, rev: r.rev } : null,
+        { title: `House Office of the Historian, "${cong.house.title}"`, url: cong.house.url },
+        { title: `Senate Historical Office, "${cong.senate.title}"`, url: cong.senate.url }].filter(Boolean) };
+  }
+  for (const y of Object.keys(pres.years)) if (!byElection[y]) problems.push(`${y}: a presidential year with no Congress row`);
+  log(`  ${index.length} elections from ${index[0].year} to ${index[index.length - 1].year}, ${Object.keys(pres.years).length} presidential; swing map from ${Math.min(...Object.keys(compat).map(Number))}`);
+  if (problems.length) { log('  check:', problems); throw new Error('the early results do not add up'); }
+  return { files, index, compat };
+}
+
 // ------------------------------------------------------------------------------------------- main
 
 function main() {
@@ -482,8 +650,12 @@ function main() {
   log('Counties');
   const geoIds = buildCountyMap();
   const { years: counties, notes: countyNotes } = buildCounties(geoIds, president);
+  log('Before 1976');
+  const early = buildEarly();
 
-  const index = [];
+  const index = [...early.index];
+  for (const [y, f] of Object.entries(early.files)) fs.writeFileSync(path.join(OUT, `${y}.json`), JSON.stringify(f));
+  Object.assign(president, early.compat);
   const years = [...new Set([...Object.keys(house.races), ...Object.keys(senate)])].map(Number).filter(y => y % 2 === 0).sort();
   for (const y of years) {
     const hr = house.races[y] || [], sr = senate[y] || [];
@@ -506,8 +678,9 @@ function main() {
     if (counties[y]) fs.writeFileSync(path.join(OUT, `counties-${y}.json`), JSON.stringify(counties[y]));
   }
   fs.writeFileSync(path.join(OUT, 'president.json'), JSON.stringify({ years: president }));
+  index.sort((a, b) => a.year - b.year);
   fs.writeFileSync(path.join(OUT, 'index.json'), JSON.stringify({
-    source: 'MIT Election Data and Science Lab, Harvard Dataverse (CC0)', built: new Date().toISOString().slice(0, 10), years: index,
+    source: 'MIT Election Data and Science Lab, Harvard Dataverse (CC0); before 1976, Wikipedia (CC BY-SA 4.0) and the House and Senate historians', built: new Date().toISOString().slice(0, 10), years: index,
   }));
   const kb = (f) => `${(fs.statSync(f).size / 1024).toFixed(0)} KB`;
   log('Wrote', fs.readdirSync(OUT).length, 'files to data/archive; counties-us.json', kb(path.join(ROOT, 'data', 'geo', 'counties-us.json')),

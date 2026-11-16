@@ -27,7 +27,7 @@
       var path = location.pathname;
       try { path = decodeURIComponent(path); } catch (e) { /* keep it encoded */ }
       var slug = path.toLowerCase().replace(/^\/+|\/+$/g, '').replace(/^(ballot-desk|midterms-2026)(\/|$)/, '')
-        .replace(/(^|\/)index\.html?$/, '').replace(/\.html?$/, '').replace(/[\s_+]+/g, '-');
+        .replace(/(^|\/)index\.html?$/, '').replace(/\.html?$/, '').replace(/[\s_+\u2013\u2014]+/g, '-');
       var byName = {}, byCode = {};
       window.BD_STATES.forEach(function (s) { byName[s[1].toLowerCase().replace(/[^a-z]/g, '')] = s[0]; byCode[s[0]] = s[1]; });
       var PAGES = { '': '', home: '', index: '', overview: 'forecast', forecast: 'forecast', live: 'live', results: 'live',
@@ -41,7 +41,7 @@
       var name = function (s) { return byName[s.replace(/-/g, '')]; };
       if (Object.prototype.hasOwnProperty.call(PAGES, slug)) to = PAGES[slug];
       else if ((m = slug.match(/^downballot\/(offices|legislatures|measures)$/))) to = 'downballot?tab=' + m[1];
-      else if ((m = slug.match(/^(?:(?:archives?|elections?|past-elections)\/)?(19[789]\d|20[0-2]\d)(?:-elections?)?$/)) && +m[1] % 2 === 0 && +m[1] >= 1976 && +m[1] <= 2024) to = 'archive/' + m[1];
+      else if ((m = slug.match(/^(?:(?:archives?|elections?|past-elections)\/)?(1[789]\d\d|20[0-2]\d)(?:-(?:1[789])?\d\d)?(?:-elections?)?$/)) && +m[1] % 2 === 0 && +m[1] >= 1788 && +m[1] <= 2024) to = 'archive/' + m[1];
       else if ((m = slug.match(/^(?:states?\/)?([a-z]{2})$/)) && byCode[m[1].toUpperCase()]) to = 'state/' + m[1].toUpperCase();
       else if ((m = slug.match(/^(?:states?\/)?([a-z-]+)$/)) && name(m[1])) to = 'state/' + name(m[1]);
       else if ((m = slug.match(/^(?:races?\/)?([a-z]{2})-?(\d{1,2}|al|at-large|sen|senate|gov|governor|ltgov|ag|sos)$/)) && byCode[m[1].toUpperCase()]) {

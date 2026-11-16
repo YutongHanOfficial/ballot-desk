@@ -1,6 +1,6 @@
 // The swing map (/swing): how the presidential vote moved between two elections, county by county (2000 on) or
-// state by state (1976 on), as arrows or shading. The choice lives in the address (?from=2020&to=2024), so it can be shared.
-import { h, num, partyVar, sortableTable, esc } from '../ui.js';
+// state by state (1856 on), as arrows or shading. The choice lives in the address (?from=2020&to=2024), so it can be shared.
+import { h, num, partyVar, sortableTable, esc, lastName } from '../ui.js';
 import {
   withData, PRES_YEARS, COUNTY_YEARS, COUNTY_GEO, PRESIDENT_URL, INDEX_URL, countiesUrl, marginOf, marginLabel, shiftLabel,
   shiftWords, shiftFill, stateOfFips, stateName, WHOLE_STATE, nationalCountyMap, nationalStateMap, countyCentres, stateCentroids,
@@ -8,6 +8,32 @@ import {
 } from '../archive.js';
 
 const COUNTY_K = 1.6, STATE_K = 2.4;   // arrow length in map pixels per point of shift
+
+// Runs outside the two parties big enough to move a year's margins, named in the notes when that year is picked.
+const THIRD_PARTY = {
+  1856: 'Millard Fillmore’s run in 1856', 1860: 'the Democrats’ split between Douglas and Breckinridge in 1860',
+  1892: 'James Weaver’s run in 1892', 1912: 'Theodore Roosevelt’s run in 1912', 1924: 'Robert La Follette’s run in 1924',
+  1948: 'Strom Thurmond’s and Henry Wallace’s runs in 1948', 1968: 'George Wallace’s run in 1968', 1980: 'John Anderson’s run in 1980',
+  1992: 'Ross Perot’s run in 1992', 1996: 'Ross Perot’s run in 1996',
+};
+const andList = (xs) => (xs.length > 1 ? `${xs.slice(0, -1).join(', ')} and ${xs[xs.length - 1]}` : xs[0] || '');
+
+const sentence = (t) => t.charAt(0).toUpperCase() + t.slice(1);
+
+/**
+ * Why a state has no shift: before 1976, a nominee with no votes counted there ("Lincoln had no votes counted here in
+ * 1860."), a stated reason for the few left out by hand (offNotes), or simply no result that year (not yet a state, or
+ * electors chosen by the legislature).
+ */
+function missingNote(pres, code, from, to) {
+  const why = [from, to].map((y) => {
+    const r = pres.years[y], k = r?.offBallot?.[code];
+    if (r?.offNotes?.[code]) return `${y}: ${sentence(r.offNotes[code])}.`;
+    if (k) return `${andList(k.split('').map(p => lastName(r[p])))} had no votes counted here in ${y}.`;
+    return r && !r.states?.[code] ? `No popular-vote result in ${y}.` : null;
+  }).filter(Boolean);
+  return why.length ? why.join(' ') : null;
+}
 
 /**
  * Settings from the address, made valid: two different presidential years, in either order (2024 to 2020 shows the
@@ -71,14 +97,18 @@ export function shiftMap(o, { key = 'swing', onData = null, height = 'map' } = {
   if (o.level === 'states') {
     return withData([PRESIDENT_URL], (pres) => {
       const sh = stateShifts(pres, o.from, o.to);
-      const fill = (code) => (o.style === 'shading' ? (sh[code] ? shiftFill(sh[code].sh) : 'var(--none)') : 'var(--surface-2)');
+      // A state with no shift (no result in one of the years) must not pass for one that didn't move: blank when shaded,
+      // striped under the arrows (where the blank fill would be all but invisible in the dark theme).
+      const fill = (code) => (!sh[code] ? (o.style === 'shading' ? 'var(--none)' : 'var(--line-2)') : o.style === 'shading' ? shiftFill(sh[code].sh) : 'var(--surface-2)');
       const map = nationalStateMap({
         fill, label: `Map of the shift in the presidential vote by state, ${o.from} to ${o.to}`,
-        tip: (code) => placeTip(stateName(code), sh[code], o.from, o.to),
+        tip: (code) => placeTip(stateName(code), sh[code], o.from, o.to, sh[code] ? null : missingNote(pres, code, o.from, o.to)),
         arrows: o.style === 'arrows' ? Object.entries(sh).map(([code, x]) => ({ code, sh: x.sh })) : null, arrowScale: STATE_K,
+        striped: o.style === 'arrows' ? (code) => !sh[code] : null,
       });
       if (onData) onData({ pres, states: sh });
-      return h('div', null, map, o.style === 'arrows' ? arrowKey({ k: STATE_K }) : shiftLegend());
+      const someMissing = Object.keys(sh).length < 51;   // the map always draws the 50 states and D.C.
+      return h('div', null, map, o.style === 'arrows' ? arrowKey({ k: STATE_K, extras: someMissing ? [['hatch', 'No result in one of the years']] : [] }) : shiftLegend());
     }, height);
   }
   return withData([COUNTY_GEO, countiesUrl(o.from), countiesUrl(o.to), PRESIDENT_URL, INDEX_URL], (topo, A, B, pres, idx) => {
@@ -147,7 +177,7 @@ function controls(o, go) {
   const pickFrom = (y) => go({ from: y, to: y === o.to ? o.from : o.to });
   const pickTo = (y) => go({ to: y, from: y === o.from ? o.to : o.from });
   const swap = h('button', { type: 'button', class: 'sw-swap', title: 'Swap the years', 'aria-label': `Swap the years: ${o.to} to ${o.from}`, onclick: () => go({ from: o.to, to: o.from }) }, '⇄');
-  const presets = [[2020, 2024], [2016, 2020], [2012, 2016], [2000, 2024], [1980, 2024]];
+  const presets = [[2020, 2024], [2016, 2020], [2012, 2016], [2000, 2024], [1980, 2024], [1928, 1932], [1896, 2024]];
   return h('div', { class: 'card sw-controls' },
     h('div', { class: 'sw-row' },
       yearSelect('From', o.from, pickFrom, () => true),
@@ -159,6 +189,12 @@ function controls(o, go) {
       presets.map(([a, b]) => h('button', { type: 'button', class: `chip-btn${a === o.from && b === o.to ? ' on' : ''}`, onclick: () => go({ from: a, to: b }) }, `${a} → ${b}`))));
 }
 
+/** "The 50 states and D.C.", or "The 49 states and D.C. with a result both years". */
+function statesWord(rows) {
+  const dc = rows.some(x => x.code === 'DC'), n = rows.length - (dc ? 1 : 0);
+  return n === 50 && dc ? 'The 50 states and D.C.' : `The ${n} state${n === 1 ? '' : 's'}${dc ? ' and D.C.' : ''} with a result both years`;
+}
+
 const kpi = (label, value, sub) => h('div', { class: 'card sw-kpi' }, h('div', { class: 'sw-k' }, label), h('div', { class: 'sw-v' }, value), h('div', { class: 'xs muted' }, sub));
 
 function fillSummary(el, o, { pres, states, counties, topo, idx }) {
@@ -168,7 +204,8 @@ function fillSummary(el, o, { pres, states, counties, topo, idx }) {
   const towardD = stRows.filter(x => x.sh > 0).length;
   const kpis = [
     kpi('National popular vote', h('span', null, colored(nat(o.from), marginLabel(nat(o.from))), ' → ', colored(nat(o.to), marginLabel(nat(o.to)))), `A shift of ${shiftWords(natShift)}`),
-    kpi('States that moved', h('span', null, h('b', { class: 'c-rep' }, `${stRows.length - towardD} toward R`), ' · ', h('b', { class: 'c-dem' }, `${towardD} toward D`)), 'The 50 states and D.C.'),
+    kpi('States that moved', h('span', null, h('b', { class: 'c-rep' }, `${stRows.length - towardD} toward R`), ' · ', h('b', { class: 'c-dem' }, `${towardD} toward D`)),
+      statesWord(stRows)),
   ];
   let lists = null;
   if (counties) {
@@ -196,12 +233,12 @@ function fillSummary(el, o, { pres, states, counties, topo, idx }) {
   el.replaceChildren(...[
     h('div', { class: `grid ${counties ? 'g3' : 'g2'} sw-kpis` }, kpis),
     lists ? h('section', { class: 'section' }, h('div', { class: 'section-head' }, h('div', null, h('h2', null, 'Counties that moved most'), h('p', null, `Among counties with at least 10,000 votes in ${o.to}.`))), lists) : null,
-    h('section', { class: 'section' }, h('div', { class: 'section-head' }, h('div', null, h('h2', null, 'Every state'), h('p', null, 'Margins are the Democrat’s share minus the Republican’s, in points of all votes cast.'))), table),
-    notes(o, idx),
+    h('section', { class: 'section' }, h('div', { class: 'section-head' }, h('div', null, h('h2', null, stRows.length === 51 ? 'Every state' : 'Every state with a result both years'), h('p', null, 'Margins are the Democrat’s share minus the Republican’s, in points of all votes cast.'))), table),
+    notes(o, idx, pres),
   ].filter(Boolean));
 }
 
-function notes(o, idx) {
+function notes(o, idx, pres) {
   const items = [];
   if (o.level === 'counties') {
     items.push(WHOLE_STATE.AK, WHOLE_STATE.CT);
@@ -209,8 +246,24 @@ function notes(o, idx) {
     items.push('Counties are matched to today’s map: Bedford city, Virginia, counts in Bedford County, Clifton Forge in Alleghany County, Shannon County, South Dakota, as Oglala Lakota County, and Kansas City, Missouri, which counts its votes apart from its counties, in Jackson County.');
     for (const y of [o.from, o.to]) for (const n of idx?.years.find(e => e.year === y)?.countyNotes || []) items.push(`${y}: ${n.text}`);
   }
-  items.push('A shift is the change in the Democratic-minus-Republican margin, in points of all votes cast, so a third-party candidate’s rise or fall moves it too.');
-  items.push('Results are official returns compiled by the MIT Election Data and Science Lab (Harvard Dataverse, CC0).');
+  if (Math.min(o.from, o.to) < 1976) items.push('Before 1976 the results come from Wikipedia’s state tables, with some state returns corrected where two other sources agree. Some states are left out: those whose legislatures chose the electors, such as South Carolina until 1860, which had no popular vote; those that did not take part, such as the South in 1864; and those where the Democrat or the Republican was off the ballot, had only write-ins, or shared a fusion ticket.');
+  // States where a margin between the Democrat and the Republican would mean nothing: one of them had no votes counted
+  // (offBallot), or the build left the state out for a stated reason (offNotes).
+  for (const y of [...new Set([o.from, o.to])].sort((a, b) => a - b)) {
+    const r = pres?.years[y], off = r?.offBallot, why = r?.offNotes || {};
+    if (!off) continue;
+    const zero = Object.keys(off).filter(c => !why[c]);
+    const parts = ['D', 'R'].map(p => [lastName(r[p]), zero.filter(c => off[c].includes(p)).map(stateName).sort()]).filter(([, l]) => l.length);
+    const phrase = parts.map(([who, l], i) => (i ? `${who} none in ${andList(l)}` : `${who} had no votes counted in ${andList(l)}`)).join(', and ');
+    if (zero.length) items.push(`In ${y}, ${phrase}, so ${zero.length === 1 ? 'it is' : 'those states are'} left out.`);
+    // States left out for the same stated reason share a sentence: "New Jersey and New York are left out in 1860: …".
+    const byWhy = new Map();
+    for (const [c, t] of Object.entries(why)) byWhy.set(t, [...(byWhy.get(t) || []), stateName(c)]);
+    for (const [t, names] of byWhy) items.push(`${andList(names.sort())} ${names.length === 1 ? 'is' : 'are'} left out in ${y}: ${t}.`);
+  }
+  const third = [...new Set([o.from, o.to])].sort((a, b) => a - b).map(y => THIRD_PARTY[y]).filter(Boolean);
+  items.push(`A shift is the change in the Democratic-minus-Republican margin, in points of all votes cast, so a third-party candidate’s rise or fall moves it too${third.length ? `, as ${andList(third)} did` : ': Theodore Roosevelt’s run in 1912, for one'}.`);
+  items.push(Math.min(o.from, o.to) < 1976 ? 'Results since 1976 are official returns compiled by the MIT Election Data and Science Lab (Harvard Dataverse, CC0); earlier ones are from Wikipedia (CC BY-SA 4.0).' : 'Results are official returns compiled by the MIT Election Data and Science Lab (Harvard Dataverse, CC0).');
   return h('section', { class: 'section' }, h('h2', null, 'About the data'), h('ul', { class: 'sw-notes' }, items.map(t => h('li', null, t))));
 }
 

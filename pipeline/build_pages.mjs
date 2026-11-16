@@ -37,9 +37,22 @@ const pages = [
 // Past elections (data/archive, from pipeline/build_archive.mjs). The index is archive/index.html, so /archive/2024
 // can sit beside it: GitHub Pages sends /archive to /archive/ because the folder exists.
 const archive = read('data/archive/index.json');
-pages.push(['/archive/', 'Past elections', 'Results of every U.S. federal general election since 1976, for president, Senate and House, with maps by state and, from 2000, by county.', { file: 'archive/index' }]);
-pages.push(['/swing', 'Swing map', 'How the presidential vote shifted between any two elections since 1976: county by county from 2000, as arrows or shading.']);
+pages.push(['/archive/', 'Past elections', 'Every U.S. federal general election since the first in 1788–89: presidential results by state, the House and Senate, and county maps from 2000.', { file: 'archive/index' }]);
+pages.push(['/swing', 'Swing map', 'How the presidential vote shifted between any two elections since 1856: by state, and county by county from 2000, as arrows or shading.']);
+const ord = (n) => { const s = ['th', 'st', 'nd', 'rd'], v = n % 100; return n + (s[(v - 20) % 10] || s[v] || s[0]); };
+// Wording for the two elections the House decided (who won comes from the index, as on the page).
+const HOUSE_CHOSE = {
+  1800: 'The House of Representatives chose Thomas Jefferson after he and Aaron Burr tied at 73 electoral votes.',
+  1824: 'The House of Representatives chose John Quincy Adams, though Andrew Jackson had won the most electoral votes.',
+};
 for (const e of archive.years) {
+  if (e.early) {
+    const [name, , ev] = e.president?.cands?.[e.president.winner ?? 0] || [];
+    const split = `the party split of the ${ord(e.congress.number)} Congress, House and Senate, after the ${e.label} elections.`;
+    const lead = HOUSE_CHOSE[e.year] || `${name} won the presidency with ${ev} electoral votes.`;
+    pages.push([`/archive/${e.year}`, `${e.label} elections`, e.president ? `${lead} Results by state, and ${split}` : `The ${split.slice(4)}`]);
+    continue;
+  }
   const p = e.president;
   const hs = e.house.seats, hw = hs.D > hs.R ? 'Democrats' : 'Republicans';
   const lead = p ? `${p.ev.D > p.ev.R ? p.D : p.R} won the presidency with ${Math.max(p.ev.D, p.ev.R)} electoral votes, and ${hw} won the House ${Math.max(hs.D, hs.R)}–${Math.min(hs.D, hs.R)}.`

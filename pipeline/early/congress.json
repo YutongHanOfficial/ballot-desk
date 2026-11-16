@@ -1,0 +1,4280 @@
+{
+ "source": "Official party divisions: the House's Office of the Historian (history.house.gov, as of the initial election results) and the Senate Historical Office (senate.gov, at the start of each Congress)",
+ "house": {
+  "title": "Party Divisions of the House of Representatives, 1789 to Present",
+  "url": "https://history.house.gov/Institution/Party-Divisions/Party-Divisions/"
+ },
+ "senate": {
+  "title": "Party Division",
+  "url": "https://www.senate.gov/about/parties-leadership/party-division.htm"
+ },
+ "accessed": "2026-11-16",
+ "about": "Each Congress after the election held in 1786 + 2 x its number (the 1st Congress: the elections of 1788-89). Senators were chosen by state legislatures until 1913.",
+ "congresses": [
+  {
+   "congress": 1,
+   "election": 1788,
+   "years": "3/4/1789–3/3/1791",
+   "house": {
+    "total": 65,
+    "seats": [
+     [
+      "Anti-Administration",
+      28
+     ],
+     [
+      "Pro-Administration",
+      37
+     ]
+    ],
+    "vacancies": 0
+   },
+   "senate": {
+    "total": 26,
+    "seats": [
+     [
+      "Anti-Administration",
+      7
+     ],
+     [
+      "Pro-Administration",
+      15
+     ]
+    ],
+    "vacancies": 0,
+    "note": "The official table lists 22 of the 26 seats by party. North Carolina and Rhode Island, with 4 seats between them, ratified the Constitution after the Congress began."
+   }
+  },
+  {
+   "congress": 2,
+   "election": 1790,
+   "years": "3/4/1791–3/3/1793",
+   "house": {
+    "total": 69,
+    "seats": [
+     [
+      "Anti-Administration",
+      30
+     ],
+     [
+      "Pro-Administration",
+      39
+     ]
+    ],
+    "vacancies": 0
+   },
+   "senate": {
+    "total": 26,
+    "seats": [
+     [
+      "Anti-Administration",
+      9
+     ],
+     [
+      "Pro-Administration",
+      16
+     ]
+    ],
+    "vacancies": 1
+   }
+  },
+  {
+   "congress": 3,
+   "election": 1792,
+   "years": "3/4/1793–3/3/1795",
+   "house": {
+    "total": 105,
+    "seats": [
+     [
+      "Anti-Administration",
+      54
+     ],
+     [
+      "Pro-Administration",
+      51
+     ]
+    ],
+    "vacancies": 0
+   },
+   "senate": {
+    "total": 30,
+    "seats": [
+     [
+      "Anti-Administration",
+      13
+     ],
+     [
+      "Pro-Administration",
+      16
+     ]
+    ],
+    "vacancies": 1
+   }
+  },
+  {
+   "congress": 4,
+   "election": 1794,
+   "years": "3/4/1795–3/3/1797",
+   "house": {
+    "total": 106,
+    "seats": [
+     [
+      "Democratic-Republicans",
+      59
+     ],
+     [
+      "Federalists",
+      47
+     ]
+    ],
+    "vacancies": 0
+   },
+   "senate": {
+    "total": 30,
+    "seats": [
+     [
+      "Democratic-Republicans",
+      10
+     ],
+     [
+      "Federalists",
+      20
+     ]
+    ],
+    "vacancies": 0
+   }
+  },
+  {
+   "congress": 5,
+   "election": 1796,
+   "years": "3/4/1797–3/3/1799",
+   "house": {
+    "total": 106,
+    "seats": [
+     [
+      "Democratic-Republicans",
+      49
+     ],
+     [
+      "Federalists",
+      57
+     ]
+    ],
+    "vacancies": 0
+   },
+   "senate": {
+    "total": 32,
+    "seats": [
+     [
+      "Democratic-Republicans",
+      10
+     ],
+     [
+      "Federalists",
+      22
+     ]
+    ],
+    "vacancies": 0
+   }
+  },
+  {
+   "congress": 6,
+   "election": 1798,
+   "years": "3/4/1799–3/3/1801",
+   "house": {
+    "total": 106,
+    "seats": [
+     [
+      "Democratic-Republicans",
+      46
+     ],
+     [
+      "Federalists",
+      60
+     ]
+    ],
+    "vacancies": 0
+   },
+   "senate": {
+    "total": 32,
+    "seats": [
+     [
+      "Democratic-Republicans",
+      10
+     ],
+     [
+      "Federalists",
+      22
+     ]
+    ],
+    "vacancies": 0
+   }
+  },
+  {
+   "congress": 7,
+   "election": 1800,
+   "years": "3/4/1801–3/3/1803",
+   "house": {
+    "total": 106,
+    "seats": [
+     [
+      "Democratic-Republicans",
+      68
+     ],
+     [
+      "Federalists",
+      38
+     ]
+    ],
+    "vacancies": 0
+   },
+   "senate": {
+    "total": 32,
+    "seats": [
+     [
+      "Democratic-Republicans",
+      18
+     ],
+     [
+      "Federalists",
+      14
+     ]
+    ],
+    "vacancies": 0
+   }
+  },
+  {
+   "congress": 8,
+   "election": 1802,
+   "years": "3/4/1803–3/3/1805",
+   "house": {
+    "total": 142,
+    "seats": [
+     [
+      "Democratic-Republicans",
+      103
+     ],
+     [
+      "Federalists",
+      39
+     ]
+    ],
+    "vacancies": 0
+   },
+   "senate": {
+    "total": 34,
+    "seats": [
+     [
+      "Democratic-Republicans",
+      25
+     ],
+     [
+      "Federalists",
+      9
+     ]
+    ],
+    "vacancies": 0
+   }
+  },
+  {
+   "congress": 9,
+   "election": 1804,
+   "years": "3/4/1805–3/3/1807",
+   "house": {
+    "total": 142,
+    "seats": [
+     [
+      "Democratic-Republicans",
+      114
+     ],
+     [
+      "Federalists",
+      28
+     ]
+    ],
+    "vacancies": 0
+   },
+   "senate": {
+    "total": 34,
+    "seats": [
+     [
+      "Democratic-Republicans",
+      27
+     ],
+     [
+      "Federalists",
+      7
+     ]
+    ],
+    "vacancies": 0
+   }
+  },
+  {
+   "congress": 10,
+   "election": 1806,
+   "years": "3/4/1807–3/3/1809",
+   "house": {
+    "total": 142,
+    "seats": [
+     [
+      "Democratic-Republicans",
+      116
+     ],
+     [
+      "Federalists",
+      26
+     ]
+    ],
+    "vacancies": 0
+   },
+   "senate": {
+    "total": 34,
+    "seats": [
+     [
+      "Democratic-Republicans",
+      28
+     ],
+     [
+      "Federalists",
+      6
+     ]
+    ],
+    "vacancies": 0
+   }
+  },
+  {
+   "congress": 11,
+   "election": 1808,
+   "years": "3/4/1809–3/3/1811",
+   "house": {
+    "total": 142,
+    "seats": [
+     [
+      "Democratic-Republicans",
+      92
+     ],
+     [
+      "Federalists",
+      50
+     ]
+    ],
+    "vacancies": 0
+   },
+   "senate": {
+    "total": 34,
+    "seats": [
+     [
+      "Democratic-Republicans",
+      26
+     ],
+     [
+      "Federalists",
+      7
+     ]
+    ],
+    "vacancies": 1
+   }
+  },
+  {
+   "congress": 12,
+   "election": 1810,
+   "years": "3/4/1811–3/3/1813",
+   "house": {
+    "total": 143,
+    "seats": [
+     [
+      "Democratic-Republicans",
+      107
+     ],
+     [
+      "Federalists",
+      36
+     ]
+    ],
+    "vacancies": 0
+   },
+   "senate": {
+    "total": 34,
+    "seats": [
+     [
+      "Democratic-Republicans",
+      28
+     ],
+     [
+      "Federalists",
+      6
+     ]
+    ],
+    "vacancies": 0
+   }
+  },
+  {
+   "congress": 13,
+   "election": 1812,
+   "years": "3/4/1813–3/3/1815",
+   "house": {
+    "total": 182,
+    "seats": [
+     [
+      "Democratic-Republicans",
+      114
+     ],
+     [
+      "Federalists",
+      68
+     ]
+    ],
+    "vacancies": 0
+   },
+   "senate": {
+    "total": 36,
+    "seats": [
+     [
+      "Democratic-Republicans",
+      28
+     ],
+     [
+      "Federalists",
+      8
+     ]
+    ],
+    "vacancies": 0
+   }
+  },
+  {
+   "congress": 14,
+   "election": 1814,
+   "years": "3/4/1815–3/3/1817",
+   "house": {
+    "total": 183,
+    "seats": [
+     [
+      "Democratic-Republicans",
+      119
+     ],
+     [
+      "Federalists",
+      64
+     ]
+    ],
+    "vacancies": 0
+   },
+   "senate": {
+    "total": 36,
+    "seats": [
+     [
+      "Democratic-Republicans",
+      22
+     ],
+     [
+      "Federalists",
+      11
+     ],
+     [
+      "Others",
+      1
+     ]
+    ],
+    "vacancies": 2
+   }
+  },
+  {
+   "congress": 15,
+   "election": 1816,
+   "years": "3/4/1817–3/3/1819",
+   "house": {
+    "total": 185,
+    "seats": [
+     [
+      "Democratic-Republicans",
+      146
+     ],
+     [
+      "Federalists",
+      39
+     ]
+    ],
+    "vacancies": 0
+   },
+   "senate": {
+    "total": 38,
+    "seats": [
+     [
+      "Democratic-Republicans",
+      25
+     ],
+     [
+      "Federalists",
+      13
+     ]
+    ],
+    "vacancies": 0
+   }
+  },
+  {
+   "congress": 16,
+   "election": 1818,
+   "years": "3/4/1819–3/3/1821",
+   "house": {
+    "total": 186,
+    "seats": [
+     [
+      "Democratic-Republicans",
+      160
+     ],
+     [
+      "Federalists",
+      26
+     ]
+    ],
+    "vacancies": 0
+   },
+   "senate": {
+    "total": 42,
+    "seats": [
+     [
+      "Democratic-Republicans",
+      33
+     ],
+     [
+      "Federalists",
+      9
+     ]
+    ],
+    "vacancies": 0
+   }
+  },
+  {
+   "congress": 17,
+   "election": 1820,
+   "years": "3/4/1821–3/3/1823",
+   "house": {
+    "total": 187,
+    "seats": [
+     [
+      "Democratic-Republicans",
+      155
+     ],
+     [
+      "Federalists",
+      32
+     ]
+    ],
+    "vacancies": 0
+   },
+   "senate": {
+    "total": 48,
+    "seats": [
+     [
+      "Democratic-Republicans",
+      43
+     ],
+     [
+      "Federalists",
+      4
+     ]
+    ],
+    "vacancies": 1
+   }
+  },
+  {
+   "congress": 18,
+   "election": 1822,
+   "years": "3/4/1823–3/3/1825",
+   "house": {
+    "total": 213,
+    "seats": [
+     [
+      "Jackson Republicans",
+      64
+     ],
+     [
+      "Adams-Clay Republicans",
+      72
+     ],
+     [
+      "Others",
+      77
+     ]
+    ],
+    "vacancies": 0,
+    "minor": [
+     [
+      "Crawford Republicans",
+      53
+     ],
+     [
+      "Adams-Clay Federalists",
+      15
+     ],
+     [
+      "Jackson Federalists",
+      7
+     ],
+     [
+      "Crawford Federalists",
+      2
+     ]
+    ]
+   },
+   "senate": {
+    "total": 48,
+    "seats": [
+     [
+      "Jackson & Crawford Republicans",
+      31
+     ],
+     [
+      "Adams-Clay Republicans & Federalists",
+      16
+     ]
+    ],
+    "vacancies": 1
+   }
+  },
+  {
+   "congress": 19,
+   "election": 1824,
+   "years": "3/4/1825–3/3/1827",
+   "house": {
+    "total": 213,
+    "seats": [
+     [
+      "Jacksonians",
+      104
+     ],
+     [
+      "Adams",
+      109
+     ]
+    ],
+    "vacancies": 0
+   },
+   "senate": {
+    "total": 48,
+    "seats": [
+     [
+      "Jacksonians",
+      27
+     ],
+     [
+      "Adams",
+      20
+     ]
+    ],
+    "vacancies": 1
+   }
+  },
+  {
+   "congress": 20,
+   "election": 1826,
+   "years": "3/4/1827–3/3/1829",
+   "house": {
+    "total": 213,
+    "seats": [
+     [
+      "Jacksonians",
+      113
+     ],
+     [
+      "Adams",
+      100
+     ]
+    ],
+    "vacancies": 0
+   },
+   "senate": {
+    "total": 48,
+    "seats": [
+     [
+      "Jacksonians",
+      27
+     ],
+     [
+      "Adams",
+      21
+     ]
+    ],
+    "vacancies": 0
+   }
+  },
+  {
+   "congress": 21,
+   "election": 1828,
+   "years": "3/4/1829–3/3/1831",
+   "house": {
+    "total": 213,
+    "seats": [
+     [
+      "Jacksonians",
+      136
+     ],
+     [
+      "Anti-Jacksonians",
+      72
+     ],
+     [
+      "Others",
+      5
+     ]
+    ],
+    "vacancies": 0,
+    "minor": [
+     [
+      "Anti-Masonics",
+      5
+     ]
+    ]
+   },
+   "senate": {
+    "total": 48,
+    "seats": [
+     [
+      "Jacksonians",
+      26
+     ],
+     [
+      "Anti-Jacksonians",
+      22
+     ]
+    ],
+    "vacancies": 0
+   }
+  },
+  {
+   "congress": 22,
+   "election": 1830,
+   "years": "3/4/1831–3/3/1833",
+   "house": {
+    "total": 213,
+    "seats": [
+     [
+      "Jacksonians",
+      126
+     ],
+     [
+      "Anti-Jacksonians",
+      66
+     ],
+     [
+      "Others",
+      21
+     ]
+    ],
+    "vacancies": 0,
+    "minor": [
+     [
+      "Anti-Masonics",
+      17
+     ],
+     [
+      "Nullifiers",
+      4
+     ]
+    ]
+   },
+   "senate": {
+    "total": 48,
+    "seats": [
+     [
+      "Jacksonians",
+      24
+     ],
+     [
+      "Anti-Jacksonians",
+      22
+     ],
+     [
+      "Others",
+      2
+     ]
+    ],
+    "vacancies": 0
+   }
+  },
+  {
+   "congress": 23,
+   "election": 1832,
+   "years": "3/4/1833–3/3/1835",
+   "house": {
+    "total": 240,
+    "seats": [
+     [
+      "Jacksonians",
+      143
+     ],
+     [
+      "Anti-Jacksonians",
+      63
+     ],
+     [
+      "Others",
+      34
+     ]
+    ],
+    "vacancies": 0,
+    "minor": [
+     [
+      "Anti-Masonics",
+      25
+     ],
+     [
+      "Nullifiers",
+      9
+     ]
+    ]
+   },
+   "senate": {
+    "total": 48,
+    "seats": [
+     [
+      "Jacksonians",
+      20
+     ],
+     [
+      "Anti-Jacksonians",
+      25
+     ],
+     [
+      "Others",
+      2
+     ]
+    ],
+    "vacancies": 1
+   }
+  },
+  {
+   "congress": 24,
+   "election": 1834,
+   "years": "3/4/1835–3/3/1837",
+   "house": {
+    "total": 242,
+    "seats": [
+     [
+      "Jacksonians",
+      143
+     ],
+     [
+      "Anti-Jacksonians",
+      75
+     ],
+     [
+      "Others",
+      24
+     ]
+    ],
+    "vacancies": 0,
+    "minor": [
+     [
+      "Anti-Masonics",
+      16
+     ],
+     [
+      "Nullifiers",
+      8
+     ]
+    ]
+   },
+   "senate": {
+    "total": 48,
+    "seats": [
+     [
+      "Jacksonians",
+      22
+     ],
+     [
+      "Anti-Jacksonians",
+      23
+     ],
+     [
+      "Others",
+      2
+     ]
+    ],
+    "vacancies": 1
+   }
+  },
+  {
+   "congress": 25,
+   "election": 1836,
+   "years": "3/4/1837–3/3/1839",
+   "house": {
+    "total": 242,
+    "seats": [
+     [
+      "Democrats",
+      128
+     ],
+     [
+      "Whigs",
+      100
+     ],
+     [
+      "Others",
+      14
+     ]
+    ],
+    "vacancies": 0,
+    "minor": [
+     [
+      "Anti-Masonics",
+      7
+     ],
+     [
+      "Nullifiers",
+      6
+     ],
+     [
+      "Independent",
+      1
+     ]
+    ]
+   },
+   "senate": {
+    "total": 52,
+    "seats": [
+     [
+      "Democrats",
+      35
+     ],
+     [
+      "Whigs",
+      17
+     ]
+    ],
+    "vacancies": 0
+   }
+  },
+  {
+   "congress": 26,
+   "election": 1838,
+   "years": "3/4/1839–3/3/1841",
+   "house": {
+    "total": 242,
+    "seats": [
+     [
+      "Democrats",
+      125
+     ],
+     [
+      "Whigs",
+      109
+     ],
+     [
+      "Others",
+      8
+     ]
+    ],
+    "vacancies": 0,
+    "minor": [
+     [
+      "Anti-Masonics",
+      6
+     ],
+     [
+      "Conservatives",
+      2
+     ]
+    ]
+   },
+   "senate": {
+    "total": 52,
+    "seats": [
+     [
+      "Democrats",
+      29
+     ],
+     [
+      "Whigs",
+      19
+     ]
+    ],
+    "vacancies": 4
+   }
+  },
+  {
+   "congress": 27,
+   "election": 1840,
+   "years": "3/4/1841–3/3/1843",
+   "house": {
+    "total": 242,
+    "seats": [
+     [
+      "Democrats",
+      98
+     ],
+     [
+      "Whigs",
+      142
+     ],
+     [
+      "Others",
+      2
+     ]
+    ],
+    "vacancies": 0,
+    "minor": [
+     [
+      "Independent",
+      1
+     ],
+     [
+      "Independent Democrat",
+      1
+     ]
+    ]
+   },
+   "senate": {
+    "total": 52,
+    "seats": [
+     [
+      "Democrats",
+      22
+     ],
+     [
+      "Whigs",
+      29
+     ]
+    ],
+    "vacancies": 1
+   }
+  },
+  {
+   "congress": 28,
+   "election": 1842,
+   "years": "3/4/1843–3/3/1845",
+   "house": {
+    "total": 223,
+    "seats": [
+     [
+      "Democrats",
+      147
+     ],
+     [
+      "Whigs",
+      72
+     ],
+     [
+      "Others",
+      4
+     ]
+    ],
+    "vacancies": 0,
+    "minor": [
+     [
+      "Law and Order",
+      2
+     ],
+     [
+      "Independent Democrat",
+      1
+     ],
+     [
+      "Independent Whig",
+      1
+     ]
+    ]
+   },
+   "senate": {
+    "total": 52,
+    "seats": [
+     [
+      "Democrats",
+      23
+     ],
+     [
+      "Whigs",
+      28
+     ]
+    ],
+    "vacancies": 1
+   }
+  },
+  {
+   "congress": 29,
+   "election": 1844,
+   "years": "3/4/1845–3/3/1847",
+   "house": {
+    "total": 228,
+    "seats": [
+     [
+      "Democrats",
+      142
+     ],
+     [
+      "Whigs",
+      79
+     ],
+     [
+      "Others",
+      6
+     ]
+    ],
+    "vacancies": 1,
+    "minor": [
+     [
+      "American",
+      6
+     ]
+    ]
+   },
+   "senate": {
+    "total": 52,
+    "seats": [
+     [
+      "Democrats",
+      26
+     ],
+     [
+      "Whigs",
+      24
+     ]
+    ],
+    "vacancies": 2
+   }
+  },
+  {
+   "congress": 30,
+   "election": 1846,
+   "years": "3/4/1847–3/3/1849",
+   "house": {
+    "total": 230,
+    "seats": [
+     [
+      "Democrats",
+      110
+     ],
+     [
+      "Whigs",
+      116
+     ],
+     [
+      "Others",
+      4
+     ]
+    ],
+    "vacancies": 0,
+    "minor": [
+     [
+      "Independent Democrats",
+      2
+     ],
+     [
+      "American",
+      1
+     ],
+     [
+      "Independent",
+      1
+     ]
+    ]
+   },
+   "senate": {
+    "total": 56,
+    "seats": [
+     [
+      "Democrats",
+      34
+     ],
+     [
+      "Whigs",
+      21
+     ],
+     [
+      "Others",
+      1
+     ]
+    ],
+    "vacancies": 0
+   }
+  },
+  {
+   "congress": 31,
+   "election": 1848,
+   "years": "3/4/1849–3/3/1851",
+   "house": {
+    "total": 233,
+    "seats": [
+     [
+      "Democrats",
+      113
+     ],
+     [
+      "Whigs",
+      108
+     ],
+     [
+      "Others",
+      11
+     ]
+    ],
+    "vacancies": 1,
+    "minor": [
+     [
+      "Free Soilers",
+      9
+     ],
+     [
+      "American",
+      1
+     ],
+     [
+      "Independent",
+      1
+     ]
+    ]
+   },
+   "senate": {
+    "total": 60,
+    "seats": [
+     [
+      "Democrats",
+      33
+     ],
+     [
+      "Whigs",
+      25
+     ],
+     [
+      "Others",
+      2
+     ]
+    ],
+    "vacancies": 0
+   }
+  },
+  {
+   "congress": 32,
+   "election": 1850,
+   "years": "3/4/1851–3/3/1853",
+   "house": {
+    "total": 233,
+    "seats": [
+     [
+      "Democrats",
+      127
+     ],
+     [
+      "Whigs",
+      85
+     ],
+     [
+      "Others",
+      21
+     ]
+    ],
+    "vacancies": 0,
+    "minor": [
+     [
+      "Unionists",
+      10
+     ],
+     [
+      "Free Soilers",
+      4
+     ],
+     [
+      "Independent Democrats",
+      3
+     ],
+     [
+      "States Rights",
+      3
+     ],
+     [
+      "Independent Whig",
+      1
+     ]
+    ]
+   },
+   "senate": {
+    "total": 62,
+    "seats": [
+     [
+      "Democrats",
+      34
+     ],
+     [
+      "Whigs",
+      22
+     ],
+     [
+      "Others",
+      2
+     ]
+    ],
+    "vacancies": 4
+   }
+  },
+  {
+   "congress": 33,
+   "election": 1852,
+   "years": "3/4/1853–3/3/1855",
+   "house": {
+    "total": 234,
+    "seats": [
+     [
+      "Democrats",
+      157
+     ],
+     [
+      "Whigs",
+      71
+     ],
+     [
+      "Others",
+      6
+     ]
+    ],
+    "vacancies": 0,
+    "minor": [
+     [
+      "Free Soilers",
+      4
+     ],
+     [
+      "Independent",
+      1
+     ],
+     [
+      "Independent Democrat",
+      1
+     ]
+    ]
+   },
+   "senate": {
+    "total": 62,
+    "seats": [
+     [
+      "Democrats",
+      35
+     ],
+     [
+      "Whigs",
+      21
+     ],
+     [
+      "Others",
+      2
+     ]
+    ],
+    "vacancies": 4
+   }
+  },
+  {
+   "congress": 34,
+   "election": 1854,
+   "years": "3/4/1855–3/3/1857",
+   "house": {
+    "total": 234,
+    "seats": [
+     [
+      "Democrats",
+      83
+     ],
+     [
+      "Opposition",
+      100
+     ],
+     [
+      "Others",
+      51
+     ]
+    ],
+    "vacancies": 0,
+    "minor": [
+     [
+      "Americans",
+      51
+     ]
+    ]
+   },
+   "senate": {
+    "total": 62,
+    "seats": [
+     [
+      "Democrats",
+      35
+     ],
+     [
+      "Opposition",
+      22
+     ],
+     [
+      "Others",
+      1
+     ]
+    ],
+    "vacancies": 4
+   }
+  },
+  {
+   "congress": 35,
+   "election": 1856,
+   "years": "3/4/1857–3/3/1859",
+   "house": {
+    "total": 237,
+    "seats": [
+     [
+      "Democrats",
+      132
+     ],
+     [
+      "Republicans",
+      90
+     ],
+     [
+      "Others",
+      15
+     ]
+    ],
+    "vacancies": 0,
+    "minor": [
+     [
+      "Americans",
+      14
+     ],
+     [
+      "Independent Democrat",
+      1
+     ]
+    ]
+   },
+   "senate": {
+    "total": 62,
+    "seats": [
+     [
+      "Democrats",
+      36
+     ],
+     [
+      "Republicans",
+      20
+     ],
+     [
+      "Others",
+      5
+     ]
+    ],
+    "vacancies": 1
+   }
+  },
+  {
+   "congress": 36,
+   "election": 1858,
+   "years": "3/4/1859–3/3/1861",
+   "house": {
+    "total": 238,
+    "seats": [
+     [
+      "Democrats",
+      83
+     ],
+     [
+      "Republicans",
+      116
+     ],
+     [
+      "Others",
+      39
+     ]
+    ],
+    "vacancies": 0,
+    "minor": [
+     [
+      "Opposition",
+      19
+     ],
+     [
+      "Anti-Lecompton Democrats",
+      8
+     ],
+     [
+      "Independent Democrats",
+      7
+     ],
+     [
+      "Americans",
+      5
+     ]
+    ]
+   },
+   "senate": {
+    "total": 66,
+    "seats": [
+     [
+      "Democrats",
+      38
+     ],
+     [
+      "Republicans",
+      25
+     ],
+     [
+      "Others",
+      2
+     ]
+    ],
+    "vacancies": 1
+   }
+  },
+  {
+   "congress": 37,
+   "election": 1860,
+   "years": "3/4/1861–3/3/1863",
+   "house": {
+    "total": 183,
+    "seats": [
+     [
+      "Democrats",
+      44
+     ],
+     [
+      "Republicans",
+      108
+     ],
+     [
+      "Others",
+      31
+     ]
+    ],
+    "vacancies": 0,
+    "minor": [
+     [
+      "Unionists",
+      26
+     ],
+     [
+      "Constitutional Unionists",
+      2
+     ],
+     [
+      "Unions",
+      2
+     ],
+     [
+      "Independent Democrat",
+      1
+     ]
+    ]
+   },
+   "senate": {
+    "total": 66,
+    "seats": [
+     [
+      "Democrats",
+      22
+     ],
+     [
+      "Republicans",
+      29
+     ],
+     [
+      "Others",
+      1
+     ]
+    ],
+    "vacancies": 14,
+    "note": "Vacancies include the seats of states that had seceded and were not yet readmitted."
+   }
+  },
+  {
+   "congress": 38,
+   "election": 1862,
+   "years": "3/4/1863–3/3/1865",
+   "house": {
+    "total": 184,
+    "seats": [
+     [
+      "Democrats",
+      72
+     ],
+     [
+      "Republicans",
+      85
+     ],
+     [
+      "Others",
+      27
+     ]
+    ],
+    "vacancies": 0,
+    "minor": [
+     [
+      "Unconditional Unionists",
+      16
+     ],
+     [
+      "Unionists",
+      9
+     ],
+     [
+      "Independent Republicans",
+      2
+     ]
+    ]
+   },
+   "senate": {
+    "total": 68,
+    "seats": [
+     [
+      "Democrats",
+      10
+     ],
+     [
+      "Republicans",
+      31
+     ],
+     [
+      "Others",
+      7
+     ]
+    ],
+    "vacancies": 20,
+    "note": "Vacancies include the seats of states that had seceded and were not yet readmitted."
+   }
+  },
+  {
+   "congress": 39,
+   "election": 1864,
+   "years": "3/4/1865–3/3/1867",
+   "house": {
+    "total": 193,
+    "seats": [
+     [
+      "Democrats",
+      38
+     ],
+     [
+      "Republicans",
+      136
+     ],
+     [
+      "Others",
+      19
+     ]
+    ],
+    "vacancies": 0,
+    "minor": [
+     [
+      "Unconditional Unionists",
+      13
+     ],
+     [
+      "Unionists",
+      5
+     ],
+     [
+      "Independent Republican",
+      1
+     ]
+    ]
+   },
+   "senate": {
+    "total": 72,
+    "seats": [
+     [
+      "Democrats",
+      9
+     ],
+     [
+      "Republicans",
+      37
+     ],
+     [
+      "Others",
+      3
+     ]
+    ],
+    "vacancies": 23,
+    "note": "Vacancies include the seats of states that had seceded and were not yet readmitted."
+   }
+  },
+  {
+   "congress": 40,
+   "election": 1866,
+   "years": "3/4/1867–3/3/1869",
+   "house": {
+    "total": 226,
+    "seats": [
+     [
+      "Democrats",
+      47
+     ],
+     [
+      "Republicans",
+      173
+     ],
+     [
+      "Others",
+      4
+     ]
+    ],
+    "vacancies": 2,
+    "minor": [
+     [
+      "Conservatives",
+      2
+     ],
+     [
+      "Conservative Republican",
+      1
+     ],
+     [
+      "Independent Republican",
+      1
+     ]
+    ]
+   },
+   "senate": {
+    "total": 74,
+    "seats": [
+     [
+      "Democrats",
+      8
+     ],
+     [
+      "Republicans",
+      45
+     ]
+    ],
+    "vacancies": 21,
+    "note": "Vacancies include the seats of states that had seceded and were not yet readmitted."
+   }
+  },
+  {
+   "congress": 41,
+   "election": 1868,
+   "years": "3/4/1869–3/3/1871",
+   "house": {
+    "total": 243,
+    "seats": [
+     [
+      "Democrats",
+      67
+     ],
+     [
+      "Republicans",
+      171
+     ],
+     [
+      "Others",
+      5
+     ]
+    ],
+    "vacancies": 0,
+    "minor": [
+     [
+      "Conservatives",
+      5
+     ]
+    ]
+   },
+   "senate": {
+    "total": 74,
+    "seats": [
+     [
+      "Democrats",
+      10
+     ],
+     [
+      "Republicans",
+      56
+     ]
+    ],
+    "vacancies": 8,
+    "note": "Vacancies include the seats of states that had seceded and were not yet readmitted."
+   }
+  },
+  {
+   "congress": 42,
+   "election": 1870,
+   "years": "3/4/1871–3/3/1873",
+   "house": {
+    "total": 243,
+    "seats": [
+     [
+      "Democrats",
+      104
+     ],
+     [
+      "Republicans",
+      136
+     ],
+     [
+      "Others",
+      3
+     ]
+    ],
+    "vacancies": 0,
+    "minor": [
+     [
+      "Liberal Republicans",
+      2
+     ],
+     [
+      "Independent Republican",
+      1
+     ]
+    ]
+   },
+   "senate": {
+    "total": 74,
+    "seats": [
+     [
+      "Democrats",
+      14
+     ],
+     [
+      "Republicans",
+      55
+     ],
+     [
+      "Others",
+      1
+     ]
+    ],
+    "vacancies": 4
+   }
+  },
+  {
+   "congress": 43,
+   "election": 1872,
+   "years": "3/4/1873–3/3/1875",
+   "house": {
+    "total": 292,
+    "seats": [
+     [
+      "Democrats",
+      88
+     ],
+     [
+      "Republicans",
+      199
+     ],
+     [
+      "Others",
+      5
+     ]
+    ],
+    "vacancies": 0,
+    "minor": [
+     [
+      "Liberal Republicans",
+      4
+     ],
+     [
+      "Independent Democrat",
+      1
+     ]
+    ]
+   },
+   "senate": {
+    "total": 74,
+    "seats": [
+     [
+      "Democrats",
+      19
+     ],
+     [
+      "Republicans",
+      47
+     ],
+     [
+      "Others",
+      7
+     ]
+    ],
+    "vacancies": 1
+   }
+  },
+  {
+   "congress": 44,
+   "election": 1874,
+   "years": "3/4/1875–3/3/1877",
+   "house": {
+    "total": 293,
+    "seats": [
+     [
+      "Democrats",
+      182
+     ],
+     [
+      "Republicans",
+      103
+     ],
+     [
+      "Others",
+      8
+     ]
+    ],
+    "vacancies": 0,
+    "minor": [
+     [
+      "Independents",
+      4
+     ],
+     [
+      "Independent Republicans",
+      3
+     ],
+     [
+      "Independent Democrat",
+      1
+     ]
+    ]
+   },
+   "senate": {
+    "total": 74,
+    "seats": [
+     [
+      "Democrats",
+      28
+     ],
+     [
+      "Republicans",
+      44
+     ],
+     [
+      "Others",
+      1
+     ]
+    ],
+    "vacancies": 1
+   }
+  },
+  {
+   "congress": 45,
+   "election": 1876,
+   "years": "3/4/1877–3/3/1879",
+   "house": {
+    "total": 293,
+    "seats": [
+     [
+      "Democrats",
+      155
+     ],
+     [
+      "Republicans",
+      136
+     ],
+     [
+      "Others",
+      2
+     ]
+    ],
+    "vacancies": 0,
+    "minor": [
+     [
+      "Independent Democrats",
+      2
+     ]
+    ]
+   },
+   "senate": {
+    "total": 76,
+    "seats": [
+     [
+      "Democrats",
+      33
+     ],
+     [
+      "Republicans",
+      39
+     ],
+     [
+      "Others",
+      1
+     ]
+    ],
+    "vacancies": 1,
+    "note": "The official table lists 73 seats by party and 1 vacancy, 2 fewer than the 76 seats."
+   }
+  },
+  {
+   "congress": 46,
+   "election": 1878,
+   "years": "3/4/1879–3/3/1881",
+   "house": {
+    "total": 293,
+    "seats": [
+     [
+      "Democrats",
+      141
+     ],
+     [
+      "Republicans",
+      132
+     ],
+     [
+      "Others",
+      20
+     ]
+    ],
+    "vacancies": 0,
+    "minor": [
+     [
+      "Nationals",
+      13
+     ],
+     [
+      "Independent Democrats",
+      7
+     ]
+    ]
+   },
+   "senate": {
+    "total": 76,
+    "seats": [
+     [
+      "Democrats",
+      42
+     ],
+     [
+      "Republicans",
+      33
+     ],
+     [
+      "Others",
+      1
+     ]
+    ],
+    "vacancies": 0
+   }
+  },
+  {
+   "congress": 47,
+   "election": 1880,
+   "years": "3/4/1881–3/3/1883",
+   "house": {
+    "total": 293,
+    "seats": [
+     [
+      "Democrats",
+      128
+     ],
+     [
+      "Republicans",
+      151
+     ],
+     [
+      "Others",
+      14
+     ]
+    ],
+    "vacancies": 0,
+    "minor": [
+     [
+      "Nationals",
+      10
+     ],
+     [
+      "Readjuster Democrats",
+      2
+     ],
+     [
+      "Independent",
+      1
+     ],
+     [
+      "Independent Democrat",
+      1
+     ]
+    ]
+   },
+   "senate": {
+    "total": 76,
+    "seats": [
+     [
+      "Democrats",
+      37
+     ],
+     [
+      "Republicans",
+      37
+     ],
+     [
+      "Others",
+      2
+     ]
+    ],
+    "vacancies": 0
+   }
+  },
+  {
+   "congress": 48,
+   "election": 1882,
+   "years": "3/4/1883–3/3/1885",
+   "house": {
+    "total": 325,
+    "seats": [
+     [
+      "Democrats",
+      196
+     ],
+     [
+      "Republicans",
+      117
+     ],
+     [
+      "Others",
+      12
+     ]
+    ],
+    "vacancies": 0,
+    "minor": [
+     [
+      "Readjusters",
+      4
+     ],
+     [
+      "Independent Democrats",
+      3
+     ],
+     [
+      "Independents",
+      2
+     ],
+     [
+      "Nationals",
+      2
+     ],
+     [
+      "Independent Republican",
+      1
+     ]
+    ]
+   },
+   "senate": {
+    "total": 76,
+    "seats": [
+     [
+      "Democrats",
+      36
+     ],
+     [
+      "Republicans",
+      38
+     ],
+     [
+      "Others",
+      2
+     ]
+    ],
+    "vacancies": 0
+   }
+  },
+  {
+   "congress": 49,
+   "election": 1884,
+   "years": "3/4/1885–3/3/1887",
+   "house": {
+    "total": 325,
+    "seats": [
+     [
+      "Democrats",
+      182
+     ],
+     [
+      "Republicans",
+      141
+     ],
+     [
+      "Others",
+      2
+     ]
+    ],
+    "vacancies": 0,
+    "minor": [
+     [
+      "Independent Democrat",
+      1
+     ],
+     [
+      "National",
+      1
+     ]
+    ]
+   },
+   "senate": {
+    "total": 76,
+    "seats": [
+     [
+      "Democrats",
+      34
+     ],
+     [
+      "Republicans",
+      41
+     ]
+    ],
+    "vacancies": 1
+   }
+  },
+  {
+   "congress": 50,
+   "election": 1886,
+   "years": "3/4/1887–3/3/1889",
+   "house": {
+    "total": 325,
+    "seats": [
+     [
+      "Democrats",
+      167
+     ],
+     [
+      "Republicans",
+      152
+     ],
+     [
+      "Others",
+      6
+     ]
+    ],
+    "vacancies": 0,
+    "minor": [
+     [
+      "Independent Republicans",
+      2
+     ],
+     [
+      "Labors",
+      2
+     ],
+     [
+      "Independent",
+      1
+     ],
+     [
+      "National",
+      1
+     ]
+    ]
+   },
+   "senate": {
+    "total": 76,
+    "seats": [
+     [
+      "Democrats",
+      37
+     ],
+     [
+      "Republicans",
+      39
+     ]
+    ],
+    "vacancies": 0
+   }
+  },
+  {
+   "congress": 51,
+   "election": 1888,
+   "years": "3/4/1889–3/3/1891",
+   "house": {
+    "total": 332,
+    "seats": [
+     [
+      "Democrats",
+      152
+     ],
+     [
+      "Republicans",
+      179
+     ],
+     [
+      "Others",
+      1
+     ]
+    ],
+    "vacancies": 0,
+    "minor": [
+     [
+      "Labor",
+      1
+     ]
+    ]
+   },
+   "senate": {
+    "total": 76,
+    "seats": [
+     [
+      "Democrats",
+      37
+     ],
+     [
+      "Republicans",
+      39
+     ]
+    ],
+    "vacancies": 0
+   }
+  },
+  {
+   "congress": 52,
+   "election": 1890,
+   "years": "3/4/1891–3/3/1893",
+   "house": {
+    "total": 332,
+    "seats": [
+     [
+      "Democrats",
+      238
+     ],
+     [
+      "Republicans",
+      86
+     ],
+     [
+      "Others",
+      8
+     ]
+    ],
+    "vacancies": 0,
+    "minor": [
+     [
+      "Populists",
+      8
+     ]
+    ]
+   },
+   "senate": {
+    "total": 88,
+    "seats": [
+     [
+      "Democrats",
+      38
+     ],
+     [
+      "Republicans",
+      47
+     ],
+     [
+      "Others",
+      2
+     ]
+    ],
+    "vacancies": 1
+   }
+  },
+  {
+   "congress": 53,
+   "election": 1892,
+   "years": "3/4/1893–3/3/1895",
+   "house": {
+    "total": 356,
+    "seats": [
+     [
+      "Democrats",
+      218
+     ],
+     [
+      "Republicans",
+      124
+     ],
+     [
+      "Others",
+      14
+     ]
+    ],
+    "vacancies": 0,
+    "minor": [
+     [
+      "Populists",
+      11
+     ],
+     [
+      "Independent Democrats",
+      2
+     ],
+     [
+      "Silver",
+      1
+     ]
+    ]
+   },
+   "senate": {
+    "total": 88,
+    "seats": [
+     [
+      "Democrats",
+      44
+     ],
+     [
+      "Republicans",
+      37
+     ],
+     [
+      "Others",
+      4
+     ]
+    ],
+    "vacancies": 3
+   }
+  },
+  {
+   "congress": 54,
+   "election": 1894,
+   "years": "3/4/1895–3/3/1897",
+   "house": {
+    "total": 357,
+    "seats": [
+     [
+      "Democrats",
+      93
+     ],
+     [
+      "Republicans",
+      254
+     ],
+     [
+      "Others",
+      10
+     ]
+    ],
+    "vacancies": 0,
+    "minor": [
+     [
+      "Populists",
+      9
+     ],
+     [
+      "Silver",
+      1
+     ]
+    ]
+   },
+   "senate": {
+    "total": 88,
+    "seats": [
+     [
+      "Democrats",
+      39
+     ],
+     [
+      "Republicans",
+      42
+     ],
+     [
+      "Others",
+      6
+     ]
+    ],
+    "vacancies": 1
+   }
+  },
+  {
+   "congress": 55,
+   "election": 1896,
+   "years": "3/4/1897–3/3/1899",
+   "house": {
+    "total": 357,
+    "seats": [
+     [
+      "Democrats",
+      124
+     ],
+     [
+      "Republicans",
+      206
+     ],
+     [
+      "Others",
+      27
+     ]
+    ],
+    "vacancies": 0,
+    "minor": [
+     [
+      "Populists",
+      22
+     ],
+     [
+      "Silver Republicans",
+      3
+     ],
+     [
+      "Independent Republican",
+      1
+     ],
+     [
+      "Silver",
+      1
+     ]
+    ]
+   },
+   "senate": {
+    "total": 90,
+    "seats": [
+     [
+      "Democrats",
+      33
+     ],
+     [
+      "Republicans",
+      43
+     ],
+     [
+      "Others",
+      12
+     ]
+    ],
+    "vacancies": 2
+   }
+  },
+  {
+   "congress": 56,
+   "election": 1898,
+   "years": "3/4/1899–3/3/1901",
+   "house": {
+    "total": 357,
+    "seats": [
+     [
+      "Democrats",
+      161
+     ],
+     [
+      "Republicans",
+      187
+     ],
+     [
+      "Others",
+      9
+     ]
+    ],
+    "vacancies": 0,
+    "minor": [
+     [
+      "Populists",
+      5
+     ],
+     [
+      "Silver Republicans",
+      2
+     ],
+     [
+      "Independent Populist",
+      1
+     ],
+     [
+      "Silver",
+      1
+     ]
+    ]
+   },
+   "senate": {
+    "total": 90,
+    "seats": [
+     [
+      "Democrats",
+      26
+     ],
+     [
+      "Republicans",
+      50
+     ],
+     [
+      "Others",
+      10
+     ]
+    ],
+    "vacancies": 4
+   }
+  },
+  {
+   "congress": 57,
+   "election": 1900,
+   "years": "3/4/1901–3/3/1903",
+   "house": {
+    "total": 357,
+    "seats": [
+     [
+      "Democrats",
+      151
+     ],
+     [
+      "Republicans",
+      200
+     ],
+     [
+      "Others",
+      6
+     ]
+    ],
+    "vacancies": 0,
+    "minor": [
+     [
+      "Populists",
+      5
+     ],
+     [
+      "Silver Republican",
+      1
+     ]
+    ]
+   },
+   "senate": {
+    "total": 90,
+    "seats": [
+     [
+      "Democrats",
+      31
+     ],
+     [
+      "Republicans",
+      52
+     ],
+     [
+      "Others",
+      4
+     ]
+    ],
+    "vacancies": 3
+   }
+  },
+  {
+   "congress": 58,
+   "election": 1902,
+   "years": "3/4/1903–3/3/1905",
+   "house": {
+    "total": 386,
+    "seats": [
+     [
+      "Democrats",
+      176
+     ],
+     [
+      "Republicans",
+      207
+     ],
+     [
+      "Others",
+      3
+     ]
+    ],
+    "vacancies": 0,
+    "minor": [
+     [
+      "Independent Republicans",
+      3
+     ]
+    ]
+   },
+   "senate": {
+    "total": 90,
+    "seats": [
+     [
+      "Democrats",
+      33
+     ],
+     [
+      "Republicans",
+      57
+     ]
+    ],
+    "vacancies": 0
+   }
+  },
+  {
+   "congress": 59,
+   "election": 1904,
+   "years": "3/4/1905–3/3/1907",
+   "house": {
+    "total": 386,
+    "seats": [
+     [
+      "Democrats",
+      135
+     ],
+     [
+      "Republicans",
+      251
+     ]
+    ],
+    "vacancies": 0
+   },
+   "senate": {
+    "total": 90,
+    "seats": [
+     [
+      "Democrats",
+      32
+     ],
+     [
+      "Republicans",
+      56
+     ]
+    ],
+    "vacancies": 2
+   }
+  },
+  {
+   "congress": 60,
+   "election": 1906,
+   "years": "3/4/1907–3/3/1909",
+   "house": {
+    "total": 391,
+    "seats": [
+     [
+      "Democrats",
+      167
+     ],
+     [
+      "Republicans",
+      223
+     ],
+     [
+      "Others",
+      1
+     ]
+    ],
+    "vacancies": 0,
+    "minor": [
+     [
+      "Independent Republican",
+      1
+     ]
+    ]
+   },
+   "senate": {
+    "total": 92,
+    "seats": [
+     [
+      "Democrats",
+      31
+     ],
+     [
+      "Republicans",
+      60
+     ]
+    ],
+    "vacancies": 1
+   }
+  },
+  {
+   "congress": 61,
+   "election": 1908,
+   "years": "3/4/1909–3/3/1911",
+   "house": {
+    "total": 391,
+    "seats": [
+     [
+      "Democrats",
+      172
+     ],
+     [
+      "Republicans",
+      219
+     ]
+    ],
+    "vacancies": 0
+   },
+   "senate": {
+    "total": 92,
+    "seats": [
+     [
+      "Democrats",
+      32
+     ],
+     [
+      "Republicans",
+      58
+     ]
+    ],
+    "vacancies": 2
+   }
+  },
+  {
+   "congress": 62,
+   "election": 1910,
+   "years": "3/4/1911–3/3/1913",
+   "house": {
+    "total": 394,
+    "seats": [
+     [
+      "Democrats",
+      230
+     ],
+     [
+      "Republicans",
+      162
+     ],
+     [
+      "Others",
+      2
+     ]
+    ],
+    "vacancies": 0,
+    "minor": [
+     [
+      "Progressive Republican",
+      1
+     ],
+     [
+      "Socialist",
+      1
+     ]
+    ]
+   },
+   "senate": {
+    "total": 92,
+    "seats": [
+     [
+      "Democrats",
+      41
+     ],
+     [
+      "Republicans",
+      50
+     ]
+    ],
+    "vacancies": 1
+   }
+  },
+  {
+   "congress": 63,
+   "election": 1912,
+   "years": "3/4/1913–3/3/1915",
+   "house": {
+    "total": 435,
+    "seats": [
+     [
+      "Democrats",
+      291
+     ],
+     [
+      "Republicans",
+      134
+     ],
+     [
+      "Others",
+      10
+     ]
+    ],
+    "vacancies": 0,
+    "minor": [
+     [
+      "Progressives",
+      9
+     ],
+     [
+      "Independent",
+      1
+     ]
+    ]
+   },
+   "senate": {
+    "total": 96,
+    "seats": [
+     [
+      "Democrats",
+      50
+     ],
+     [
+      "Republicans",
+      43
+     ],
+     [
+      "Others",
+      1
+     ]
+    ],
+    "vacancies": 2
+   }
+  },
+  {
+   "congress": 64,
+   "election": 1914,
+   "years": "3/4/1915–3/3/1917",
+   "house": {
+    "total": 435,
+    "seats": [
+     [
+      "Democrats",
+      230
+     ],
+     [
+      "Republicans",
+      196
+     ],
+     [
+      "Others",
+      9
+     ]
+    ],
+    "vacancies": 0,
+    "minor": [
+     [
+      "Progressive",
+      6
+     ],
+     [
+      "Independent",
+      1
+     ],
+     [
+      "Prohibitionist",
+      1
+     ],
+     [
+      "Socialist",
+      1
+     ]
+    ]
+   },
+   "senate": {
+    "total": 96,
+    "seats": [
+     [
+      "Democrats",
+      56
+     ],
+     [
+      "Republicans",
+      40
+     ]
+    ],
+    "vacancies": 0
+   }
+  },
+  {
+   "congress": 65,
+   "election": 1916,
+   "years": "3/4/1917–3/3/1919",
+   "house": {
+    "total": 435,
+    "seats": [
+     [
+      "Democrats",
+      214
+     ],
+     [
+      "Republicans",
+      215
+     ],
+     [
+      "Others",
+      6
+     ]
+    ],
+    "vacancies": 0,
+    "minor": [
+     [
+      "Progressives",
+      3
+     ],
+     [
+      "Independent Republican",
+      1
+     ],
+     [
+      "Prohibitionist",
+      1
+     ],
+     [
+      "Socialist",
+      1
+     ]
+    ]
+   },
+   "senate": {
+    "total": 96,
+    "seats": [
+     [
+      "Democrats",
+      54
+     ],
+     [
+      "Republicans",
+      42
+     ]
+    ],
+    "vacancies": 0
+   }
+  },
+  {
+   "congress": 66,
+   "election": 1918,
+   "years": "3/4/1919–3/3/1921",
+   "house": {
+    "total": 435,
+    "seats": [
+     [
+      "Democrats",
+      192
+     ],
+     [
+      "Republicans",
+      240
+     ],
+     [
+      "Others",
+      2
+     ]
+    ],
+    "vacancies": 1,
+    "minor": [
+     [
+      "Prohibitionist",
+      1
+     ],
+     [
+      "Union-Labor",
+      1
+     ]
+    ]
+   },
+   "senate": {
+    "total": 96,
+    "seats": [
+     [
+      "Democrats",
+      47
+     ],
+     [
+      "Republicans",
+      49
+     ]
+    ],
+    "vacancies": 0
+   }
+  },
+  {
+   "congress": 67,
+   "election": 1920,
+   "years": "3/4/1921–3/3/1923",
+   "house": {
+    "total": 435,
+    "seats": [
+     [
+      "Democrats",
+      132
+     ],
+     [
+      "Republicans",
+      302
+     ],
+     [
+      "Others",
+      1
+     ]
+    ],
+    "vacancies": 0,
+    "minor": [
+     [
+      "Socialist",
+      1
+     ]
+    ]
+   },
+   "senate": {
+    "total": 96,
+    "seats": [
+     [
+      "Democrats",
+      37
+     ],
+     [
+      "Republicans",
+      59
+     ]
+    ],
+    "vacancies": 0
+   }
+  },
+  {
+   "congress": 68,
+   "election": 1922,
+   "years": "3/4/1923–3/3/1925",
+   "house": {
+    "total": 435,
+    "seats": [
+     [
+      "Democrats",
+      207
+     ],
+     [
+      "Republicans",
+      225
+     ],
+     [
+      "Others",
+      3
+     ]
+    ],
+    "vacancies": 0,
+    "minor": [
+     [
+      "Farmer-Labor",
+      2
+     ],
+     [
+      "Socialist",
+      1
+     ]
+    ]
+   },
+   "senate": {
+    "total": 96,
+    "seats": [
+     [
+      "Democrats",
+      43
+     ],
+     [
+      "Republicans",
+      51
+     ],
+     [
+      "Others",
+      2
+     ]
+    ],
+    "vacancies": 0
+   }
+  },
+  {
+   "congress": 69,
+   "election": 1924,
+   "years": "3/4/1925–3/3/1927",
+   "house": {
+    "total": 435,
+    "seats": [
+     [
+      "Democrats",
+      183
+     ],
+     [
+      "Republicans",
+      247
+     ],
+     [
+      "Others",
+      5
+     ]
+    ],
+    "vacancies": 0,
+    "minor": [
+     [
+      "Farmer-Labor",
+      3
+     ],
+     [
+      "American-Labor",
+      1
+     ],
+     [
+      "Socialist",
+      1
+     ]
+    ]
+   },
+   "senate": {
+    "total": 96,
+    "seats": [
+     [
+      "Democrats",
+      40
+     ],
+     [
+      "Republicans",
+      55
+     ],
+     [
+      "Others",
+      1
+     ]
+    ],
+    "vacancies": 0
+   }
+  },
+  {
+   "congress": 70,
+   "election": 1926,
+   "years": "3/4/1927–3/3/1929",
+   "house": {
+    "total": 435,
+    "seats": [
+     [
+      "Democrats",
+      194
+     ],
+     [
+      "Republicans",
+      238
+     ],
+     [
+      "Others",
+      3
+     ]
+    ],
+    "vacancies": 0,
+    "minor": [
+     [
+      "Farmer-Labor",
+      2
+     ],
+     [
+      "Socialist",
+      1
+     ]
+    ]
+   },
+   "senate": {
+    "total": 96,
+    "seats": [
+     [
+      "Democrats",
+      47
+     ],
+     [
+      "Republicans",
+      46
+     ],
+     [
+      "Others",
+      1
+     ]
+    ],
+    "vacancies": 2
+   }
+  },
+  {
+   "congress": 71,
+   "election": 1928,
+   "years": "3/4/1929–3/3/1931",
+   "house": {
+    "total": 435,
+    "seats": [
+     [
+      "Democrats",
+      164
+     ],
+     [
+      "Republicans",
+      270
+     ],
+     [
+      "Others",
+      1
+     ]
+    ],
+    "vacancies": 0,
+    "minor": [
+     [
+      "Farmer-Labor",
+      1
+     ]
+    ]
+   },
+   "senate": {
+    "total": 96,
+    "seats": [
+     [
+      "Democrats",
+      39
+     ],
+     [
+      "Republicans",
+      54
+     ],
+     [
+      "Others",
+      1
+     ]
+    ],
+    "vacancies": 2
+   }
+  },
+  {
+   "congress": 72,
+   "election": 1930,
+   "years": "3/4/1931–3/3/1933",
+   "house": {
+    "total": 435,
+    "seats": [
+     [
+      "Democrats",
+      216
+     ],
+     [
+      "Republicans",
+      218
+     ],
+     [
+      "Others",
+      1
+     ]
+    ],
+    "vacancies": 0,
+    "minor": [
+     [
+      "Farmer-Labor",
+      1
+     ]
+    ]
+   },
+   "senate": {
+    "total": 96,
+    "seats": [
+     [
+      "Democrats",
+      46
+     ],
+     [
+      "Republicans",
+      48
+     ],
+     [
+      "Others",
+      1
+     ]
+    ],
+    "vacancies": 1
+   }
+  },
+  {
+   "congress": 73,
+   "election": 1932,
+   "years": "3/4/1933–1/3/1935",
+   "house": {
+    "total": 435,
+    "seats": [
+     [
+      "Democrats",
+      313
+     ],
+     [
+      "Republicans",
+      117
+     ],
+     [
+      "Others",
+      5
+     ]
+    ],
+    "vacancies": 0,
+    "minor": [
+     [
+      "Farmer-Labor",
+      5
+     ]
+    ]
+   },
+   "senate": {
+    "total": 96,
+    "seats": [
+     [
+      "Democrats",
+      59
+     ],
+     [
+      "Republicans",
+      36
+     ],
+     [
+      "Others",
+      1
+     ]
+    ],
+    "vacancies": 0
+   }
+  },
+  {
+   "congress": 74,
+   "election": 1934,
+   "years": "1/3/1935–1/3/1937",
+   "house": {
+    "total": 435,
+    "seats": [
+     [
+      "Democrats",
+      322
+     ],
+     [
+      "Republicans",
+      103
+     ],
+     [
+      "Others",
+      10
+     ]
+    ],
+    "vacancies": 0,
+    "minor": [
+     [
+      "Progressives",
+      7
+     ],
+     [
+      "Farmer-Labor",
+      3
+     ]
+    ]
+   },
+   "senate": {
+    "total": 96,
+    "seats": [
+     [
+      "Democrats",
+      68
+     ],
+     [
+      "Republicans",
+      25
+     ],
+     [
+      "Others",
+      2
+     ]
+    ],
+    "vacancies": 1
+   }
+  },
+  {
+   "congress": 75,
+   "election": 1936,
+   "years": "1/3/1937–1/3/1939",
+   "house": {
+    "total": 435,
+    "seats": [
+     [
+      "Democrats",
+      334
+     ],
+     [
+      "Republicans",
+      88
+     ],
+     [
+      "Others",
+      13
+     ]
+    ],
+    "vacancies": 0,
+    "minor": [
+     [
+      "Progressives",
+      8
+     ],
+     [
+      "Farmer-Labor",
+      5
+     ]
+    ]
+   },
+   "senate": {
+    "total": 96,
+    "seats": [
+     [
+      "Democrats",
+      75
+     ],
+     [
+      "Republicans",
+      16
+     ],
+     [
+      "Others",
+      4
+     ]
+    ],
+    "vacancies": 1
+   }
+  },
+  {
+   "congress": 76,
+   "election": 1938,
+   "years": "1/3/1939–1/3/1941",
+   "house": {
+    "total": 435,
+    "seats": [
+     [
+      "Democrats",
+      262
+     ],
+     [
+      "Republicans",
+      169
+     ],
+     [
+      "Others",
+      4
+     ]
+    ],
+    "vacancies": 0,
+    "minor": [
+     [
+      "Progressives",
+      2
+     ],
+     [
+      "Farmer-Labor",
+      1
+     ],
+     [
+      "American Labor",
+      1
+     ]
+    ]
+   },
+   "senate": {
+    "total": 96,
+    "seats": [
+     [
+      "Democrats",
+      69
+     ],
+     [
+      "Republicans",
+      23
+     ],
+     [
+      "Others",
+      4
+     ]
+    ],
+    "vacancies": 0
+   }
+  },
+  {
+   "congress": 77,
+   "election": 1940,
+   "years": "1/3/1941–1/3/1943",
+   "house": {
+    "total": 435,
+    "seats": [
+     [
+      "Democrats",
+      267
+     ],
+     [
+      "Republicans",
+      162
+     ],
+     [
+      "Others",
+      6
+     ]
+    ],
+    "vacancies": 0,
+    "minor": [
+     [
+      "Progressives",
+      3
+     ],
+     [
+      "Farmer-Labor",
+      1
+     ],
+     [
+      "American Labor",
+      1
+     ],
+     [
+      "Independent Democrat",
+      1
+     ]
+    ]
+   },
+   "senate": {
+    "total": 96,
+    "seats": [
+     [
+      "Democrats",
+      66
+     ],
+     [
+      "Republicans",
+      28
+     ],
+     [
+      "Others",
+      2
+     ]
+    ],
+    "vacancies": 0
+   }
+  },
+  {
+   "congress": 78,
+   "election": 1942,
+   "years": "1/3/1943–1/3/1945",
+   "house": {
+    "total": 435,
+    "seats": [
+     [
+      "Democrats",
+      222
+     ],
+     [
+      "Republicans",
+      209
+     ],
+     [
+      "Others",
+      4
+     ]
+    ],
+    "vacancies": 0,
+    "minor": [
+     [
+      "Progressives",
+      2
+     ],
+     [
+      "Farmer-Labor",
+      1
+     ],
+     [
+      "American Labor",
+      1
+     ]
+    ]
+   },
+   "senate": {
+    "total": 96,
+    "seats": [
+     [
+      "Democrats",
+      57
+     ],
+     [
+      "Republicans",
+      38
+     ],
+     [
+      "Others",
+      1
+     ]
+    ],
+    "vacancies": 0
+   }
+  },
+  {
+   "congress": 79,
+   "election": 1944,
+   "years": "1/3/1945–1/3/1947",
+   "house": {
+    "total": 435,
+    "seats": [
+     [
+      "Democrats",
+      244
+     ],
+     [
+      "Republicans",
+      189
+     ],
+     [
+      "Others",
+      2
+     ]
+    ],
+    "vacancies": 0,
+    "minor": [
+     [
+      "Progressives",
+      1
+     ],
+     [
+      "American Labor",
+      1
+     ]
+    ]
+   },
+   "senate": {
+    "total": 96,
+    "seats": [
+     [
+      "Democrats",
+      57
+     ],
+     [
+      "Republicans",
+      38
+     ],
+     [
+      "Others",
+      1
+     ]
+    ],
+    "vacancies": 0
+   }
+  },
+  {
+   "congress": 80,
+   "election": 1946,
+   "years": "1/3/1947–1/3/1949",
+   "house": {
+    "total": 435,
+    "seats": [
+     [
+      "Democrats",
+      188
+     ],
+     [
+      "Republicans",
+      246
+     ],
+     [
+      "Others",
+      1
+     ]
+    ],
+    "vacancies": 0,
+    "minor": [
+     [
+      "American Labor",
+      1
+     ]
+    ]
+   },
+   "senate": {
+    "total": 96,
+    "seats": [
+     [
+      "Democrats",
+      44
+     ],
+     [
+      "Republicans",
+      51
+     ]
+    ],
+    "vacancies": 1
+   }
+  },
+  {
+   "congress": 81,
+   "election": 1948,
+   "years": "1/3/1949–1/3/1951",
+   "house": {
+    "total": 435,
+    "seats": [
+     [
+      "Democrats",
+      263
+     ],
+     [
+      "Republicans",
+      171
+     ],
+     [
+      "Others",
+      1
+     ]
+    ],
+    "vacancies": 0,
+    "minor": [
+     [
+      "American Labor",
+      1
+     ]
+    ]
+   },
+   "senate": {
+    "total": 96,
+    "seats": [
+     [
+      "Democrats",
+      54
+     ],
+     [
+      "Republicans",
+      42
+     ]
+    ],
+    "vacancies": 0
+   }
+  },
+  {
+   "congress": 82,
+   "election": 1950,
+   "years": "1/3/1951–1/3/1953",
+   "house": {
+    "total": 435,
+    "seats": [
+     [
+      "Democrats",
+      235
+     ],
+     [
+      "Republicans",
+      199
+     ],
+     [
+      "Others",
+      1
+     ]
+    ],
+    "vacancies": 0,
+    "minor": [
+     [
+      "Independent",
+      1
+     ]
+    ]
+   },
+   "senate": {
+    "total": 96,
+    "seats": [
+     [
+      "Democrats",
+      49
+     ],
+     [
+      "Republicans",
+      47
+     ]
+    ],
+    "vacancies": 0
+   }
+  },
+  {
+   "congress": 83,
+   "election": 1952,
+   "years": "1/3/1953–1/3/1955",
+   "house": {
+    "total": 435,
+    "seats": [
+     [
+      "Democrats",
+      213
+     ],
+     [
+      "Republicans",
+      221
+     ],
+     [
+      "Others",
+      1
+     ]
+    ],
+    "vacancies": 0,
+    "minor": [
+     [
+      "Independent",
+      1
+     ]
+    ]
+   },
+   "senate": {
+    "total": 96,
+    "seats": [
+     [
+      "Democrats",
+      47
+     ],
+     [
+      "Republicans",
+      48
+     ],
+     [
+      "Others",
+      1
+     ]
+    ],
+    "vacancies": 0
+   }
+  },
+  {
+   "congress": 84,
+   "election": 1954,
+   "years": "1/3/1955–1/3/1957",
+   "house": {
+    "total": 435,
+    "seats": [
+     [
+      "Democrats",
+      232
+     ],
+     [
+      "Republicans",
+      203
+     ]
+    ],
+    "vacancies": 0
+   },
+   "senate": {
+    "total": 96,
+    "seats": [
+     [
+      "Democrats",
+      47
+     ],
+     [
+      "Republicans",
+      47
+     ],
+     [
+      "Others",
+      2
+     ]
+    ],
+    "vacancies": 0
+   }
+  },
+  {
+   "congress": 85,
+   "election": 1956,
+   "years": "1/3/1957–1/3/1959",
+   "house": {
+    "total": 435,
+    "seats": [
+     [
+      "Democrats",
+      232
+     ],
+     [
+      "Republicans",
+      203
+     ]
+    ],
+    "vacancies": 0
+   },
+   "senate": {
+    "total": 96,
+    "seats": [
+     [
+      "Democrats",
+      49
+     ],
+     [
+      "Republicans",
+      47
+     ]
+    ],
+    "vacancies": 0
+   }
+  },
+  {
+   "congress": 86,
+   "election": 1958,
+   "years": "1/3/1959–1/3/1961",
+   "house": {
+    "total": 436,
+    "seats": [
+     [
+      "Democrats",
+      282
+     ],
+     [
+      "Republicans",
+      153
+     ],
+     [
+      "Others",
+      1
+     ]
+    ],
+    "vacancies": 0,
+    "minor": [
+     [
+      "Independent Democrat",
+      1
+     ]
+    ]
+   },
+   "senate": {
+    "total": 98,
+    "seats": [
+     [
+      "Democrats",
+      64
+     ],
+     [
+      "Republicans",
+      34
+     ]
+    ],
+    "vacancies": 0
+   }
+  },
+  {
+   "congress": 87,
+   "election": 1960,
+   "years": "1/3/1961–1/3/1963",
+   "house": {
+    "total": 437,
+    "seats": [
+     [
+      "Democrats",
+      264
+     ],
+     [
+      "Republicans",
+      173
+     ]
+    ],
+    "vacancies": 0
+   },
+   "senate": {
+    "total": 100,
+    "seats": [
+     [
+      "Democrats",
+      65
+     ],
+     [
+      "Republicans",
+      35
+     ]
+    ],
+    "vacancies": 0
+   }
+  },
+  {
+   "congress": 88,
+   "election": 1962,
+   "years": "1/3/1963–1/3/1965",
+   "house": {
+    "total": 435,
+    "seats": [
+     [
+      "Democrats",
+      258
+     ],
+     [
+      "Republicans",
+      176
+     ],
+     [
+      "Others",
+      1
+     ]
+    ],
+    "vacancies": 0,
+    "minor": [
+     [
+      "Independent Democrat",
+      1
+     ]
+    ]
+   },
+   "senate": {
+    "total": 100,
+    "seats": [
+     [
+      "Democrats",
+      67
+     ],
+     [
+      "Republicans",
+      33
+     ]
+    ],
+    "vacancies": 0
+   }
+  },
+  {
+   "congress": 89,
+   "election": 1964,
+   "years": "1/3/1965–1/3/1967",
+   "house": {
+    "total": 435,
+    "seats": [
+     [
+      "Democrats",
+      295
+     ],
+     [
+      "Republicans",
+      140
+     ]
+    ],
+    "vacancies": 0
+   },
+   "senate": {
+    "total": 100,
+    "seats": [
+     [
+      "Democrats",
+      68
+     ],
+     [
+      "Republicans",
+      32
+     ]
+    ],
+    "vacancies": 0
+   }
+  },
+  {
+   "congress": 90,
+   "election": 1966,
+   "years": "1/3/1967–1/3/1969",
+   "house": {
+    "total": 435,
+    "seats": [
+     [
+      "Democrats",
+      248
+     ],
+     [
+      "Republicans",
+      187
+     ]
+    ],
+    "vacancies": 0
+   },
+   "senate": {
+    "total": 100,
+    "seats": [
+     [
+      "Democrats",
+      64
+     ],
+     [
+      "Republicans",
+      36
+     ]
+    ],
+    "vacancies": 0
+   }
+  },
+  {
+   "congress": 91,
+   "election": 1968,
+   "years": "1/3/1969–1/3/1971",
+   "house": {
+    "total": 435,
+    "seats": [
+     [
+      "Democrats",
+      243
+     ],
+     [
+      "Republicans",
+      192
+     ]
+    ],
+    "vacancies": 0
+   },
+   "senate": {
+    "total": 100,
+    "seats": [
+     [
+      "Democrats",
+      57
+     ],
+     [
+      "Republicans",
+      43
+     ]
+    ],
+    "vacancies": 0
+   }
+  },
+  {
+   "congress": 92,
+   "election": 1970,
+   "years": "1/3/1971–1/3/1973",
+   "house": {
+    "total": 435,
+    "seats": [
+     [
+      "Democrats",
+      255
+     ],
+     [
+      "Republicans",
+      180
+     ]
+    ],
+    "vacancies": 0
+   },
+   "senate": {
+    "total": 100,
+    "seats": [
+     [
+      "Democrats",
+      54
+     ],
+     [
+      "Republicans",
+      44
+     ],
+     [
+      "Others",
+      2
+     ]
+    ],
+    "vacancies": 0
+   }
+  },
+  {
+   "congress": 93,
+   "election": 1972,
+   "years": "1/3/1973–1/3/1975",
+   "house": {
+    "total": 435,
+    "seats": [
+     [
+      "Democrats",
+      243
+     ],
+     [
+      "Republicans",
+      192
+     ]
+    ],
+    "vacancies": 0
+   },
+   "senate": {
+    "total": 100,
+    "seats": [
+     [
+      "Democrats",
+      56
+     ],
+     [
+      "Republicans",
+      42
+     ],
+     [
+      "Others",
+      2
+     ]
+    ],
+    "vacancies": 0
+   }
+  },
+  {
+   "congress": 94,
+   "election": 1974,
+   "years": "1/3/1975–1/3/1977",
+   "house": {
+    "total": 435,
+    "seats": [
+     [
+      "Democrats",
+      291
+     ],
+     [
+      "Republicans",
+      144
+     ]
+    ],
+    "vacancies": 0
+   },
+   "senate": {
+    "total": 100,
+    "seats": [
+     [
+      "Democrats",
+      60
+     ],
+     [
+      "Republicans",
+      37
+     ],
+     [
+      "Others",
+      2
+     ]
+    ],
+    "vacancies": 1
+   }
+  }
+ ]
+}

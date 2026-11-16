@@ -79,11 +79,41 @@ races still being counted and a check mark on projected states. The same scale s
 
 ### Archive and swing map
 
-`/archive/` lists every federal general election from 1976 to 2024 (an `index.html` in `archive/`, so `/archive/2024`
-can sit beside it), and `/archive/2024` shows one: the presidential vote by state and, from 2000, by county; every
-Senate race; and all 435 House seats with the popular vote. `/swing` compares any two presidential elections, in
-either order, by county (2000 on) or state, as arrows (left toward Democrats, right toward Republicans, longer for a
-bigger shift) or shading, with the choice in the address (`?from=2016&to=2020&level=states&style=shading`).
+`/archive/` lists every federal general election from the first, in 1788-89, to 2024 (an `index.html` in
+`archive/`, so `/archive/2024` can sit beside it), one era at a time. `/archive/2024` shows one: the presidential vote
+by state and, from 2000, by county; every Senate race; and all 435 House seats with the popular vote. `/swing`
+compares any two presidential elections, in either order, by county (2000 on) or state (1856 on, the first
+race between a Democrat and a Republican), as arrows (left toward Democrats, right toward Republicans, longer for a bigger shift)
+or shading, with the choice in the address (`?from=2016&to=2020&level=states&style=shading`). Before 1976 a state
+drops out of a comparison where a margin between the two nominees would mean nothing: one had no votes counted there
+(off the ballot, as Lincoln was in most of the South), or the vote against one went to a fusion ticket (New Jersey, New
+York and Pennsylvania in 1860) or the other had only write-ins (Taft in California, 1912). The build lists them as
+`offBallot`, with the reason in `offNotes` for those named by hand in `SWING_SKIP`, and the page names them and stripes
+them on the map.
+
+Before 1976 the archive is less complete (`assets/js/views/archive-early.js`): each presidential election's results
+by state (electoral votes, and popular votes where there were any) and the party split of the House and Senate after
+each election, with no county maps or race-by-race results. The presidential results come from Wikipedia, read in a
+browser from each election's "Results by state" table, and are committed in `pipeline/early/president.json` with
+each page's URL and revision; the electoral votes were checked against the National Archives' records. Where a
+state's popular vote in that table disagrees with two other sources that agree with each other (such as The American Presidency
+Project, Polidata, A New Nation Votes, Vote Archive, the World Almanac, or Wikipedia's article on that state's vote), the corrected row is used and the year records it
+under `corrections`, with the sources, and in its `sourceNotes`; the page names the corrected states. The party
+splits come straight from the official tables, the House Office of the Historian's "Party Divisions of the House of
+Representatives" (as the election returns first stood) and the Senate Historical Office's "Party Division" (as each
+Congress began), committed in `pipeline/early/congress.json`. Wikipedia's own party-divisions table disagreed with
+them in dozens of rows, so it isn't used. Each candidate's popular vote is the sum of the state returns, so the
+shares add up; a year's notes say where Wikipedia's national table differs, and its `sourceNotes` (kept in the file,
+not shown) say how each figure was read. Electors chosen on another candidate's slate, Greeley's after his death in
+1872 and the unpledged Democrats who voted for Byrd in 1960, share that slate's colour (`SLATES` in
+build_archive.mjs). The 1860 fusion tickets count for Douglas (New Jersey, New York) and Breckinridge (Pennsylvania), as
+the American Presidency Project counts them. A state marked `overlap` (Alabama, 1960, where Democratic voters picked
+electors from both slates) keeps its ballots as its total, below the sum of its votes. `HOUSE_CHOSE` names the House's
+picks in 1800 and 1824, which the index card and page description use. Parties other than Democrats and Republicans get their own colour families
+(`assignFamilies()` in archive.js): first each candidate takes its party's family (Federalists purple; Whigs, National
+Republicans and Adams men gold; Democratic-Republicans teal), then a party's second candidate in a year takes a free
+family that no party on the page prefers, the Congress split included, or grey. Maps stripe states with no popular-vote
+margin (electors chosen by the legislature, or no returns survive).
 
 On election night the 2026 Senate and governor race pages can switch their county map to "Shift from 2024": each
 county's margin for the Democrat (or an independent running against a Republican) against Harris's margin over Trump
@@ -279,6 +309,8 @@ counted by the beacon itself (it follows the History API). Ad and tracker blocke
 | 2026 congressional district boundaries | U.S. Census Bureau TIGER/Line 2026 (`cd120`) + cartographic state outlines | Public domain |
 | County boundaries | U.S. Census Bureau cartographic boundaries, 2025 | Public domain |
 | Past results (archive and swing map): president by state and county, Senate, House | [MIT Election Data and Science Lab](https://electionlab.mit.edu/data), Harvard Dataverse; a few gaps from Wikipedia | CC0 (Wikipedia: CC BY-SA 4.0) |
+| Past results before 1976: president by state | Wikipedia's election articles; some state returns corrected where two other sources agree, such as [The American Presidency Project](https://www.presidency.ucsb.edu/statistics/elections), Polidata, A New Nation Votes, Vote Archive, the World Almanac and Wikipedia's state articles | CC BY-SA 4.0 (Wikipedia); figures |
+| Party split of each Congress before 1976 | [House Office of the Historian](https://history.house.gov/Institution/Party-Divisions/Party-Divisions/) and [Senate Historical Office](https://www.senate.gov/about/parties-leadership/party-division.htm) | Public domain (U.S. government works) |
 | 2024 presidential vote by county | [tonmcg/US_County_Level_Election_Results_08-24](https://github.com/tonmcg/US_County_Level_Election_Results_08-24) | MIT |
 | Election-night county results | AP via each race's NYT results file (fetched in the browser) | Unofficial; see above |
 | Candidate photos | Lead images of the candidates' Wikipedia articles (Wikimedia Commons / Wikipedia), cropped | Each file's own: public domain, CC0, CC BY or CC BY-SA (listed on `/credits`) |

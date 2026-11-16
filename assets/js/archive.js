@@ -1,13 +1,14 @@
 // Past elections for the archive and the swing map: data loading, margins and shifts, and the national maps.
 // The data comes from pipeline/build_archive.mjs (official returns compiled by the MIT Election Data and Science Lab).
-import { h, s, esc, num, tooltip, marginFill, MARGIN_BANDS, SHIFT_BANDS, shiftFill, partyVar } from './ui.js';
+import { h, s, esc, num, tooltip, marginFill, marginBand, hatchFill, MARGIN_BANDS, SHIFT_BANDS, shiftFill, partyVar } from './ui.js';
 import { store } from './store.js';
 import { loadGeo, cachedGeo } from './geo.js';
 import { attachZoom, zoomButtons } from './maps.js';
 
 export const ARCHIVE = '/data/archive';
 export const COUNTY_GEO = '/data/geo/counties-us.json';
-export const PRES_YEARS = [1976, 1980, 1984, 1988, 1992, 1996, 2000, 2004, 2008, 2012, 2016, 2020, 2024];
+// The swing map's years: Democrats against Republicans, from their first race in 1856 (states only before 2000).
+export const PRES_YEARS = Array.from({ length: (2024 - 1856) / 4 + 1 }, (_, i) => 1856 + 4 * i);
 export const COUNTY_YEARS = PRES_YEARS.filter(y => y >= 2000);
 export const yearUrl = (y) => `${ARCHIVE}/${y}.json`;
 export const countiesUrl = (y) => `${ARCHIVE}/counties-${y}.json`;
@@ -94,7 +95,7 @@ function arrowLayer(items, opts) {
 }
 
 /** The arrow key: a sample arrow each way for `pts` points, drawn at the map's scale. */
-export function arrowKey({ k = 1.6, pts = 10, caption = 'Shift in the margin' } = {}) {
+export function arrowKey({ k = 1.6, pts = 10, caption = 'Shift in the margin', extras = [] } = {}) {
   const sample = (sh) => {
     const len = Math.min(42, Math.abs(sh) * k);
     const w = Math.ceil(len) + 12;
@@ -105,6 +106,7 @@ export function arrowKey({ k = 1.6, pts = 10, caption = 'Shift in the margin' } 
   return h('div', { class: 'legend arrow-key' },
     h('span', null, sample(pts), `${pts} points toward Democrats`),
     h('span', null, sample(-pts), `${pts} points toward Republicans`),
+    extras.map(([fill, label]) => h('span', null, fill === 'hatch' ? h('i', { class: 'lg-hatch' }) : h('i', { style: { background: fill } }), label)),
     h('span', { class: 'muted' }, caption));
 }
 
@@ -230,7 +232,7 @@ const CALLOUTS = ['VT', 'NH', 'MA', 'RI', 'CT', 'NJ', 'DE', 'MD', 'DC'];
  * The states (and D.C.) on one map: fill(code) colours a state, null for "no race"; tip(code) gives its tooltip;
  * arrows: [{ code, sh }] start at each state's centre. Small north-eastern states and D.C. also get callout boxes.
  */
-export function nationalStateMap({ fill, tip, arrows = null, arrowScale = 2.4, onClick = null, label = 'Map of the states' } = {}) {
+export function nationalStateMap({ fill, tip, arrows = null, arrowScale = 2.4, onClick = null, label = 'Map of the states', striped = null } = {}) {
   const geo = store.geo;
   const path = d3.geoPath();
   const svg = s('svg', { viewBox: `0 0 ${W} ${H}`, class: 'archive-states', role: 'img', 'aria-label': label });
@@ -248,6 +250,14 @@ export function nationalStateMap({ fill, tip, arrows = null, arrowScale = 2.4, o
     hover(p, code);
     svg.appendChild(p);
   }
+  // striped(code): stripes over a state, such as one whose legislature chose its electors.
+  const stripes = striped ? hatchFill(svg) : null;
+  if (stripes) {
+    for (const f of topojson.feature(geo, geo.objects.states).features) {
+      const code = stateOfFips(String(f.id).padStart(2, '0'));
+      if (code && striped(code)) svg.appendChild(s('path', { d: path(f), fill: stripes, class: 'hatch' }));
+    }
+  }
   svg.appendChild(s('path', { d: path(topojson.mesh(geo, geo.objects.states, (a, b) => a !== b)), fill: 'none', stroke: 'var(--surface)', 'stroke-width': 0.8, 'pointer-events': 'none' }));
   if (arrows) {
     const at = stateCentroids();
@@ -257,6 +267,7 @@ export function nationalStateMap({ fill, tip, arrows = null, arrowScale = 2.4, o
   for (const code of CALLOUTS) {
     const box = s('g', { transform: `translate(914, ${yy})` });
     box.appendChild(s('rect', { width: 18, height: 14, rx: 3, fill: fill(code) || 'var(--norace)', stroke: 'var(--line-2)', 'stroke-width': 0.5 }));
+    if (stripes && striped(code)) box.appendChild(s('rect', { width: 18, height: 14, rx: 3, fill: stripes, class: 'hatch' }));
     box.appendChild(s('text', { x: 23, y: 11, style: 'font-size:11px;font-weight:600' }, code));
     hover(box, code);
     svg.appendChild(box);
@@ -264,6 +275,59 @@ export function nationalStateMap({ fill, tip, arrows = null, arrowScale = 2.4, o
   }
   return h('div', { class: 'map-wrap chart' }, svg);
 }
+
+// ------------------------------------------------------------------------------------------- parties before 1976
+
+// Before 1976 the parties change: Federalists and Democratic-Republicans, Whigs, Know Nothings, Progressives,
+// Dixiecrats. Each candidate or party gets a colour family: Democrats blue and Republicans red as everywhere else,
+// Federalists purple, Whigs and National Republicans gold, Democratic-Republicans teal; anyone else takes a family
+// free that year, and grey once they run out. Darker is a bigger margin, as on every map here.
+const FAMILY_VAR = { D: 'dem', R: 'rep', I: 'ind', Y: 'gold', T: 'teal' };
+const FREE = ['I', 'Y', 'T'];
+export function preferredFamily(party) {
+  const p = String(party || '').trim();
+  if (/^(democratic-republicans?|anti-administration|anti-federalist)/i.test(p)) return 'T';
+  if (/^(federalists?|pro-administration)$/i.test(p)) return 'I';
+  if (/^(adams|anti-jacksonians?|whigs?|national republican|opposition)\b/i.test(p)) return 'Y';
+  if (/^(northern democratic|democratic|democrats|jacksonians?|jackson\b)/i.test(p)) return 'D';
+  if (/^(republicans?|national union)$/i.test(p)) return 'R';
+  return null;
+}
+/**
+ * Families for a list of parties or candidates (in order of importance), no two sharing one except grey ('Others' is
+ * always grey). First each takes its party's own family, or its hint, first come; the rest then take a free family that
+ * no party on the page prefers (reserved: the families of parties shown alongside, such as the Congress section), else
+ * any free one, else grey.
+ */
+export function assignFamilies(parties, { hints = [], reserved = [] } = {}) {
+  const pref = parties.map((party, i) => (/^others?$/i.test(String(party)) ? 'O' : hints[i] || preferredFamily(party)));
+  const out = parties.map(() => null), used = new Set();
+  pref.forEach((f, i) => {
+    if (f === 'O') out[i] = 'O';
+    else if (f && !used.has(f)) { out[i] = f; used.add(f); }
+  });
+  const avoid = new Set([...reserved, ...pref].filter(Boolean));
+  out.forEach((f, i) => {
+    if (f) return;
+    const pick = FREE.find(x => !used.has(x) && !avoid.has(x)) || FREE.find(x => !used.has(x)) || 'O';
+    if (pick !== 'O') used.add(pick);
+    out[i] = pick;
+  });
+  return out;
+}
+/** The families the parties in a Congress split prefer, to keep candidates' colours off them. */
+export const congressFamilies = (...lists) => lists.flat().map(([party]) => preferredFamily(party)).filter(Boolean);
+/** A family's map fill for a winning margin in points (null margin: the middle shade). */
+export function familyFill(fam, margin = null) {
+  const v = FAMILY_VAR[fam];
+  if (!v) return 'var(--oth)';
+  return `var(--${v}-${margin === null || margin === undefined ? 'likely' : marginBand(margin).key})`;
+}
+export const familyColor = (fam) => (FAMILY_VAR[fam] ? (fam === 'Y' ? 'var(--gold)' : fam === 'T' ? 'var(--teal)' : `var(--${FAMILY_VAR[fam]})`) : 'var(--oth)');
+/** The same family as a text colour: darker gold, teal and grey in the light theme, to keep 4.5:1 contrast. */
+export const familyText = (fam) => (FAMILY_VAR[fam] ? (fam === 'Y' ? 'var(--gold-text)' : fam === 'T' ? 'var(--teal-text)' : `var(--${FAMILY_VAR[fam]})`) : 'var(--oth-text)');
+/** A small coloured chip, like partyChip but for any family. */
+export const familyChip = (fam, text) => h('span', { class: 'fam-chip', style: { background: familyColor(fam) } }, text);
 
 // ------------------------------------------------------------------------------------------- tooltips
 
