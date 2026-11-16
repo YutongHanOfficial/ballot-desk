@@ -4,7 +4,7 @@
 // county maps and no race-by-race results.
 import { h, num, esc, sortableTable, lastName } from '../ui.js';
 import {
-  assignFamilies, congressFamilies, familyFill, familyColor, familyText, familyChip, nationalStateMap, stateName, ttRow, ttTitle, pctOf,
+  assignFamilies, congressFamilies, familyFill, familyColor, familyText, familyChip, nationalStateMap, stateName, ttRow, ttTitle, pctOf, digitsOf,
 } from '../archive.js';
 import { swingUrl } from './swing.js';
 
@@ -20,6 +20,13 @@ const SHORT = {
   'Adams-Clay Republicans & Federalists': 'Adams-Clay & Fed.', Adams: 'Adams', Opposition: 'Opposition', Others: 'Others',
 };
 const short = (party) => SHORT[party] || party;
+// Shorter still for the index cards, so each chamber fits on one line there: "Jackson 143 · Anti-J. 75 · Oth. 24".
+const CARD_TAG = {
+  Democrats: 'Dem.', Republicans: 'Rep.', Whigs: 'Whig', Federalists: 'Fed.', 'Democratic-Republicans': 'Dem.-Rep.',
+  'Anti-Administration': 'Anti-Adm.', 'Pro-Administration': 'Pro-Adm.', Jacksonians: 'Jackson', 'Anti-Jacksonians': 'Anti-J.',
+  'Jackson Republicans': 'Jackson', 'Adams-Clay Republicans': 'Adams', 'Jackson & Crawford Republicans': 'Jack.-Craw.',
+  'Adams-Clay Republicans & Federalists': 'Adams-Clay', Adams: 'Adams', Opposition: 'Opp.', Others: 'Oth.',
+};
 // The parties as people, for sentences: "Jacksonians held 104 seats".
 const MEMBERS = { Adams: 'Adams supporters', 'Pro-Administration': 'Pro-Administration members', 'Anti-Administration': 'Anti-Administration members',
   Opposition: 'the Opposition coalition' };
@@ -55,11 +62,14 @@ export function winnerOf(p) {
   return p.candidates.find(x => x.id === p.winner) || p.candidates[0];
 }
 
-/** "Dem. 131 · Rep. 94 · Others 13", each in its party's colour. */
-function seatsLine(seats) {
+/** "Dem. 131 · Rep. 94 · Others 13", each in its party's colour (card: the shorter tags of the index cards). */
+function seatsLine(seats, card = false) {
   const fams = assignFamilies(seats.map(([party]) => party));
-  return h('span', { class: 'ar-seats' }, seats.map(([party, n], i) => h('b', { style: { color: familyText(fams[i]) } }, `${short(party)} ${n}`)));
+  return h('span', { class: 'ar-seats' }, seats.map(([party, n], i) => h('b', { style: { color: familyText(fams[i]) } }, `${(card ? CARD_TAG[party] : null) || short(party)} ${n}`)));
 }
+
+/** A winner's name short enough for a card line: "W. H. Harrison" for William Henry Harrison. */
+const cardName = (name, score) => (name.length + score.length < 22 ? name : initialsName(name));
 
 /** A bar of seats by party, with the majority mark. */
 function seatsBar(seats, height = 6) {
@@ -76,14 +86,16 @@ export function earlyCard(e) {
   const lines = [];
   if (p) {
     const fams = assignFamilies(p.cands.map(c => c[1]), { hints: p.cands.map(c => c[3]), reserved: congressFamilies(e.congress.house, e.congress.senate) });
+    // The winner and, as on the cards since 1976, the winner's electoral votes against the runner-up's (in 1824,
+    // the House's choice first: Adams 84 to Jackson's 99).
     const wi = p.winner ?? 0;
     const [name, , ev] = p.cands[wi];
-    const score = [ev, ...p.cands.filter((_, i) => i !== wi).map(c => c[2])].join('–');
+    const score = `${ev}–${p.cands[wi === 0 ? 1 : 0]?.[2] ?? 0}`;
     lines.push(h('div', { class: 'ar-line' }, h('span', { class: 'ar-k' }, 'President'),
-      h('span', null, h('b', { style: { color: familyText(fams[wi]) } }, name), h('span', { class: 'muted' }, ` ${score}`))));
+      h('span', { class: 'ar-who', title: name }, h('b', { style: { color: familyText(fams[wi]) } }, cardName(name, score)), h('span', { class: 'muted' }, ` ${score}`))));
   }
-  lines.push(h('div', { class: 'ar-line' }, h('span', { class: 'ar-k' }, 'House'), seatsLine(e.congress.house)));
-  lines.push(h('div', { class: 'ar-line' }, h('span', { class: 'ar-k' }, 'Senate'), seatsLine(e.congress.senate)));
+  lines.push(h('div', { class: 'ar-line' }, h('span', { class: 'ar-k' }, 'House'), seatsLine(e.congress.house, true)));
+  lines.push(h('div', { class: 'ar-line' }, h('span', { class: 'ar-k' }, 'Senate'), seatsLine(e.congress.senate, true)));
   return h('a', { class: 'ar-card', href: `/archive/${e.year}` },
     h('div', { class: 'ar-head' }, h('b', null, e.label), h('span', { class: 'ar-kind' }, e.presidential ? 'Presidential' : 'Midterm')),
     lines, seatsBar(e.congress.house));
@@ -133,15 +145,18 @@ export function earlySummary(e, data) {
     const { full } = namesOf(p);
     if (CONTINGENT[e.year]) parts.push(CONTINGENT[e.year]);
     else {
-      // The runners-up, one entry per slate: "to the 66 cast by Horace Greeley’s electors".
-      const rest = slateGroups(p, groupOf).filter(x => x.g !== groupOf[w.id]);
-      const evs = rest.length ? ` to ${rest.slice(0, 3).map(x => (x.many ? `the ${x.ev} cast by ${p.slates[x.g].label}` : `${full[x.c.id]}’s ${x.ev}`)).join(', ')}` : '';
+      // The runners-up, one entry per slate: "to the 66 cast by Horace Greeley’s electors". The top three, and anyone
+      // tied with the third (Harrison and Rutledge, 6 each, in 1788).
+      const rest = slateGroups(p, groupOf).filter(x => x.g !== groupOf[w.id]).sort((a, b) => b.ev - a.ev);
+      const named = rest.filter((x, i) => i < 3 || x.ev === rest[2].ev);
+      const evs = named.length ? ` to ${andList(named.map(x => (x.many ? `the ${x.ev} cast by ${p.slates[x.g].label}` : `${full[x.c.id]}’s ${x.ev}`)))}` : '';
       // The popular vote, unless nobody ran against the winner in it (Washington's elector slates all backed him).
       const pvTotal = pvTotalOf(p);
       const top = p.candidates.filter(x => x.pv && groupOf[x.id] !== groupOf[w.id]).sort((a, b) => b.pv - a.pv)[0];
+      const d = top ? digitsOf(pvTotal, [w.pv || 0, top.pv]) : 2;
       const pv = !w.pv || !pvTotal || !top ? ''
-        : top.pv > w.pv ? `, while losing the popular vote, ${pctOf(w.pv, pvTotal)} to ${shortName(top.name)}’s ${pctOf(top.pv, pvTotal)}`
-          : `, and ${pctOf(w.pv, pvTotal)} of the popular vote`;
+        : top.pv > w.pv ? `, while losing the popular vote, ${pctOf(w.pv, pvTotal, d)} to ${shortName(top.name)}’s ${pctOf(top.pv, pvTotal, d)}`
+          : `, and ${pctOf(w.pv, pvTotal, d)} of the popular vote`;
       parts.push(`${w.name} (${w.party}) won the presidency with ${w.ev} electoral votes${evs}${pv}.`);
     }
   }
@@ -192,7 +207,7 @@ function presidentEarly(e, p, reserved) {
       margin = (100 * (pvOf(st, id) - best)) / st.total;
       if (margin < 0) leader = bestId;
     }
-    stateWin[code] = { id, margin, leader };
+    stateWin[code] = { id, margin, leader, d: st.votes ? digitsOf(st.total, Object.values(st.votes)) : 2 };
   }
   const noMargin = (code) => stateWin[code] && stateWin[code].margin === null;
   const fill = (code) => {
@@ -205,7 +220,7 @@ function presidentEarly(e, p, reserved) {
     if (!st) return `${ttTitle(stateName(code))}<div class="muted">No electoral votes in ${e.label}: not yet a state, or its votes weren’t cast or counted</div>`;
     const evRows = evOrder(st).map(([id, n]) => ttRow(esc(full[id] || id), `${n} electoral vote${n === 1 ? '' : 's'}`)).join('');
     const pvRows = st.votes && st.total > 0 && !st.partial
-      ? Object.entries(st.votes).filter(([, v]) => v > 0).sort((a, b) => b[1] - a[1]).slice(0, 4).map(([id, v]) => ttRow(esc(id === 'other' ? 'Others' : full[id] || id), pctOf(v, st.total), true)).join('')
+      ? Object.entries(st.votes).filter(([, v]) => v > 0).sort((a, b) => b[1] - a[1]).slice(0, 4).map(([id, v]) => ttRow(esc(id === 'other' ? 'Others' : full[id] || id), pctOf(v, st.total, digitsOf(st.total, Object.values(st.votes))), true)).join('')
       : '';
     const foot = (t) => `<div class="tt-foot">${t}</div>`;
     const how = st.method === 'legislature'
@@ -239,12 +254,13 @@ function presidentEarly(e, p, reserved) {
     h('div', { class: 'xs muted', style: { marginTop: '6px' } }, y < 1804
       ? 'Before 1804 each elector cast two votes for president; the runner-up became vice president.'
       : `${p.needed ?? Math.floor(evTotal / 2) + 1} electoral votes to win.`));   // needed: a majority of electors appointed, where some didn't vote
-  // Popular votes, most first, with anyone not listed as Others.
+  // Popular votes, most first, with anyone not listed as Others, to the live pages' decimals.
   const otherPv = pvTotal - p.candidates.reduce((t, c) => t + (c.pv || 0), 0);
+  const dPv = digitsOf(pvTotal, p.candidates.map(c => c.pv || 0));
   const pvCard = popular ? h('div', null,
     h('div', { class: 'ar-ev-list' },
-      p.candidates.filter(c => c.pv).sort((a, b) => b.pv - a.pv).map(c => h('span', null, familyChip(famOf[c.id] || 'O', ''), h('b', null, full[c.id]), ` ${pctOf(c.pv, pvTotal)}`)),
-      otherPv >= 0.005 * pvTotal ? h('span', null, familyChip('O', ''), h('b', null, 'Others'), ` ${pctOf(otherPv, pvTotal)}`) : null),
+      p.candidates.filter(c => c.pv).sort((a, b) => b.pv - a.pv).map(c => h('span', null, familyChip(famOf[c.id] || 'O', ''), h('b', null, full[c.id]), ` ${pctOf(c.pv, pvTotal, dPv)}`)),
+      otherPv >= 0.005 * pvTotal ? h('span', null, familyChip('O', ''), h('b', null, 'Others'), ` ${pctOf(otherPv, pvTotal, dPv)}`) : null),
     h('div', { class: 'xs muted', style: { marginTop: '6px' } }, `${num(pvTotal)} votes counted in the states with a popular vote${legislature.length ? `; in ${legislature.length === 1 ? stateName(legislature[0]) : `${legislature.length} states`} the legislature chose the electors` : ''}.`))
     : h('p', { class: 'small muted', style: { margin: 0 } }, 'There is no national popular vote for this election: most electors were chosen by state legislatures, and few states kept full returns.');
 
@@ -254,7 +270,7 @@ function presidentEarly(e, p, reserved) {
     if (m === null || m === undefined) return h('span', { class: 'muted' }, !x.st.votes ? (x.st.method === 'legislature' ? 'Legislature' : 'No returns') : x.st.partial ? 'Partial' : '—');
     // The electoral-vote winner's lead, or, where that winner trailed, who led the popular vote and by how much.
     const who = m >= 0 ? x.w.id : x.w.leader;
-    return h('span', { style: { color: familyText(famOf[who] || 'O') } }, m >= 0 ? `+${points(m)}` : `${who === 'other' ? 'Others' : brief[who] || who} +${points(-m)}`);
+    return h('span', { style: { color: familyText(famOf[who] || 'O') } }, m >= 0 ? `+${m.toFixed(x.w.d)}` : `${who === 'other' ? 'Others' : brief[who] || who} +${(-m).toFixed(x.w.d)}`);
   };
   const table = sortableTable([
     { key: 'st', label: 'State', render: x => stateName(x.code), sort: x => stateName(x.code), defaultAsc: true },
@@ -298,8 +314,6 @@ function congressSection(e, data) {
     h('div', { class: 'grid g2' }, chamber('House', c.house), chamber('Senate', c.senate)));
 }
 
-// One decimal, more for a margin that would otherwise read 0.0 (Roosevelt won California by 174 votes in 1912).
-const points = (m) => m.toFixed(m >= 0.05 ? 1 : m >= 0.005 ? 2 : 3);
 const ordinalWord = (n) => { const s = ['th', 'st', 'nd', 'rd'], v = n % 100; return n + (s[(v - 20) % 10] || s[v] || s[0]); };
 // The sources checked for a year's corrections (including any that disagreed), by family, in a fixed order.
 const SOURCE_NAMES = [

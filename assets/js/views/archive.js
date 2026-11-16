@@ -6,14 +6,15 @@ import { h, num, partyChip, partyVar, sortableTable, esc, marginFill } from '../
 import { store } from '../store.js';
 import {
   withData, INDEX_URL, PRESIDENT_URL, COUNTY_GEO, yearUrl, countiesUrl, PRES_YEARS, COUNTY_YEARS, marginOf, marginFillDR,
-  marginLabel, shiftLabel, pctOf, stateName, WHOLE_STATE, nationalCountyMap, nationalStateMap, resultLegend, ttRow, ttTitle,
+  marginLabel, shiftLabel, pctOf, digitsOf, stateName, WHOLE_STATE, nationalCountyMap, nationalStateMap, resultLegend, ttRow, ttTitle,
 } from '../archive.js';
 import { shiftMap, swingUrl } from './swing.js';
 import { earlyCard, earlyYearPage, earlySummary } from './archive-early.js';
 
 const PARTY_WORD = { D: 'Democrats', R: 'Republicans', O: 'independents' };
 const colored = (party, text, tag = 'span') => h(tag, { style: { color: partyVar(party) } }, text);
-const marginCell = (m) => (m === null ? h('span', { class: 'muted' }, '—') : colored(m >= 0 ? 'D' : 'R', marginLabel(m)));
+// d: the decimals of the shares beside it (digitsOf), so a margin never reads 0 while the counts differ.
+const marginCell = (m, d = 1) => (m === null ? h('span', { class: 'muted' }, '—') : colored(m >= 0 ? 'D' : 'R', marginLabel(m, d)));
 
 // ------------------------------------------------------------------------------------------- index
 
@@ -104,7 +105,8 @@ function yearHead(e, idx, summary = null) {
   const parts = summary ? [summary] : [];
   if (p && !summary) {
     const win = p.ev.D > p.ev.R ? 'D' : 'R', lose = win === 'D' ? 'R' : 'D';
-    const pw = pctOf(p.votes[win], p.votes.total), pl = pctOf(p.votes[lose], p.votes.total);
+    const d = digitsOf(p.votes.total, [p.votes.D, p.votes.R]);
+    const pw = pctOf(p.votes[win], p.votes.total, d), pl = pctOf(p.votes[lose], p.votes.total, d);
     parts.push(`${p[win]} won the presidency with ${p.ev[win]} electoral votes to ${p[lose]}’s ${p.ev[lose]}, ${p.votes[win] > p.votes[lose] ? `and ${pw} of the popular vote to ${pl}` : `while losing the popular vote, ${pw} to ${pl}`}.`);
   }
   if (!summary) {
@@ -147,9 +149,10 @@ function presidentSection(e, pres) {
       h('span', { style: { width: `${(100 * p.ev.R) / 538}%`, background: 'var(--rep)' } }),
       h('i', { class: 'ar-mid tall', title: '270 to win' })),
     h('div', { class: 'xs muted', style: { marginTop: '6px' } }, p.ev.note || '270 electoral votes to win.'));
-  const others = (p.others || []).map(o => `${o.name} ${pctOf(o.votes, p.votes.total)}`);
+  const dn = digitsOf(p.votes.total, [p.votes.D, p.votes.R, ...(p.others || []).map(o => o.votes)]);
+  const others = (p.others || []).map(o => `${o.name} ${pctOf(o.votes, p.votes.total, dn)}`);
   const pv = h('div', null,
-    h('div', { class: 'ar-pv' }, colored('D', h('b', null, pctOf(p.votes.D, p.votes.total))), h('span', { class: 'muted' }, ' to '), colored('R', h('b', null, pctOf(p.votes.R, p.votes.total)))),
+    h('div', { class: 'ar-pv' }, colored('D', h('b', null, pctOf(p.votes.D, p.votes.total, dn))), h('span', { class: 'muted' }, ' to '), colored('R', h('b', null, pctOf(p.votes.R, p.votes.total, dn)))),
     h('div', { class: 'xs muted' }, `${num(p.votes.D)} to ${num(p.votes.R)}${others.length ? `; ${others.join(', ')}` : ''}. ${num(p.votes.total)} votes in all.`));
 
   const view = { mode: 'states' };
@@ -163,13 +166,13 @@ function presidentSection(e, pres) {
   for (const [k, label] of modes) seg.appendChild(h('button', { type: 'button', onclick: () => { view.mode = k; draw(); } }, label));
   draw();
 
-  const rows = Object.entries(p.states).map(([st, v]) => ({ st, T: v[0], D: v[1], R: v[2], m: margins[st],
+  const rows = Object.entries(p.states).map(([st, v]) => ({ st, T: v[0], D: v[1], R: v[2], m: margins[st], d: digitsOf(v[0], [v[1], v[2]]),
     sh: prev && pres.years[prev].states[st] ? margins[st] - marginOf(...pres.years[prev].states[st]) : null }));
   const table = sortableTable([
     { key: 'st', label: 'State', render: x => stateName(x.st), sort: x => stateName(x.st), defaultAsc: true },
-    { key: 'd', label: lastWord(p.D), num: true, render: x => pctOf(x.D, x.T), sort: x => x.D / x.T },
-    { key: 'r', label: lastWord(p.R), num: true, render: x => pctOf(x.R, x.T), sort: x => x.R / x.T },
-    { key: 'm', label: 'Margin', num: true, render: x => marginCell(x.m), sort: x => x.m },
+    { key: 'd', label: lastWord(p.D), num: true, render: x => pctOf(x.D, x.T, x.d), sort: x => x.D / x.T },
+    { key: 'r', label: lastWord(p.R), num: true, render: x => pctOf(x.R, x.T, x.d), sort: x => x.R / x.T },
+    { key: 'm', label: 'Margin', num: true, render: x => marginCell(x.m, x.d), sort: x => x.m },
     prev ? { key: 'sh', label: `Shift from ${prev}`, num: true, hideSm: true, render: x => x.sh === null ? '—' : colored(x.sh >= 0 ? 'D' : 'R', shiftLabel(x.sh)), sort: x => x.sh } : null,
     { key: 't', label: 'Votes', num: true, hideSm: true, render: x => num(x.T), sort: x => x.T },
   ].filter(Boolean), rows, { sortKey: 'st', desc: false, stateKey: `ar-pres-${y}` });
@@ -177,7 +180,7 @@ function presidentSection(e, pres) {
   return h('section', { class: 'section' },
     sectionHead('President', `${p.D} (D) and ${p.R} (R)`),
     h('div', { class: 'grid g2' }, h('div', { class: 'card' }, h('div', { class: 'card-title' }, 'Electoral votes', colored(win, h('span', { class: 'ar-won' }, `${p[win]} won`))), evBar),
-      h('div', { class: 'card' }, h('div', { class: 'card-title' }, 'Popular vote', h('span', { class: 'ar-won' }, marginCell(marginOf(p.votes.total, p.votes.D, p.votes.R)))), pv)),
+      h('div', { class: 'card' }, h('div', { class: 'card-title' }, 'Popular vote', h('span', { class: 'ar-won' }, marginCell(marginOf(p.votes.total, p.votes.D, p.votes.R), dn))), pv)),
     h('div', { class: 'card', style: { marginTop: '16px' } },
       h('div', { class: 'map-toolbar' }, seg, prev ? h('a', { class: 'more small', href: swingUrl({ from: prev, to: y, level: COUNTY_YEARS.includes(prev) ? 'counties' : 'states', style: 'arrows' }) }, `How the map shifted from ${prev} →`) : null),
       holder),
@@ -190,8 +193,9 @@ function stateMarginMap(p, margins) {
   const tip = (st) => {
     const v = p.states[st];
     if (!v) return null;
-    return ttTitle(stateName(st)) + ttRow(`${esc(p.D)} (D)`, pctOf(v[1], v[0])) + ttRow(`${esc(p.R)} (R)`, pctOf(v[2], v[0])) +
-      ttRow('Margin', marginLabel(margins[st])) + ttRow('Votes', num(v[0]), true);
+    const d = digitsOf(v[0], [v[1], v[2]]);
+    return ttTitle(stateName(st)) + ttRow(`${esc(p.D)} (D)`, pctOf(v[1], v[0], d)) + ttRow(`${esc(p.R)} (R)`, pctOf(v[2], v[0], d)) +
+      ttRow('Margin', marginLabel(margins[st], d)) + ttRow('Votes', num(v[0]), true);
   };
   return nationalStateMap({ fill: (st) => (p.states[st] ? marginFillDR(margins[st]) : null), tip, label: 'Map of the presidential vote by state' });
 }
@@ -202,14 +206,15 @@ function countyMarginMap(y, p) {
     const fill = (f) => (WHOLE_STATE[f.st] ? marginFillDR(stateM(f.st)) : C[f.id] ? marginFillDR(marginOf(...C[f.id])) : 'var(--none)');
     const tip = (f) => {
       if (WHOLE_STATE[f.st]) {
-        const v = p.states[f.st];
-        return ttTitle(`${stateName(f.st)} (whole state)`) + ttRow(`${esc(p.D)} (D)`, pctOf(v[1], v[0])) + ttRow(`${esc(p.R)} (R)`, pctOf(v[2], v[0])) +
-          ttRow('Margin', marginLabel(stateM(f.st))) + `<div class="tt-foot">${esc(WHOLE_STATE[f.st])}</div>`;
+        const v = p.states[f.st], d = digitsOf(v[0], [v[1], v[2]]);
+        return ttTitle(`${stateName(f.st)} (whole state)`) + ttRow(`${esc(p.D)} (D)`, pctOf(v[1], v[0], d)) + ttRow(`${esc(p.R)} (R)`, pctOf(v[2], v[0], d)) +
+          ttRow('Margin', marginLabel(stateM(f.st), d)) + `<div class="tt-foot">${esc(WHOLE_STATE[f.st])}</div>`;
       }
       const v = C[f.id];
       if (!v) return `${ttTitle(`${f.n}, ${f.st}`)}<div class="muted">No result for ${y}${f.id === '08014' && y === 2000 ? ' (formed in 2001)' : ''}.</div>`;
-      return ttTitle(`${f.n}, ${f.st}`) + ttRow(`${esc(p.D)} (D)`, pctOf(v[1], v[0])) + ttRow(`${esc(p.R)} (R)`, pctOf(v[2], v[0])) +
-        ttRow('Margin', marginLabel(marginOf(...v))) + ttRow('Votes', num(v[0]), true);
+      const d = digitsOf(v[0], [v[1], v[2]]);
+      return ttTitle(`${f.n}, ${f.st}`) + ttRow(`${esc(p.D)} (D)`, pctOf(v[1], v[0], d)) + ttRow(`${esc(p.R)} (R)`, pctOf(v[2], v[0], d)) +
+        ttRow('Margin', marginLabel(marginOf(...v), d)) + ttRow('Votes', num(v[0]), true);
     };
     return nationalCountyMap(topo, { fill, tip, key: `ar-counties-${y}`, label: `Map of the ${y} presidential vote by county` });
   }, 'map');
@@ -238,7 +243,7 @@ function senateSection(e, races) {
     if (!rs.length) return `${ttTitle(stateName(st))}<div class="muted">No Senate race in ${e.year}</div>`;
     return rs.map(r => ttTitle(`${stateName(st)}${r.special ? ' (special)' : ''}`) +
       (r.unopposed ? ttRow(`${esc(r.cands[0][0])} (${r.cands[0][1]})`, 'Unopposed')
-        : r.cands.slice(0, 3).map(c => ttRow(`${esc(c[0])} (${c[1]})`, c[2] === null ? '—' : pctOf(c[2], r.total))).join('')) +
+        : r.cands.slice(0, 3).map(c => ttRow(`${esc(c[0])} (${c[1]})`, c[2] === null ? '—' : pctOf(c[2], r.total, raceDigits(r)))).join('')) +
       (r.note ? `<div class="tt-foot">${esc(r.note)}</div>` : '')).join('<div style="height:8px"></div>');
   };
   const map = nationalStateMap({ fill, tip, label: `Map of the ${e.year} Senate races` });
@@ -260,10 +265,12 @@ function candCell(c, winner = null, note = null, unopposed = false) {
     h('div', { class: 'cand-line' }, partyChip(c[1]), h('span', { class: 'nm', style: { fontWeight: winner ? 700 : 500 } }, c[0])),
     note ? h('div', { class: 'xs muted ar-note' }, note) : null);
 }
+/** A race's share decimals: two, or more until its top two read apart. */
+const raceDigits = (r) => digitsOf(r.total, r.cands.map(c => c[2] || 0));
 function winnerMargin(r) {
   const m = raceMargin(r);
   if (m === null) return h('span', { class: 'muted' }, 'Runoff');
-  return colored(r.winner?.party || 'O', `+${Math.abs(m).toFixed(1)}`);
+  return colored(r.winner?.party || 'O', `+${Math.abs(m).toFixed(m === 100 ? 1 : raceDigits(r))}`);
 }
 
 // ---- House
@@ -273,7 +280,7 @@ function houseSection(e, races) {
   const bar = h('div', { class: 'ar-house' },
     h('div', { class: 'ar-ev-names' }, colored('D', h('b', null, `Democrats ${s.D}`)), s.O ? h('b', { style: { color: 'var(--ind)' } }, `Independents ${s.O}`) : null, colored('R', h('b', null, `${s.R} Republicans`))),
     houseBar(s, 14),
-    h('div', { class: 'xs muted', style: { marginTop: '6px' } }, `218 seats for a majority. Popular vote, adding up every district: Democrats ${pctOf(v.D, v.total)}, Republicans ${pctOf(v.R, v.total)}.`));
+    h('div', { class: 'xs muted', style: { marginTop: '6px' } }, `218 seats for a majority. Popular vote, adding up every district: Democrats ${pctOf(v.D, v.total, digitsOf(v.total, [v.D, v.R]))}, Republicans ${pctOf(v.R, v.total, digitsOf(v.total, [v.D, v.R]))}.`));
   const states = [...new Set(races.map(r => r.id.slice(0, 2)))].sort((a, b) => stateName(a).localeCompare(stateName(b)));
   const holder = h('div');
   const filter = { st: '' };

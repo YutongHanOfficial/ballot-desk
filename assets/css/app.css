@@ -854,15 +854,22 @@ html.bc-transparent, html.bc-transparent body { background: transparent !importa
 .rs-grey i { display: inline-block; width: 12px; height: 12px; border-radius: 3px; }
 
 /* ---------------------------------------------------------------------------------- archive and swing map */
-.ar-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 12px; }
+/* 310px: wide enough for the longest card line (the 1822 Senate, "Jack.-Craw. 31 Adams-Clay 16") to stay on one line. */
+.ar-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(310px, 1fr)); gap: 12px; }
 .ar-card { display: flex; flex-direction: column; gap: 7px; padding: 14px 16px; background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); box-shadow: var(--shadow); color: var(--ink); text-decoration: none; transition: border-color .15s; }
 .ar-card:hover { border-color: var(--ink-2); }
 .ar-head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
 .ar-head b { font: 750 22px/1 var(--sans); font-variant-numeric: tabular-nums; }
 .ar-kind { font-size: 11px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
-.ar-line { display: flex; justify-content: space-between; gap: 10px; font-size: 13.5px; }
-.ar-k { color: var(--muted); }
-.ar-seats { display: inline-flex; gap: 8px; font-variant-numeric: tabular-nums; }
+.ar-line { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; font-size: 13.5px; }
+.ar-k { flex: none; color: var(--muted); white-space: nowrap; }
+/* Each party's count stays in one piece ("Anti-J. 75"); if a line is still too long, whole entries wrap. */
+.ar-seats { display: inline-flex; flex-wrap: wrap; justify-content: flex-end; gap: 0 8px; min-width: 0; font-variant-numeric: tabular-nums; }
+.ar-seats b { white-space: nowrap; }
+.ar-who { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* The bar sits at the foot of the card, so the cards in a row line up whatever their number of lines. */
+.ar-card > .ar-bar { margin-top: auto; }
+.ar-card > .ar-line:last-of-type { margin-bottom: 3px; }
 .ar-oth { color: var(--ind); }
 .ar-bar { position: relative; display: flex; border-radius: 999px; overflow: hidden; background: var(--none); margin-top: 3px; }
 .ar-bar span { display: block; height: 100%; }

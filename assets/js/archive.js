@@ -1,6 +1,6 @@
 // Past elections for the archive and the swing map: data loading, margins and shifts, and the national maps.
 // The data comes from pipeline/build_archive.mjs (official returns compiled by the MIT Election Data and Science Lab).
-import { h, s, esc, num, tooltip, marginFill, marginBand, hatchFill, MARGIN_BANDS, SHIFT_BANDS, shiftFill, partyVar } from './ui.js';
+import { h, s, esc, num, tooltip, marginFill, marginBand, hatchFill, MARGIN_BANDS, SHIFT_BANDS, shiftFill, partyVar, shareDigits } from './ui.js';
 import { store } from './store.js';
 import { loadGeo, cachedGeo } from './geo.js';
 import { attachZoom, zoomButtons } from './maps.js';
@@ -49,7 +49,17 @@ export function shiftLabel(sh, d = 1) {
   return v < 0.5 * 10 ** -d ? 'No change' : `${sh > 0 ? 'D' : 'R'}+${v.toFixed(d)}`;
 }
 export const shiftWords = (sh) => (Math.abs(sh) < 0.05 ? 'no change' : `${Math.abs(sh).toFixed(1)} points toward ${sh > 0 ? 'Democrats' : 'Republicans'}`);
-export const pctOf = (v, T) => (T > 0 ? `${((100 * v) / T).toFixed(1)}%` : '—');
+/**
+ * Decimals for a result's vote shares, as on the live pages (shareDigits in ui.js): two (53.52%), or as many more, up
+ * to six, as it takes for the top two counts to read apart, so a close result never shows two equal shares or a margin
+ * of zero. Margins printed beside those shares use the same number.
+ */
+export function digitsOf(total, votes) {
+  const top = votes.filter(v => v > 0).sort((a, b) => b - a);
+  return shareDigits(total, top.length > 1 ? [[top[0], top[1]]] : []);
+}
+/** A vote share as a percentage: '53.52%' (d from digitsOf). */
+export const pctOf = (v, T, d = 2) => (T > 0 ? `${((100 * v) / T).toFixed(d)}%` : '—');
 
 /** Two-letter code for a state FIPS code, D.C. included. */
 let FIPS_ST = null;

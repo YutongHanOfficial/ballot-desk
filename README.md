@@ -204,7 +204,9 @@ Vote shares show two decimals (53.52%), and more where two numbers that matter w
 `voteDigits()` in store.js (on `shareDigits()` in ui.js) adds decimals, up to six, until the top two candidates read
 apart with at least one step of the last digit between them, so the margin never reads zero while the counts differ
 (48.949% to 48.942%). Where second place goes to a runoff it also separates second from third, and where a majority
-wins outright, the leader from 50%. Every view of a race uses the same count of decimals.
+wins outright, the leader from 50%. Every view of a race uses the same count of decimals. The archive follows the
+same rule (`digitsOf()` in archive.js), for its shares and the margins beside them (Florida 2000 reads 48.838% to
+48.847%, R+0.009); the swing map's margins and shifts keep one decimal, like the live "Shift from 2024" view.
 
 Louisiana's House races are all-party primaries with a December runoff (`race_type_id` 'L' in the feed). There,
 `seatCount()` gives the live model, the map colours and the broadcast's tallies each party's combined vote, while the
