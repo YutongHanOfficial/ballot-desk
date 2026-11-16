@@ -4,7 +4,7 @@
 // county maps and no race-by-race results.
 import { h, num, esc, sortableTable, lastName } from '../ui.js';
 import {
-  assignFamilies, congressFamilies, familyFill, familyColor, familyText, familyChip, nationalStateMap, stateName, ttRow, ttTitle, pctOf, digitsOf,
+  assignFamilies, preferredFamily, congressFamilies, familyFill, familyColor, familyText, familyChip, nationalStateMap, stateName, ttRow, ttTitle, pctOf, digitsOf,
 } from '../archive.js';
 import { swingUrl } from './swing.js';
 
@@ -70,6 +70,42 @@ function seatsLine(seats, card = false) {
 
 /** A winner's name short enough for a card line: "W. H. Harrison" for William Henry Harrison. */
 const cardName = (name, score) => (name.length + score.length < 22 ? name : initialsName(name));
+
+// A minor party's short label: "Crawford Rep.", "Ind. Dem.".
+const abbrevParty = (party) => SHORT[party] || party.replace(/\bRepublicans?\b/g, 'Rep.').replace(/\bDemocrats?\b/g, 'Dem.')
+  .replace(/\bFederalists?\b/g, 'Fed.').replace(/\bIndependents?\b/g, 'Ind.');
+
+/**
+ * A chamber's parties for the year page, with the House's "Others" split into the parties the House Historian names
+ * (the Senate's table gives only a count). A wing named for the same leader as a party already shown (Jackson
+ * Federalists beside Jackson Republicans, 1822) takes that party's colour in a lighter shade and sits next to it; any
+ * other party gets a colour of its own while one is free, then grey.
+ */
+function chamberParts(ch) {
+  const seats = ch.seats.filter(([, n]) => n > 0);
+  const others = seats.find(([party]) => party === 'Others')?.[1] || 0;
+  const minor = (ch.minor || []).filter(([, n]) => n > 0);
+  const split = minor.length > 0 && minor.reduce((t, [, n]) => t + n, 0) === others;
+  const main = split ? seats.filter(([party]) => party !== 'Others') : seats;
+  const fams = assignFamilies(main.map(([party]) => party));
+  const out = main.map(([party, n], i) => ({ party, n, fam: fams[i], light: false, pref: preferredFamily(party) }));
+  if (!split) return out;
+  const used = new Set(fams.filter(f => f !== 'O'));
+  for (const [party, n] of [...minor].sort((a, b) => b[1] - a[1])) {
+    const pref = preferredFamily(party);
+    const ally = pref ? out.findIndex(x => x.pref === pref && !x.light) : -1;
+    if (ally >= 0) {
+      let at = ally + 1;
+      while (at < out.length && out[at].light && out[at].pref === pref) at++;
+      out.splice(at, 0, { party, n, fam: out[ally].fam, light: true, pref, minor: true });
+      continue;
+    }
+    const fam = (pref && !used.has(pref) ? pref : null) || ['I', 'Y', 'T'].find(f => !used.has(f)) || 'O';
+    if (fam !== 'O') used.add(fam);
+    out.push({ party, n, fam, light: false, pref, minor: true });
+  }
+  return out;
+}
 
 /** A bar of seats by party, with the majority mark. */
 function seatsBar(seats, height = 6) {
@@ -300,11 +336,18 @@ function presidentEarly(e, p, reserved) {
 function congressSection(e, data) {
   const c = data.congress;
   const chamber = (title, ch) => {
-    const seats = ch.seats.filter(([, n]) => n > 0);
+    const parts = chamberParts(ch);
+    const total = parts.reduce((t, x) => t + x.n, 0) || 1;
+    const fillOf = (x) => (x.light ? familyFill(x.fam, 3) : familyColor(x.fam));   // a wing: its party's lighter shade
+    const split = parts.some(x => x.minor);
     return h('div', { class: 'card' }, h('div', { class: 'card-title' }, title, h('span', { class: 'muted', style: { textTransform: 'none', letterSpacing: 0 } }, `${ch.total} seats`)),
-      h('div', { class: 'ar-ev-names' }, seatsLine(seats)), seatsBar(seats, 14),
+      h('div', { class: 'ar-ev-names' }, h('span', { class: 'ar-seats' }, parts.map(x => h('b', { title: x.party, style: { color: familyText(x.fam) } },
+        h('i', { class: 'fam-chip', style: { background: fillOf(x) } }), `${x.minor ? abbrevParty(x.party) : short(x.party)} ${x.n}`)))),
+      h('div', { class: 'ar-bar parts', style: { height: '14px' } },
+        parts.map(x => h('span', { title: `${x.party} ${x.n}`, style: { width: `${(100 * x.n) / total}%`, background: fillOf(x) } })),
+        h('i', { class: 'ar-mid', title: 'Majority' })),
       h('div', { class: 'xs muted', style: { marginTop: '6px' } }, [
-        ch.minor?.length ? `Others: ${ch.minor.map(([party, n]) => `${party} ${n}`).join(', ')}. ` : '',
+        !split && ch.minor?.length ? `Others: ${ch.minor.map(([party, n]) => `${party} ${n}`).join(', ')}. ` : '',
         ch.vacancies ? `${ch.vacancies} vacant. ` : '', ch.note || ''].join('') || ' '));
   };
   // The Congress chosen in 1912 met in March 1913, before the Seventeenth Amendment took effect: its senators were still

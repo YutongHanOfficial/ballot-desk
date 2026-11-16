@@ -873,6 +873,10 @@ html.bc-transparent, html.bc-transparent body { background: transparent !importa
 .ar-oth { color: var(--ind); }
 .ar-bar { position: relative; display: flex; border-radius: 999px; overflow: hidden; background: var(--none); margin-top: 3px; }
 .ar-bar span { display: block; height: 100%; }
+/* A thin gap between parties, so two grey minor parties side by side still read as two. */
+.ar-bar.parts span + span { box-shadow: inset 1.5px 0 0 var(--surface); }
+/* On a year page the party list reads left to right, wrapping between parties like the other lists there. */
+.ar-ev-names .ar-seats { justify-content: flex-start; gap: 4px 14px; }
 .ar-mid { position: absolute; left: 50%; top: -3px; bottom: -3px; width: 2px; margin-left: -1px; background: var(--ink); opacity: .55; }
 .ar-mid.tall { top: -4px; bottom: -4px; }
 .ar-ev-names { display: flex; justify-content: space-between; gap: 10px; margin-bottom: 8px; font-size: 15px; font-variant-numeric: tabular-nums; flex-wrap: wrap; }

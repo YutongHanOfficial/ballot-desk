@@ -296,7 +296,7 @@ const FAMILY_VAR = { D: 'dem', R: 'rep', I: 'ind', Y: 'gold', T: 'teal' };
 const FREE = ['I', 'Y', 'T'];
 export function preferredFamily(party) {
   const p = String(party || '').trim();
-  if (/^(democratic-republicans?|anti-administration|anti-federalist)/i.test(p)) return 'T';
+  if (/^(democratic-republicans?|anti-administration|anti-federalist|crawford)/i.test(p)) return 'T';
   if (/^(federalists?|pro-administration)$/i.test(p)) return 'I';
   if (/^(adams|anti-jacksonians?|whigs?|national republican|opposition)\b/i.test(p)) return 'Y';
   if (/^(northern democratic|democratic|democrats|jacksonians?|jackson\b)/i.test(p)) return 'D';
