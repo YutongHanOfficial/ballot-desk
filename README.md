@@ -131,7 +131,10 @@ state results (House seats plus two, Maine's and Nebraska's split districts) mus
 faithless electors are added back, and House seats must match the official totals for 2008-2024. Known gaps in the
 data are patched in the script with their sources: Louisiana's December runoffs (the file mixes the rounds), a few
 Senate races missing or mislabelled (North Dakota 1980, North Carolina 1986, Illinois 2010, Connecticut 2022, from
-the official results on Wikipedia), candidates listed without a party, and Kansas City's 2024 county code. Counties
+the official results on Wikipedia), two Senate races it gets wrong (Wyoming 1978 gives each candidate the other's
+votes; Oregon 2022 puts surnames first), two House winners' names (Kansas's 4th in 2004, Texas's 7th in 2008), the
+2022 House file's accents and curly quotes (stored twice-encoded, so Raúl came out garbled), candidates listed
+without a party, and Kansas City's 2024 county code. Counties
 are matched to today's map; Alaska (which reports by state House district) and Connecticut (whose counties became
 planning regions in 2022) are shown as whole states, and states whose county returns don't add up to the official
 state total are noted on the swing map.

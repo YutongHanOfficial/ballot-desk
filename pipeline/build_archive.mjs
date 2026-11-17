@@ -123,10 +123,19 @@ function partyOf(label, simplified) {
 }
 
 /** Adds up a candidate's party lines (New York's fusion ballots and the like): [{ name, party, votes }], largest first. */
+// The House file's 2022 rows hold names encoded twice ("RAÃ\u009aL" for RAÚL, "â\u0080\u009cCHUYâ\u0080\u009d" for
+// “CHUY”): decode each such run once more, and make curly quotes and apostrophes straight, as in the other years.
+function fixText(s) {
+  return s.replace(/[\u00c2-\u00f4][\u0080-\u00bf]+/g, (m) => {
+    const once = Buffer.from(m, 'latin1').toString('utf8');
+    return once.includes('\ufffd') ? m : once;
+  }).replace(/[\u201c\u201d]/g, '"').replace(/[\u2018\u2019]/g, "'");
+}
+
 function candidates(rows, { simplified = false } = {}) {
   const by = new Map();
   for (const r of rows) {
-    const raw = (r.candidate || '').replace(/\\/g, '').trim();
+    const raw = fixText((r.candidate || '').replace(/\\/g, '').trim());
     if (NOT_A_VOTE.test(raw)) continue;
     const key = raw.toUpperCase() || 'OTHER';
     const c = by.get(key) || { raw, lines: [], votes: 0 };
@@ -235,6 +244,12 @@ const SENATE_ADDED = [
   { year: 2022, state: 'CT', special: false, total: 1259887, cands: [['Richard Blumenthal', 'D', 723864], ['Leora Levy', 'R', 535943]] },
 ];
 const SENATE_AS_REGULAR = new Set(['2010 IL']);
+// Races the file gets wrong, from the official results as given on each race's Wikipedia page: Wyoming 1978 gives
+// each candidate the other's votes (Alan Simpson won), and Oregon 2022 writes the names surname first.
+const SENATE_FIXED = {
+  '1978 WY': [['Alan Kooi Simpson', 'R', 82908], ['Raymond B. Whitaker', 'D', 50456]],
+  '2022 OR': [['Ron Wyden', 'D', 1076424], ['Jo Rae Perkins', 'R', 788991], ['Chris Henry', 'O', 36883], ['Dan Pulju', 'O', 23454]],
+};
 // Candidates the file lists without a party (Alaska's top-four ballot, write-ins and a few others).
 const SENATE_PARTY = { '2010 AK murkowski': 'R', '2020 NE love': 'D', '2020 WY lummis': 'R', '2020 WY david': 'D', '2022 AK murkowski': 'R',
   '2022 AK tshibaka': 'R', '2022 AK chesbro': 'D', '2024 MS wicker': 'R', '2024 MS pinkins': 'D', '2024 NV rosen': 'D', '2024 NV brown': 'R' };
@@ -274,6 +289,12 @@ function buildSenate() {
       race.note = 'Decided in a December runoff between the top two finishers.';
     }
     if (first && !fix) race.decided = 'runoff';
+    const fixed = !race.special && SENATE_FIXED[`${y} ${st}`];
+    if (fixed) {
+      const votes = (cs) => cs.map(c => c[2]).sort((a, b) => b - a).join();
+      if (votes(fixed) !== votes(race.cands)) throw new Error(`${y} ${st}: the file's votes have changed; check SENATE_FIXED`);
+      race.cands = fixed; race.winner = { name: fixed[0][0], party: fixed[0][1] };
+    }
     (out[y] ||= []).push(race);
   }
   for (const a of SENATE_ADDED) {
@@ -310,6 +331,13 @@ const HOUSE_ROUNDS = {
   '2024 ME-02': 'Final round of the ranked-choice count.',
   '2022 AK-AL': 'First choices; Mary Peltola won after ranked-choice tabulation.',
   '2024 AK-AL': 'First choices; Nick Begich won after ranked-choice tabulation.',
+};
+// Names the file gets wrong, from each race's Wikipedia page: Kansas's 4th in 2004 gives the winner, Todd Tiahrt,
+// his opponent's surname, and Texas's 7th in 2008 cuts John Culberson's name to "John Abney" (his middle name).
+// Found by the profiles' check that a seat's holder and the winner share a surname.
+const HOUSE_NAMES = {
+  '2004 KS-04': { 'Todd Kinard': 'Todd Tiahrt' },
+  '2008 TX-07': { 'John Abney': 'John Culberson' },
 };
 const HOUSE_SEATS = {
   2024: { R: 220, D: 215 }, 2022: { R: 222, D: 213 }, 2020: { D: 222, R: 213 }, 2018: { D: 235, R: 199 }, 2016: { R: 241, D: 194 },
@@ -369,6 +397,14 @@ function buildHouse() {
     // Louisiana's open primaries (in November from 1998, except 2008 and 2010, which had party primaries) need a
     // majority; anything less went to a December runoff the file may not hold.
     if (st === 'LA' && !runoff.length && !fix && !race.unopposed && real[0].votes * 2 <= total && +y >= 1998 && +y !== 2008 && +y !== 2010) check.push(`${y} ${id} ${real[0].name} ${(100 * real[0].votes / total).toFixed(1)}%`);
+    const rename = HOUSE_NAMES[`${y} ${id}`];
+    if (rename) {
+      for (const from of Object.keys(rename)) if (!race.cands.some(c => c[0] === from)) throw new Error(`${y} ${id}: ${from} is not on file; check HOUSE_NAMES`);
+      const fixName = (n) => rename[n] || n;
+      race.cands = race.cands.map(([n, p, v]) => [fixName(n), p, v]);
+      if (race.winner) race.winner.name = fixName(race.winner.name);
+      if (race.first) race.first.cands = race.first.cands.map(([n, p, v]) => [fixName(n), p, v]);
+    }
     (out[y] ||= []).push(race);
     (seatsByYear[y] ||= {})[st] = (seatsByYear[y][st] || 0) + 1;
   }
