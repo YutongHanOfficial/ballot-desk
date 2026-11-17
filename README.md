@@ -149,15 +149,15 @@ or `link`).
 
 Born, died and party come from Wikidata (CC0). Each date comes from its best statement; one known only to the decade
 is dropped. Offices come from Wikidata and from the officeholder infobox of the person's Wikipedia article (CC BY-SA),
-whose terms Wikidata often lacks (Henry Clay's earlier House terms, the Díaz-Balarts' Florida Senate years). The two
-are joined office by office under one name ("State Senate of South Carolina" is the South Carolina Senate), and an
-infobox term that can't be right (begun before 16 or after death) is left out. Offices are then corrected with the
-archive: an open House or Senate term closes when the person's last win in that seat has run out, a term won since
-2020 that neither source has is added, and a member holds one House district at a time. The opening sentences come from
-Wikipedia (CC BY-SA, credited on the page); a photo only where `data/photos.json` already has one. Network replies are
-cached in `pipeline/.cache/people/` (`--refresh` starts over), so a re-run takes about 20 seconds. The output is written
-to `data/people.new/` and swapped in at the end. After `npm run people`, run `npm run pages` so every profile has its
-page copy.
+whose terms Wikidata often lacks (Henry Clay's earlier House terms; Tip O'Neill's Massachusetts House years,
+1937-1953, which Wikidata gives as 1947-1949). The two are joined office by office under one name ("State Senate of
+Florida" is the Florida Senate), and an infobox term that can't be right (begun before 16 or after death) is left out.
+Offices are then corrected with the archive: an open House or Senate term closes when the person's last win in that
+seat has run out, a term won since 2020 that neither source has is added, and a member holds one House district at a
+time. The opening sentences come from Wikipedia (CC BY-SA, credited on the page); a photo only where
+`data/photos.json` already has one. Network replies are cached in `pipeline/.cache/people/` (`--refresh` starts over),
+so a re-run takes about 20 seconds. The output is written to `data/people.new/` and swapped in at the end. After `npm
+run people`, run `npm run pages` so every profile has its page copy.
 
 On election night the 2026 Senate and governor race pages can switch their county map to "Shift from 2024": each
 county's margin for the Democrat (or an independent running against a Republican) against Harris's margin over Trump

@@ -628,10 +628,29 @@ def people_details(qids):
             OPTIONAL { ?s pq:P580 ?from } OPTIONAL { ?s pq:P582 ?to }
             SERVICE wikibase:label { bd:serviceParam wikibase:language "en,mul". } }''' % values):
             info[qid_of(r['p'])]['parties'].append((r.get('partyLabel', ''), isodate(r.get('from'))[:4], isodate(r.get('to'))[:4]))
-        for r in sparql('''SELECT ?p ?posLabel ?from ?to ?distLabel WHERE { VALUES ?p { %s } ?p p:P39 ?s . ?s ps:P39 ?pos .
-            OPTIONAL { ?s pq:P580 ?from } OPTIONAL { ?s pq:P582 ?to } OPTIONAL { ?s pq:P768 ?dist }
+        # One row per statement, with each date's precision. A statement can hold two terms (Dan Burton's Indiana
+        # House seat, 1966-68 and 1976-80): its starts and ends are paired in order, not crossed.
+        stmts = {}
+        for r in sparql('''SELECT ?p ?s ?posLabel ?from ?fp ?to ?tp ?distLabel WHERE { VALUES ?p { %s } ?p p:P39 ?s . ?s ps:P39 ?pos .
+            OPTIONAL { ?s pqv:P580 ?fv . ?fv wikibase:timeValue ?from ; wikibase:timePrecision ?fp }
+            OPTIONAL { ?s pqv:P582 ?tv . ?tv wikibase:timeValue ?to ; wikibase:timePrecision ?tp }
+            OPTIONAL { ?s pq:P768 ?dist }
             SERVICE wikibase:label { bd:serviceParam wikibase:language "en,mul". } }''' % values):
-            info[qid_of(r['p'])]['offices'].append((r.get('posLabel', ''), isodate(r.get('from'))[:10], isodate(r.get('to'))[:10], r.get('distLabel', '')))
+            st = stmts.setdefault(r['s'], {'p': qid_of(r['p']), 'label': r.get('posLabel', ''), 'dist': r.get('distLabel', ''), 'from': set(), 'to': set()})
+            if isodate(r.get('from')):
+                st['from'].add((isodate(r['from'])[:10], int(r.get('fp') or 9)))
+            if isodate(r.get('to')):
+                st['to'].add((isodate(r['to'])[:10], int(r.get('tp') or 9)))
+        for st in stmts.values():
+            starts, ends = sorted(st['from']), sorted(st['to'])
+            if not starts:
+                info[st['p']]['offices'].append((st['label'], '', ends[0][0] if ends else '', st['dist'], 'wd', 0, ends[0][1] if ends else 0))
+                continue
+            for a in starts:
+                e = next((x for x in ends if x[0] >= a[0]), None)
+                if e:
+                    ends.remove(e)
+                info[st['p']]['offices'].append((st['label'], a[0], e[0] if e else '', st['dist'], 'wd', a[1], e[1] if e else 0))
     # Born and died, each from its best statement: not deprecated, preferred rank first, then the most precise. A
     # value known only to the decade or century is no date at all (Wikidata has 2000 for Kathy Jennings, born 1953);
     # one known to the year or month is kept as "1735" or "1735-10", so the page shows no made-up day or age.
@@ -717,6 +736,9 @@ LOWER_NAME = {'California': 'California State Assembly', 'New York': 'New York S
               'Nevada': 'Nevada Assembly', 'New Jersey': 'New Jersey General Assembly', 'Virginia': 'Virginia House of Delegates',
               'Maryland': 'Maryland House of Delegates', 'West Virginia': 'West Virginia House of Delegates'}
 STATE_PAGE = {'New York (state)': 'New York', 'Washington (state)': 'Washington', 'Georgia (U.S. state)': 'Georgia'}
+MONTH_NUM = {m: i + 1 for i, m in enumerate(['january', 'february', 'march', 'april', 'may', 'june', 'july', 'august',
+                                             'september', 'october', 'november', 'december'])}
+MONTH_RE = r'(January|February|March|April|May|June|July|August|September|October|November|December|Jan|Feb|Mar|Apr|Jun|Jul|Aug|Sep|Sept|Oct|Nov|Dec)'
 
 
 def chamber_name(kind, state):
@@ -729,14 +751,15 @@ def chamber_name(kind, state):
 
 def office_title(title):
     """One name for one office, however a source words it: "State Senate of South Carolina" and "South Carolina
-    Senate" are one office; so are "North Carolina Attorney General" and "Attorney General of North Carolina"."""
+    Senate" are one office; so are "North Carolina Attorney General" and "Attorney General of North Carolina", and
+    "Mayor of Parker, Colorado" and "Mayor of Parker" (the place's state is shown where a source gives it)."""
     lower, upper = r'(?:State )?(?:House of Representatives|House of Delegates|Assembly|General Assembly)', r'(?:State )?Senate'
     for pat, kind in ((rf'^({STATE_RE}) {lower}$', 'lower'), (rf'^{lower} of (?:the State of )?({STATE_RE})$', 'lower'),
                       (rf'^({STATE_RE}) {upper}$', 'upper'), (rf'^{upper} of (?:the State of )?({STATE_RE})$', 'upper'),
-                      (r'^(Nebraska) Legislature$', 'upper')):
+                      (rf'^({STATE_RE}) Legislature$', 'upper')):
         m = re.match(pat, title)
         if m:
-            return chamber_name(kind, m.group(1))
+            return chamber_name(kind, m.group(1)) if m.group(1) == 'Nebraska' or 'Legislature' not in pat else f'{m.group(1)} Legislature'
     offices = r'(Governor|Lieutenant Governor|Attorney General|Secretary of State|State Treasurer|Treasurer)'
     m = re.match(rf'^{offices} of (?:the State of )?({STATE_RE})$', title)
     if m:
@@ -744,17 +767,27 @@ def office_title(title):
     else:
         m = re.match(rf'^({STATE_RE}) {offices}$', title)
         if not m:
-            return title
+            m = re.match(rf'^Mayor of (.+?), ({STATE_RE})$', title)
+            return f'Mayor of {m.group(1)}' if m else title
         state, office = m.group(1), m.group(2)
     return f"{'Treasurer' if office == 'State Treasurer' else office} of {state}"
 
 
+def _date_template(m):
+    y, mo, d = m.group(1), m.group(2), m.group(3)
+    return f'{y}-{int(mo):02d}-{int(d):02d}' if mo and d else (f'{y}-{int(mo):02d}' if mo else y)
+
+
 def wikiclean(v):
-    """Wikitext to plain text: links to their text, templates and references out, tags out."""
+    """Wikitext to plain text: links to their text; references, notes ({{efn}}), comments and other templates out;
+    a date template to its date; a list template ({{br separated entries}}, {{ubl}}) to its items."""
     v = re.sub(r'<ref[^>]*/>|<ref[^>]*>.*?</ref>|<!--.*?-->', '', v or '', flags=re.S)
     v = re.sub(r'<br\s*/?>', ' ', v)
-    for _ in range(3):
-        v = re.sub(r'\{\{\s*(?:nowrap|nobr|small)\s*\|([^{}]*)\}\}', r'\1', v, flags=re.I)
+    v = re.sub(r'\{\{\s*(?:start[ _]date|end[ _]date|start date and age|end date and age|dts|date)\s*\|(?:\s*[a-z]+\s*=\s*[a-z0-9]*\s*\|)*'
+               r'\s*(\d{4})(?:\s*\|\s*(\d{1,2}))?(?:\s*\|\s*(\d{1,2}))?[^{}]*\}\}', _date_template, v, flags=re.I)
+    lists = r'\{\{\s*(?:br separated entries|ubl|unbulleted list|plainlist|plain list|flatlist|hlist|nowrap|nobr|small)\s*\|([^{}]*)\}\}'
+    for _ in range(4):
+        v = re.sub(lists, lambda m: ' '.join(x.strip(' *\n') for x in m.group(1).split('|') if '=' not in x or '[[' in x), v, flags=re.I)
         v = re.sub(r'\{\{[^{}]*\}\}', '', v)
     v = re.sub(r'\[\[(?:[^\]|]*\|)?([^\]]*)\]\]', r'\1', v)
     v = re.sub(r"'{2,}|<[^>]+>", '', v)
@@ -766,23 +799,56 @@ def year_in(v):
     return int(m.group(1)) if m else None
 
 
+def date_in(text):
+    """The first date in some plain text: ('YYYY-MM-DD', precision 11 for a day, 10 a month, 9 a year) or (None, 0)."""
+    for pat, prec, order in ((r'\b(\d{4})-(\d{2})-(\d{2})\b', 11, 'ymd'),
+                             (rf'\b{MONTH_RE}\.?\s+(\d{{1,2}}),?\s+(\d{{4}})\b', 11, 'mdy'),
+                             (rf'\b(\d{{1,2}})\s+{MONTH_RE}\.?,?\s+(\d{{4}})\b', 11, 'dmy'),
+                             (r'\b(\d{4})-(\d{2})\b', 10, 'ym'),
+                             (rf'\b{MONTH_RE}\.?,?\s+(\d{{4}})\b', 10, 'my'),
+                             (r'\b(1[6-9]\d\d|20\d\d)\b', 9, 'y')):
+        m = re.search(pat, text or '', re.I)
+        if not m:
+            continue
+        g = m.groups()
+        month = lambda s: next((v for k, v in MONTH_NUM.items() if k.startswith(s.lower().rstrip('.')[:3])), 1)
+        if order == 'ymd':
+            y, mo, d = int(g[0]), int(g[1]), int(g[2])
+        elif order == 'mdy':
+            y, mo, d = int(g[2]), month(g[0]), int(g[1])
+        elif order == 'dmy':
+            y, mo, d = int(g[2]), month(g[1]), int(g[0])
+        elif order == 'ym':
+            y, mo, d = int(g[0]), int(g[1]), 1
+        elif order == 'my':
+            y, mo, d = int(g[1]), month(g[0]), 1
+        else:
+            y, mo, d = int(g[0]), 1, 1
+        if 1600 <= y <= 2100 and 1 <= mo <= 12:
+            return f'{y:04d}-{mo:02d}-{max(1, min(d, 28 if mo == 2 else 30)):02d}', prec
+    return None, 0
+
+
 def house_seats(value, f, u):
-    """The districts of an infobox's House block, from {{ushr|KY|2|...}} with or without the years beside each:
-    [(district code, or '' when it can't be told, from, to)]."""
-    found = re.findall(r'\{\{\s*ushr\s*\|\s*([^|}]+?)\s*\|\s*([^|}]+?)\s*(?:\|[^}]*)?\}\}\s*(?:\((\d{4})\s*[–-]\s*(\d{4}|present)\))?',
-                       value or '', re.I)
-    seats = []
-    for st, num, a, b in found:
+    """The districts of an infobox's House block, from {{ushr|KY|2|...}} or a link to "Kentucky's 2nd congressional
+    district", with or without the years beside each: [(district code, or '' when it can't be told, from, to)]."""
+    found = []
+    for m in re.finditer(r'\{\{\s*ushr\s*\|\s*([^|}]+?)\s*\|\s*([^|}]+?)\s*(?:\|[^}]*)?\}\}|\[\[\s*(' + STATE_RE + r")['’]s\s+(?:(\d+)(?:st|nd|rd|th)|(at-large))\s+congressional district",
+                         value or '', re.I):
+        st, num = (m.group(1), m.group(2)) if m.group(1) else (m.group(3), m.group(4) or 'AL')
+        years = re.match(r'[^(\n]{0,80}?\((\d{4})\s*[–-]\s*(\d{4}|present)\)', (value or '')[m.end():])
         code = st.upper() if st.upper() in STATES else CODE.get(st.strip())
         num = num.strip()
         num = 'AL' if re.match(r'^(al|at-?large)$', num, re.I) else (f'{int(num):02d}' if num.isdigit() else None)
         if not code or not num:
             return [('', f, u)]
-        seats.append((f'{code}-{num}', int(a) if a else None, (None if b == 'present' else int(b)) if b else None))
-    if len(seats) == 1:
-        return [(seats[0][0], f, u)]
-    if seats and all(a for _, a, _ in seats):
-        return [(code, a, b) for code, a, b in seats]
+        a = int(years.group(1)) if years else None
+        b = (None if years.group(2) == 'present' else int(years.group(2))) if years else None
+        found.append((f'{code}-{num}', a, b))
+    if len(found) == 1:
+        return [(found[0][0], f, u)]
+    if found and all(a for _, a, _ in found):
+        return [(code, a, b) for code, a, b in found]
     return [('', f, u)]
 
 
@@ -795,34 +861,44 @@ def first_infobox_with_terms(text):
         if i < 0:
             return {}
         box = infobox(text, kind=None, at=i)
-        if any(k.startswith('term_start') for k in box):
+        if any(k.startswith(('term_start', 'term')) for k in box):
             return box
         at = i + 2
     return {}
 
 
+def term_spans(value):
+    """The spans in a single termN field: "1782", "1786–1787; 1810–1811" -> [(1782, 1782), ...]."""
+    out = []
+    for a, b in re.findall(r'\b(1[6-9]\d\d|20\d\d)\b(?:\s*[–-]\s*(1[6-9]\d\d|20\d\d|present)\b)?', wikiclean(value)):
+        out.append((int(a), None if b == 'present' else int(b) if b else int(a)))
+    return out
+
+
 def infobox_offices(text, born=None, died=None, now=None):
-    """The offices in a person's Wikipedia infobox, as rows like Wikidata's (label, from, to, district), with what
-    the infobox has that Wikidata may lack (Henry Clay's earlier House terms, DeWitt Clinton's years as lieutenant
-    governor, the Díaz-Balarts' Florida Senate years). Blocks are numbered (office1, term_start1, ...); a block with
-    no office of its own continues the one before; state with a district is a House seat, state alone a Senate seat,
-    state_senate and state_house a state legislature. Terms that can't be right (begun before 16 or after death,
-    ending before they begin or after death, still open after death) are left out. Returns (rows, left out)."""
+    """The offices in a person's Wikipedia infobox, as rows like Wikidata's (label, from, to, district, 'wp',
+    from precision, to precision), with what the infobox has that Wikidata may lack (Henry Clay's earlier House
+    terms, DeWitt Clinton's years as lieutenant governor, Tip O'Neill's Massachusetts House years from 1937 where
+    Wikidata starts at 1947). Blocks are numbered (office1, term_start1, ...). A block names its office in officeN
+    (or orderN, titleN), as a mission (ambassador_fromN or minister_fromN with countryN), a state legislature
+    (state_senateN, state_houseN, state_legislatureN...), or a seat in Congress (stateN with a district is a House
+    seat, alone a Senate seat); a block that names none continues the one before, House district and all. Dates are
+    read from the text with footnotes, notes ({{efn}}) and comments taken out first. Terms that can't be right (begun
+    before 16 or after death, ending before they begin or after death, still open after death) are left out.
+    Returns (rows, left out)."""
     now = now or time.localtime().tm_year
     blocks = {}
     for k, v in first_infobox_with_terms(text).items():
         m = re.match(r'^([a-z_/]+?)(\d*)$', k.strip())
         if m and v.strip():
             blocks.setdefault(int(m.group(2) or 0), {})[m.group(1)] = v
-    # A block that names no office continues the one before it (Henry Clay's three terms as Speaker).
     born = int(born[:4]) if born else None
     died = int(died[:4]) if died else None
-    iso = lambda y: f'{y:04d}-01-01' if y else ''
-    rows, left, office = [], [], None
+    rows, left, office, seats_value = [], [], None, ''
     for n in sorted(blocks):
         b = blocks[n]
-        state = wikiclean(b.get('state', ''))
-        state = STATE_PAGE.get(state, state)
+        state = STATE_PAGE.get(wikiclean(b.get('state', '')), wikiclean(b.get('state', '')))
+        legislature = next((k for k in ('state_senate', 'state_house', 'state_assembly', 'state_delegate', 'state_legislature') if b.get(k)), None)
         # The office's name is in officeN, or in orderN beside its number ("64th Governor of Virginia", Chuck Robb's
         # governorship, which would otherwise read as more of the Senate term above it), or in titleN.
         named = b.get('office') or next((b[k] for k in ('order', 'title') if b.get(k)
@@ -831,46 +907,72 @@ def infobox_offices(text, born=None, died=None, now=None):
             t = wikiclean(named)
             t = re.sub(r'^(?:\d+(?:st|nd|rd|th)(?:,\s*|\s+and\s+|\s+))+', '', t).replace('U.S. ', 'United States ')
             t = re.sub(r'^(?:United States )?Minister to (?:Great Britain|the United Kingdom)\b', 'United States Ambassador to the United Kingdom', t)
-            t = re.sub(r'^(?:United States )?Minister to ', 'United States Ambassador to ', t)
+            t = re.sub(r'^(?:United States )?(?:Minister|Envoy) to ', 'United States Ambassador to ', t)
             fm = re.search(rf'\bfrom ({STATE_RE})\b', t)
             if 'House of Representatives' in t and 'United States' in t and re.match(r'^(Member|Representative)', t):
                 office = ('house', fm.group(1) if fm else state)
             elif re.match(r'^United States Senator', t):
                 office = ('senate', fm.group(1) if fm else state)
             else:
+                if re.match(r'^Member of the ', t, re.I):   # "... House of Delegates from Montgomery County"
+                    t = re.sub(r'\s+(?:from|for|representing)\s+.*$', '', t)
                 office = ('label', re.sub(r'^Member of the ', 'member of the ', t))
-        elif b.get('state_senate') or b.get('state_house') or b.get('state_assembly') or b.get('state_delegate'):
-            st = wikiclean(b.get('state_senate') or b.get('state_house') or b.get('state_assembly') or b.get('state_delegate'))
-            st = STATE_PAGE.get(st, st)
-            office = ('label', f"member of the {chamber_name('upper' if b.get('state_senate') else 'lower', st)}") if st in STATES.values() else None
+        elif b.get('ambassador_from') or b.get('minister_from') or b.get('country'):
+            # A mission abroad: James Buchanan's to Russia and to Britain, which would otherwise read as House terms.
+            country = re.sub(r'^(?:Great Britain|United Kingdom)$', 'the United Kingdom', wikiclean(b.get('country', '')))
+            office = ('label', f'United States Ambassador to {country}') if country else ('other', None)
+        elif legislature:
+            st = STATE_PAGE.get(wikiclean(b[legislature]), wikiclean(b[legislature]))
+            kind = 'upper' if legislature == 'state_senate' else 'lower'
+            name = f'{st} Legislature' if legislature == 'state_legislature' else chamber_name(kind, st)
+            office = ('label', f'member of the {name}') if st in STATES.values() else ('other', None)
         elif state:
             office = ('house', state) if (b.get('district') or b.get('constituency')) else ('senate', state)
-        if not office or not b.get('term_start'):
+        if office and office[0] == 'house' and (b.get('constituency') or b.get('district')):
+            seats_value = b.get('constituency') or b.get('district')
+        elif office and office[0] != 'house':
+            seats_value = ''
+        if not office or office[0] == 'other':
             continue
-        f = year_in(b['term_start'])
-        end = b.get('term_end', '')
-        current = not end.strip() or bool(re.search(r'present|incumbent', end, re.I))
-        u = None if current else year_in(end)
-        if f is None or (u is None and not current):
-            continue
-        if (born and f < born + 16) or f > (died or now) or (u is not None and u < f) or (died and (u is None or u > died + 1)):
-            left.append((office, f, u))
-            continue
-        if office[0] == 'house':
-            if office[1] not in STATES.values():
+        # The dates: term_startN and term_endN, or one termN field ("1786–1787").
+        if b.get('term_start'):
+            s_text, e_text = wikiclean(b['term_start']), wikiclean(b.get('term_end', ''))
+            fd, fp = date_in(s_text)
+            current = not e_text or bool(re.search(r'\b(present|incumbent)\b', e_text, re.I))
+            ud, up = (None, 0) if current else date_in(e_text)
+            if fd is None or (ud is None and not current):
                 continue
-            for seat, a, z in house_seats(b.get('constituency') or b.get('district') or '', f, u):
-                if seat:
-                    st, num = STATES[seat[:2]], seat[3:]
-                    dist = f"{st}'s at-large congressional district" if num == 'AL' else f"{st}'s {int(num)}th congressional district"
-                else:
-                    dist = ''
-                rows.append(('United States representative', iso(a), iso(z), dist, 'wp'))
-        elif office[0] == 'senate':
-            if office[1] in STATES.values():
-                rows.append(('United States senator', iso(f), iso(u), f'{office[1]} Class 1 senate seat', 'wp'))
+            spans = [(fd, fp, ud, up)]
+        elif b.get('term'):
+            spans = [(f'{a:04d}-01-01', 9, f'{z:04d}-12-31' if z else None, 9) for a, z in term_spans(b['term'])]
         else:
-            rows.append((office[1], iso(f), iso(u), '', 'wp'))
+            continue
+        for fd, fp, ud, up in spans:
+            f, u = int(fd[:4]), (int(ud[:4]) if ud else None)
+            # New Hampshire's legislature is sworn in in December, so a January date in an odd year (Wikipedia has
+            # "January 1989" for Charles Bass's state Senate term) is the December before.
+            if office[0] == 'label' and re.search(r'New Hampshire (House of Representatives|Senate)', office[1]):
+                if fd[5:7] == '01' and f % 2 == 1:
+                    f, fd, fp = f - 1, f'{f - 1:04d}-12-01', 10
+                if ud and ud[5:7] == '01' and u % 2 == 1:
+                    u, ud, up = u - 1, f'{u - 1:04d}-12-01', 10
+            if (born and f < born + 16) or f > (died or now) or (u is not None and u < f) or (died and (u is None or u > died + 1)):
+                left.append((office, f, u))
+                continue
+            if office[0] == 'house':
+                if office[1] not in STATES.values():
+                    continue
+                for seat, a, z in house_seats(seats_value, f, u):
+                    st, num = (STATES[seat[:2]], seat[3:]) if seat else (None, None)
+                    dist = '' if not seat else (f"{st}'s at-large congressional district" if num == 'AL' else f"{st}'s {int(num)}th congressional district")
+                    whole = (a, z) == (f, u)
+                    rows.append(('United States representative', fd if whole else f'{a:04d}-01-01', (ud or '') if whole else (f'{z:04d}-01-01' if z else ''),
+                                 dist, 'wp', fp if whole else 9, up if whole else 9))
+            elif office[0] == 'senate':
+                if office[1] in STATES.values():
+                    rows.append(('United States senator', fd, ud or '', f'{office[1]} Class 1 senate seat', 'wp', fp, up))
+            else:
+                rows.append((office[1], fd, ud or '', '', 'wp', fp, up))
     return rows, left
 
 
@@ -892,35 +994,60 @@ def lead_texts(titles):
     return out
 
 
-# Wikidata statements known to be wrong, left out: (person, position label, start year), each with the source.
+# Wikidata statements known to be wrong, left out: (person, position label, start year or None), each with the source.
 WIKIDATA_WRONG = {
     # John Adams was commissioner to France in 1778-79, never minister; Jefferson was minister in 1788
     # (Wikipedia, John Adams and List of ambassadors of the United States to France).
     ('Q11806', 'United States Ambassador to France', 1788),
+    # James Madison sat in the House in 1793-97 but was never its Speaker (Wikipedia, List of speakers of the United
+    # States House of Representatives).
+    ('Q11813', 'Speaker of the United States House of Representatives', 1793),
+    # John C. Breckinridge declined the mission to Spain (Wikipedia, John C. Breckinridge).
+    ('Q273212', 'United States Ambassador to Spain', None),
+    # George H. W. Bush headed the Liaison Office in Beijing in 1974-75; the United States had no ambassador to China
+    # until 1979 (Wikipedia, George H. W. Bush and List of ambassadors of the United States to China).
+    ('Q23505', 'United States Ambassador to China', 1974),
+}
+# Terms both sources get wrong, set from other sources: {person: {title: [(where, from, to)]}}.
+OFFICES_FIXED = {
+    # Benjamin Butler: the 5th district 1867-73, the 6th 1873-75, the 7th 1877-79 (The Political Graveyard; Wikipedia's
+    # member lists for Massachusetts's 5th, 6th and 7th districts); his infobox has the 6th and the 7th for the first two.
+    'Q817488': {'U.S. Representative': [('MA-05', 1867, 1873), ('MA-06', 1873, 1875), ('MA-07', 1877, 1879)]},
 }
 
 
 def offices_shown(raw, died=None, wins=(), now=None, qid=None):
     """The offices worth listing, merged into spans: [{t: title, w: where, f: from year, u: to year (None: now)}].
-    For someone who has died, a term with no end date has an unknown end, not "present": x marks those spans.
-    wins: the person's House and Senate wins in the archive, [(kind, race key, year)]. Wikidata often leaves a
-    member's latest term open after they have gone and has no record yet of most terms since 2023, so an open House
-    or Senate term closes when the term of their last win in that seat has run out, and a term the archive shows
-    them winning since 2020 is added where Wikidata has none. Terms that haven't begun (2027) are left out."""
+    raw: rows (label, from, to, district, source 'wd' or 'wp', from precision, to precision) from Wikidata and the
+    Wikipedia infobox. Where the two give the same term within a year at each end, each end comes from whichever
+    states it more exactly (Wikidata knows Jim Risch's first Idaho Senate term only as 1974-1989; the infobox has
+    December 1, 1988). For someone who has died, a term with no end date has an unknown end, not "present": x marks
+    those spans. wins: the person's House and Senate wins in the archive, [(kind, race key, year)]: an open House or
+    Senate term closes when the term of their last win in that seat has run out, and a term the archive shows them
+    winning since 2020 is added where neither source has it. Terms that haven't begun (2027) are left out."""
     now = now or time.localtime().tm_year
-    spans, rank_of, undated = {}, {}, {}
+    spans, rank_of, undated, names = {}, {}, {}, {}
     for row in raw:
         label, frm, to, dist = row[:4]
         src = row[4] if len(row) > 4 else 'wd'
+        fp = row[5] if len(row) > 5 else 9
+        up = row[6] if len(row) > 6 else 9
         rule = next((r for r in OFFICE_RULES if re.match(r[0], label)), None)
         if not rule or (qid, label, int(frm[:4]) if frm else None) in WIKIDATA_WRONG:
             continue
+        shown = rule[1] or re.sub(r'^[Mm]ember of the ', '', label)
+        title = office_title(shown)
         if not frm:
-            # No dates on Wikidata (Thomas Pinckney's mission to Britain): listed by name only, last.
-            title = office_title(rule[1] or re.sub(r'^[Mm]ember of the ', '', label))
+            # No dates in either source (Thomas Pinckney's mission to Britain): listed by name only, last.
             undated[title] = rule[2]
+            names.setdefault(title, set()).add(shown)
             continue
-        title = office_title(rule[1] or re.sub(r'^[Mm]ember of the ', '', label))
+        f, u = int(frm[:4]), (int(to[:4]) if to else None)
+        # Nebraska's legislature has had one chamber since 1937: Wikidata's "Nebraska House of Representatives" for
+        # a later term is the Legislature (Deb Fischer, 2005-2013).
+        if title == 'Nebraska House of Representatives' and f >= 1937:
+            title = shown = 'Nebraska Legislature'
+        names.setdefault(title, set()).add(shown)
         where = ''
         if title == 'U.S. Senator':
             m = re.match(r'^(.+?) Class \d senate seat', dist)
@@ -930,15 +1057,27 @@ def offices_shown(raw, died=None, wins=(), now=None, qid=None):
             if m and m.group(1) in CODE:
                 where = f"{CODE[m.group(1)]}-{int(m.group(2)):02d}" if m.group(2) else f"{CODE[m.group(1)]}-AL"
         key = (title, where)
-        f, u = int(frm[:4]), (int(to[:4]) if to else None)
-        spans.setdefault(key, []).append([f, u, src])
+        spans.setdefault(key, []).append([f, u, src, fp, up])
         rank_of[key] = rule[2]
-    # Where the infobox gives the same term as Wikidata within a year at each end, its dates stand (Jim Risch left the
-    # Idaho Senate on December 1, 1988; Wikidata has 1989).
+    # One term from both sources: each end from the more exact of the two.
     near = lambda a, b: (a is None and b is None) or (a is not None and b is not None and abs(a - b) <= 1)
     for key, terms in spans.items():
-        wp_terms = [t for t in terms if t[2] == 'wp']
-        spans[key] = [[f, u] for f, u, src in terms if src == 'wp' or not any(near(f, w[0]) and near(u, w[1]) for w in wp_terms)]
+        kept, used = [], set()
+        for i, w in enumerate(terms):
+            if w[2] != 'wp':
+                continue
+            for j, d in enumerate(terms):
+                if d[2] == 'wd' and j not in used and near(w[0], d[0]) and near(w[1], d[1]):
+                    used.add(j)
+                    w = [w[0] if w[3] >= d[3] else d[0], w[1] if w[4] >= d[4] else d[1], 'wp', max(w[3], d[3]), max(w[4], d[4])]
+            kept.append(w)
+        spans[key] = [[t[0], t[1]] for t in kept] + [[t[0], t[1]] for j, t in enumerate(terms) if t[2] == 'wd' and j not in used]
+    for fixed_title, rows in OFFICES_FIXED.get(qid, {}).items():
+        for k in [k for k in spans if k[0] == fixed_title]:
+            del spans[k]
+        for where, f, u in rows:
+            spans.setdefault((fixed_title, where), []).append([f, u])
+            rank_of[(fixed_title, where)] = next(r[2] for r in OFFICE_RULES if r[1] == fixed_title)
     for title in ('U.S. Representative', 'U.S. Senator'):
         placed = [t for (ti, w), ts in spans.items() if ti == title and w for t in ts]
         bare = spans.get((title, ''), [])
@@ -974,6 +1113,7 @@ def offices_shown(raw, died=None, wins=(), now=None, qid=None):
                 continue
             else:
                 merged.append([f, u, x])
+        shown = max(names.get(title, {title}), key=len) if title.startswith('Mayor of ') else title
         for f, u, x in merged:
             if f > now:
                 continue
@@ -982,13 +1122,19 @@ def offices_shown(raw, died=None, wins=(), now=None, qid=None):
                 end = last + (3 if title == 'U.S. Representative' else 7)
                 if end <= now:
                     u = max(end, f)
-            o = {'t': title, 'w': where, 'f': f, 'u': None if x else u, 'r': rank_of[(title, where)], 'e': u}
+            o = {'t': shown, 'w': where, 'f': f, 'u': None if x else u, 'r': rank_of[(title, where)], 'e': u}
             if x:
                 o['x'] = True
             out.append(o)
     for title, rank in undated.items():
-        if not any(o['t'] == title for o in out) and title not in ('U.S. Representative', 'U.S. Senator'):
-            out.append({'t': title, 'w': '', 'f': None, 'u': None, 'r': rank, 'e': None, 'n': True})
+        shown = max(names.get(title, {title}), key=len) if title.startswith('Mayor of ') else title
+        if not any(office_title(o['t']) == title for o in out) and title not in ('U.S. Representative', 'U.S. Senator'):
+            out.append({'t': shown, 'w': '', 'f': None, 'u': None, 'r': rank, 'e': None, 'n': True})
+    # A territory's governorship under the state's name (Wikidata has Lewis Cass as "Governor of Michigan" for his
+    # years governing the Michigan Territory): the state's line goes where the territory's covers the same years.
+    for t in [o for o in out if re.match(r'^Governor of (the )?.+ Territory$', o['t']) and o['f']]:
+        state = re.sub(r'^Governor of (the )?(.+) Territory$', r'\2', t['t'])
+        out = [o for o in out if not (o['t'] == f'Governor of {state}' and o['f'] and o['f'] < (t['e'] or now + 1) and t['f'] < (o['e'] or now + 1))]
     # A member holds one House district at a time. Where the spans of two districts overlap (Wikidata has Tip
     # O'Neill in MA-11 until 1987, though he moved to MA-08 in 1963, and Chuck Schumer in NY-09 for his whole House
     # career, 1981-1999), each year goes to the most specific span covering it: the shortest.
