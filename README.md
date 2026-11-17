@@ -147,9 +147,13 @@ generation, an age over 80 or a legal-name-only match rules it out.
 `pipeline/.cache/people-links.json` records how each race was tied (`seat`, `infobox`, `wikidata`, `article`, `name`
 or `link`).
 
-Born, died, party and offices come from Wikidata (CC0). Each date comes from its best statement; one known only to the
-decade is dropped. Offices are corrected with the archive: an open House or Senate term closes when the person's last
-win in that seat has run out, and a term won since 2020 that Wikidata lacks is added. The opening sentences come from
+Born, died and party come from Wikidata (CC0). Each date comes from its best statement; one known only to the decade
+is dropped. Offices come from Wikidata and from the officeholder infobox of the person's Wikipedia article (CC BY-SA),
+whose terms Wikidata often lacks (Henry Clay's earlier House terms, the Díaz-Balarts' Florida Senate years). The two
+are joined office by office under one name ("State Senate of South Carolina" is the South Carolina Senate), and an
+infobox term that can't be right (begun before 16 or after death) is left out. Offices are then corrected with the
+archive: an open House or Senate term closes when the person's last win in that seat has run out, a term won since
+2020 that neither source has is added, and a member holds one House district at a time. The opening sentences come from
 Wikipedia (CC BY-SA, credited on the page); a photo only where `data/photos.json` already has one. Network replies are
 cached in `pipeline/.cache/people/` (`--refresh` starts over), so a re-run takes about 20 seconds. The output is written
 to `data/people.new/` and swapped in at the end. After `npm run people`, run `npm run pages` so every profile has its
@@ -357,7 +361,7 @@ counted by the beacon itself (it follows the History API). Ad and tracker blocke
 | Past results before 1976: president by state | Wikipedia's election articles; some state returns corrected where two other sources agree, such as [The American Presidency Project](https://www.presidency.ucsb.edu/statistics/elections), Polidata, A New Nation Votes, Vote Archive, the World Almanac and Wikipedia's state articles | CC BY-SA 4.0 (Wikipedia); figures |
 | Party split of each Congress before 1976 | [House Office of the Historian](https://history.house.gov/Institution/Party-Divisions/Party-Divisions/) and [Senate Historical Office](https://www.senate.gov/about/parties-leadership/party-division.htm) | Public domain (U.S. government works) |
 | Politician profiles: born, died, party, offices held | [Wikidata](https://www.wikidata.org) | CC0 |
-| Politician profiles: opening sentences | Wikipedia | CC BY-SA 4.0 |
+| Politician profiles: offices held (infoboxes), opening sentences | Wikipedia | CC BY-SA 4.0 |
 | 2024 presidential vote by county | [tonmcg/US_County_Level_Election_Results_08-24](https://github.com/tonmcg/US_County_Level_Election_Results_08-24) | MIT |
 | Election-night county results | AP via each race's NYT results file (fetched in the browser) | Unofficial; see above |
 | Candidate photos | Lead images of the candidates' Wikipedia articles (Wikimedia Commons / Wikipedia), cropped | Each file's own: public domain, CC0, CC BY or CC BY-SA (listed on `/credits`) |

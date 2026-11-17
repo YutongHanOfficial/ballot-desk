@@ -149,7 +149,7 @@ function profile(p) {
         ', under ', h('a', { href: 'https://creativecommons.org/licenses/by-sa/4.0/', target: '_blank', rel: 'noopener license' }, 'CC BY-SA 4.0'), '.'))) : null;
 
   const credit = h('p', { class: 'xs muted', style: { maxWidth: '760px' } },
-    'Born, died, party and offices from Wikidata (CC0). Results from the archive: a race is tied to this person through the seat they won or a link in Wikipedia’s election articles, or, for their other runs, by name in a state where they ran or served. ',
+    'Born, died and party from Wikidata (CC0); offices from Wikidata and the infobox of the person’s Wikipedia article (CC BY-SA 4.0), checked against the archive’s results. Results from the archive: a race is tied to this person through the seat they won or a link in Wikipedia’s election articles, or, for their other runs, by name in a state where they ran or served. ',
     p.photo ? ['Photo: ', h('a', { href: p.photo.page, target: '_blank', rel: 'noopener' }, p.photo.by), ', ', license(p.photo), '. '] : null);
 
   return h('div', null, head, about, offices, history, h('section', { class: 'section' }, credit));

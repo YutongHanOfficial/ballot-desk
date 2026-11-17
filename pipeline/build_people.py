@@ -485,9 +485,10 @@ def match_winners(races, holders):
 
 # ------------------------------------------------------------------------------------------- Wikipedia infoboxes
 
-def infobox(text):
-    """The parameters of the first {{Infobox election}} in some wikitext: {name: value}."""
-    m = re.search(r'\{\{\s*Infobox election', text or '', re.I)
+def infobox(text, kind='election', at=0):
+    """The parameters of the first {{Infobox election}} in some wikitext, from position at on (kind=None: any
+    kind of infobox): {name: value}."""
+    m = re.compile(r'\{\{\s*Infobox' + (r'\s+' + kind if kind else r'\b'), re.I).search(text or '', at)
     if not m:
         return {}
     i, depth, start = m.start(), 0, m.start()
@@ -707,6 +708,190 @@ OFFICE_RULES = [   # (pattern on the position's label, short name, rank: lower s
 ]
 
 
+# ------------------------------------------------------------------------------------------- offices from Wikipedia
+
+STATE_RE = '|'.join(re.escape(n) for n in sorted(STATES.values(), key=len, reverse=True))   # West Virginia first
+STATE_SENATE = {'New York', 'California', 'Wisconsin', 'Louisiana', 'Mississippi', 'Arizona', 'Pennsylvania',
+                'Washington', 'Oregon', 'Georgia', 'Utah', 'Connecticut'}   # chambers called "<State> State Senate"
+LOWER_NAME = {'California': 'California State Assembly', 'New York': 'New York State Assembly', 'Wisconsin': 'Wisconsin State Assembly',
+              'Nevada': 'Nevada Assembly', 'New Jersey': 'New Jersey General Assembly', 'Virginia': 'Virginia House of Delegates',
+              'Maryland': 'Maryland House of Delegates', 'West Virginia': 'West Virginia House of Delegates'}
+STATE_PAGE = {'New York (state)': 'New York', 'Washington (state)': 'Washington', 'Georgia (U.S. state)': 'Georgia'}
+
+
+def chamber_name(kind, state):
+    if kind == 'lower':
+        return LOWER_NAME.get(state, f'{state} House of Representatives')
+    if state == 'Nebraska':
+        return 'Nebraska Legislature'
+    return f'{state} State Senate' if state in STATE_SENATE else f'{state} Senate'
+
+
+def office_title(title):
+    """One name for one office, however a source words it: "State Senate of South Carolina" and "South Carolina
+    Senate" are one office; so are "North Carolina Attorney General" and "Attorney General of North Carolina"."""
+    lower, upper = r'(?:State )?(?:House of Representatives|House of Delegates|Assembly|General Assembly)', r'(?:State )?Senate'
+    for pat, kind in ((rf'^({STATE_RE}) {lower}$', 'lower'), (rf'^{lower} of (?:the State of )?({STATE_RE})$', 'lower'),
+                      (rf'^({STATE_RE}) {upper}$', 'upper'), (rf'^{upper} of (?:the State of )?({STATE_RE})$', 'upper'),
+                      (r'^(Nebraska) Legislature$', 'upper')):
+        m = re.match(pat, title)
+        if m:
+            return chamber_name(kind, m.group(1))
+    offices = r'(Governor|Lieutenant Governor|Attorney General|Secretary of State|State Treasurer|Treasurer)'
+    m = re.match(rf'^{offices} of (?:the State of )?({STATE_RE})$', title)
+    if m:
+        office, state = m.group(1), m.group(2)
+    else:
+        m = re.match(rf'^({STATE_RE}) {offices}$', title)
+        if not m:
+            return title
+        state, office = m.group(1), m.group(2)
+    return f"{'Treasurer' if office == 'State Treasurer' else office} of {state}"
+
+
+def wikiclean(v):
+    """Wikitext to plain text: links to their text, templates and references out, tags out."""
+    v = re.sub(r'<ref[^>]*/>|<ref[^>]*>.*?</ref>|<!--.*?-->', '', v or '', flags=re.S)
+    v = re.sub(r'<br\s*/?>', ' ', v)
+    for _ in range(3):
+        v = re.sub(r'\{\{\s*(?:nowrap|nobr|small)\s*\|([^{}]*)\}\}', r'\1', v, flags=re.I)
+        v = re.sub(r'\{\{[^{}]*\}\}', '', v)
+    v = re.sub(r'\[\[(?:[^\]|]*\|)?([^\]]*)\]\]', r'\1', v)
+    v = re.sub(r"'{2,}|<[^>]+>", '', v)
+    return re.sub(r'\s+', ' ', v).strip()
+
+
+def year_in(v):
+    m = re.search(r'\b(1[6-9]\d\d|20\d\d)\b', v or '')
+    return int(m.group(1)) if m else None
+
+
+def house_seats(value, f, u):
+    """The districts of an infobox's House block, from {{ushr|KY|2|...}} with or without the years beside each:
+    [(district code, or '' when it can't be told, from, to)]."""
+    found = re.findall(r'\{\{\s*ushr\s*\|\s*([^|}]+?)\s*\|\s*([^|}]+?)\s*(?:\|[^}]*)?\}\}\s*(?:\((\d{4})\s*[–-]\s*(\d{4}|present)\))?',
+                       value or '', re.I)
+    seats = []
+    for st, num, a, b in found:
+        code = st.upper() if st.upper() in STATES else CODE.get(st.strip())
+        num = num.strip()
+        num = 'AL' if re.match(r'^(al|at-?large)$', num, re.I) else (f'{int(num):02d}' if num.isdigit() else None)
+        if not code or not num:
+            return [('', f, u)]
+        seats.append((f'{code}-{num}', int(a) if a else None, (None if b == 'present' else int(b)) if b else None))
+    if len(seats) == 1:
+        return [(seats[0][0], f, u)]
+    if seats and all(a for _, a, _ in seats):
+        return [(code, a, b) for code, a, b in seats]
+    return [('', f, u)]
+
+
+def first_infobox_with_terms(text):
+    """The parameters of the first infobox in the text that lists terms of office (a military-service or other
+    infobox can come first)."""
+    at = 0
+    while text:
+        i = text.lower().find('{{infobox', at)
+        if i < 0:
+            return {}
+        box = infobox(text, kind=None, at=i)
+        if any(k.startswith('term_start') for k in box):
+            return box
+        at = i + 2
+    return {}
+
+
+def infobox_offices(text, born=None, died=None, now=None):
+    """The offices in a person's Wikipedia infobox, as rows like Wikidata's (label, from, to, district), with what
+    the infobox has that Wikidata may lack (Henry Clay's earlier House terms, DeWitt Clinton's years as lieutenant
+    governor, the Díaz-Balarts' Florida Senate years). Blocks are numbered (office1, term_start1, ...); a block with
+    no office of its own continues the one before; state with a district is a House seat, state alone a Senate seat,
+    state_senate and state_house a state legislature. Terms that can't be right (begun before 16 or after death,
+    ending before they begin or after death, still open after death) are left out. Returns (rows, left out)."""
+    now = now or time.localtime().tm_year
+    blocks = {}
+    for k, v in first_infobox_with_terms(text).items():
+        m = re.match(r'^([a-z_/]+?)(\d*)$', k.strip())
+        if m and v.strip():
+            blocks.setdefault(int(m.group(2) or 0), {})[m.group(1)] = v
+    # A block that names no office continues the one before it (Henry Clay's three terms as Speaker).
+    born = int(born[:4]) if born else None
+    died = int(died[:4]) if died else None
+    iso = lambda y: f'{y:04d}-01-01' if y else ''
+    rows, left, office = [], [], None
+    for n in sorted(blocks):
+        b = blocks[n]
+        state = wikiclean(b.get('state', ''))
+        state = STATE_PAGE.get(state, state)
+        # The office's name is in officeN, or in orderN beside its number ("64th Governor of Virginia", Chuck Robb's
+        # governorship, which would otherwise read as more of the Senate term above it), or in titleN.
+        named = b.get('office') or next((b[k] for k in ('order', 'title') if b.get(k)
+                                         and re.search(r'[A-Za-z]{3,}', re.sub(r'\b\d+(st|nd|rd|th)\b', '', wikiclean(b[k])))), None)
+        if named:
+            t = wikiclean(named)
+            t = re.sub(r'^(?:\d+(?:st|nd|rd|th)(?:,\s*|\s+and\s+|\s+))+', '', t).replace('U.S. ', 'United States ')
+            t = re.sub(r'^(?:United States )?Minister to (?:Great Britain|the United Kingdom)\b', 'United States Ambassador to the United Kingdom', t)
+            t = re.sub(r'^(?:United States )?Minister to ', 'United States Ambassador to ', t)
+            fm = re.search(rf'\bfrom ({STATE_RE})\b', t)
+            if 'House of Representatives' in t and 'United States' in t and re.match(r'^(Member|Representative)', t):
+                office = ('house', fm.group(1) if fm else state)
+            elif re.match(r'^United States Senator', t):
+                office = ('senate', fm.group(1) if fm else state)
+            else:
+                office = ('label', re.sub(r'^Member of the ', 'member of the ', t))
+        elif b.get('state_senate') or b.get('state_house') or b.get('state_assembly') or b.get('state_delegate'):
+            st = wikiclean(b.get('state_senate') or b.get('state_house') or b.get('state_assembly') or b.get('state_delegate'))
+            st = STATE_PAGE.get(st, st)
+            office = ('label', f"member of the {chamber_name('upper' if b.get('state_senate') else 'lower', st)}") if st in STATES.values() else None
+        elif state:
+            office = ('house', state) if (b.get('district') or b.get('constituency')) else ('senate', state)
+        if not office or not b.get('term_start'):
+            continue
+        f = year_in(b['term_start'])
+        end = b.get('term_end', '')
+        current = not end.strip() or bool(re.search(r'present|incumbent', end, re.I))
+        u = None if current else year_in(end)
+        if f is None or (u is None and not current):
+            continue
+        if (born and f < born + 16) or f > (died or now) or (u is not None and u < f) or (died and (u is None or u > died + 1)):
+            left.append((office, f, u))
+            continue
+        if office[0] == 'house':
+            if office[1] not in STATES.values():
+                continue
+            for seat, a, z in house_seats(b.get('constituency') or b.get('district') or '', f, u):
+                if seat:
+                    st, num = STATES[seat[:2]], seat[3:]
+                    dist = f"{st}'s at-large congressional district" if num == 'AL' else f"{st}'s {int(num)}th congressional district"
+                else:
+                    dist = ''
+                rows.append(('United States representative', iso(a), iso(z), dist, 'wp'))
+        elif office[0] == 'senate':
+            if office[1] in STATES.values():
+                rows.append(('United States senator', iso(f), iso(u), f'{office[1]} Class 1 senate seat', 'wp'))
+        else:
+            rows.append((office[1], iso(f), iso(u), '', 'wp'))
+    return rows, left
+
+
+def lead_texts(titles):
+    """The wikitext of each article's lead section (where its infobox is): {title: text}, following redirects."""
+    out = {}
+    for batch in stable_batches(titles, 200, 20):
+        d = wp({'action': 'query', 'prop': 'revisions', 'rvprop': 'content', 'rvslots': 'main', 'rvsection': 0,
+                'redirects': 1, 'titles': '|'.join(batch)})
+        q = d.get('query', {})
+        back = {}
+        for n in q.get('normalized', []):
+            back[n['to']] = n['from']
+        for rd in q.get('redirects', []):
+            back[rd['to']] = back.get(rd['from'], rd['from'])
+        for page in q.get('pages', []):
+            if page.get('revisions'):
+                out[back.get(page['title'], page['title'])] = page['revisions'][0]['slots']['main']['content']
+    return out
+
+
 # Wikidata statements known to be wrong, left out: (person, position label, start year), each with the source.
 WIKIDATA_WRONG = {
     # John Adams was commissioner to France in 1778-79, never minister; Jefferson was minister in 1788
@@ -724,16 +909,18 @@ def offices_shown(raw, died=None, wins=(), now=None, qid=None):
     them winning since 2020 is added where Wikidata has none. Terms that haven't begun (2027) are left out."""
     now = now or time.localtime().tm_year
     spans, rank_of, undated = {}, {}, {}
-    for label, frm, to, dist in raw:
+    for row in raw:
+        label, frm, to, dist = row[:4]
+        src = row[4] if len(row) > 4 else 'wd'
         rule = next((r for r in OFFICE_RULES if re.match(r[0], label)), None)
         if not rule or (qid, label, int(frm[:4]) if frm else None) in WIKIDATA_WRONG:
             continue
         if not frm:
             # No dates on Wikidata (Thomas Pinckney's mission to Britain): listed by name only, last.
-            title = rule[1] or re.sub(r'^[Mm]ember of the ', '', label)
+            title = office_title(rule[1] or re.sub(r'^[Mm]ember of the ', '', label))
             undated[title] = rule[2]
             continue
-        title = rule[1] or re.sub(r'^[Mm]ember of the ', '', label)
+        title = office_title(rule[1] or re.sub(r'^[Mm]ember of the ', '', label))
         where = ''
         if title == 'U.S. Senator':
             m = re.match(r'^(.+?) Class \d senate seat', dist)
@@ -744,8 +931,14 @@ def offices_shown(raw, died=None, wins=(), now=None, qid=None):
                 where = f"{CODE[m.group(1)]}-{int(m.group(2)):02d}" if m.group(2) else f"{CODE[m.group(1)]}-AL"
         key = (title, where)
         f, u = int(frm[:4]), (int(to[:4]) if to else None)
-        spans.setdefault(key, []).append([f, u])
+        spans.setdefault(key, []).append([f, u, src])
         rank_of[key] = rule[2]
+    # Where the infobox gives the same term as Wikidata within a year at each end, its dates stand (Jim Risch left the
+    # Idaho Senate on December 1, 1988; Wikidata has 1989).
+    near = lambda a, b: (a is None and b is None) or (a is not None and b is not None and abs(a - b) <= 1)
+    for key, terms in spans.items():
+        wp_terms = [t for t in terms if t[2] == 'wp']
+        spans[key] = [[f, u] for f, u, src in terms if src == 'wp' or not any(near(f, w[0]) and near(u, w[1]) for w in wp_terms)]
     for title in ('U.S. Representative', 'U.S. Senator'):
         placed = [t for (ti, w), ts in spans.items() if ti == title and w for t in ts]
         bare = spans.get((title, ''), [])
@@ -796,15 +989,33 @@ def offices_shown(raw, died=None, wins=(), now=None, qid=None):
     for title, rank in undated.items():
         if not any(o['t'] == title for o in out) and title not in ('U.S. Representative', 'U.S. Senator'):
             out.append({'t': title, 'w': '', 'f': None, 'u': None, 'r': rank, 'e': None, 'n': True})
-    # A member holds one House district at a time, so a district's term ends when the next district's begins (Wikidata
-    # has Tip O'Neill in MA-11 until 1987, though he moved to MA-08 in 1963).
-    house = sorted((o for o in out if o['t'] == 'U.S. Representative' and o['f'] is not None), key=lambda o: o['f'])
-    for a in house:
-        for b in house:
-            if b['f'] > a['f'] and b['w'] != a['w'] and (a['u'] is None or a['u'] > b['f']) and (a['e'] is None or a['e'] > b['f']):
-                a['u'] = a['e'] = b['f']
-                a.pop('x', None)
-                break
+    # A member holds one House district at a time. Where the spans of two districts overlap (Wikidata has Tip
+    # O'Neill in MA-11 until 1987, though he moved to MA-08 in 1963, and Chuck Schumer in NY-09 for his whole House
+    # career, 1981-1999), each year goes to the most specific span covering it: the shortest.
+    house = [o for o in out if o['t'] == 'U.S. Representative' and o['w'] and o['f'] is not None]
+    if len(house) > 1:
+        def years(o):
+            end = o['u'] if o['u'] is not None else (o['e'] if o.get('x') else now + 1)
+            return range(o['f'], max(o['f'] + 1, end))
+        owner = {}
+        for i, o in sorted(enumerate(house), key=lambda io: len(years(io[1]))):
+            for y in years(o):
+                owner.setdefault(y, i)
+        rebuilt = []
+        for i, o in enumerate(house):
+            mine = [y for y in years(o) if owner[y] == i]
+            last_year = years(o)[-1]
+            start = None
+            for k, y in enumerate(mine):
+                start = y if start is None else start
+                if k + 1 == len(mine) or mine[k + 1] != y + 1:
+                    span = dict(o, f=start)
+                    if y != last_year:   # cut short by another district: it ends where that one begins
+                        span['u'] = span['e'] = y + 1
+                        span.pop('x', None)
+                    rebuilt.append(span)
+                    start = None
+        out = [o for o in out if not any(o is h for h in house)] + rebuilt
     # House seats change number with redistricting: one line per district, newest first, then by rank.
     end = lambda o: o['u'] if o['u'] is not None else (o['e'] if o.get('x') else 9999)   # e: the last year known
     out.sort(key=lambda o: (bool(o.get('n')), -end(o) if not o.get('n') else 0, o['r'], -(o['f'] or 0)))
@@ -1106,8 +1317,18 @@ def main():
     for x in refused[:8]:
         log('    refused:', x)
 
-    log('Summaries (Wikipedia)')
+    log('Summaries and infoboxes (Wikipedia)')
     ex = extracts([info[q]['article'] for q in people])
+    leads = lead_texts([info[q]['article'] for q in people])
+    wp_rows, wp_left = {}, []
+    for q in people:
+        rows, left = infobox_offices(leads.get(info[q]['article']), info[q].get('born'), info[q].get('died'))
+        wp_rows[q] = rows
+        wp_left += [(info[q].get('label'), x) for x in left]
+    log(f"  infobox offices: {sum(len(r) for r in wp_rows.values())} terms for {sum(1 for r in wp_rows.values() if r)} people; "
+        f"{len(wp_left)} left out as impossible dates")
+    for x in wp_left[:12]:
+        log('    left out:', x)
     photos = json.load(open(os.path.join(ROOT, 'data', 'photos.json')))['people']
 
     # Each person's races, newest first.
@@ -1156,12 +1377,12 @@ def main():
     os.makedirs(os.path.join(new, 'p'))
     os.makedirs(os.path.join(new, 'years'))
     index = []
-    for q in people:
+    for q in sorted(people):
         x, s = info[q], slug_of[q]
         art = x['article']
         photo = photos.get(art)
         wins = [(h['o'], h['k'], h['y']) for h in history[q] if h['o'] in 'HS' and h.get('w') and h['y'] <= 2024]
-        offices = offices_shown(x['offices'], died=x.get('died'), wins=wins, qid=q)
+        offices = offices_shown(x['offices'] + wp_rows.get(q, []), died=x.get('died'), wins=wins, qid=q)
         # A description whose years contradict the birth date (Wikidata has "(1745-1828)" for Thomas Pinckney, born
         # in 1750) loses the years.
         desc = x.get('desc')
@@ -1179,7 +1400,7 @@ def main():
         years = sorted({h['y'] for h in history[q]})
         states = sorted({(h['k'] or '')[:2] for h in history[q] if h['o'] != 'P' and h['k']})
         index.append({'s': s, 'n': prof['name'], 'd': x.get('desc') or '', 'st': states, 'y': [years[0], years[-1]] if years else None})
-    index.sort(key=lambda e: (surname(e['n']), e['n']))
+    index.sort(key=lambda e: (surname(e['n']), e['n'], e['s']))   # the slug settles ties, so every run writes the same file
     with open(os.path.join(new, 'index.json'), 'w') as f:
         json.dump({'built': time.strftime('%Y-%m-%d'), 'source': 'Wikidata (CC0) and Wikipedia (CC BY-SA 4.0); results from the archive',
                    'people': index}, f, ensure_ascii=False, separators=(',', ':'))
