@@ -761,6 +761,22 @@ def chamber_name(kind, state):
     return f'{state} State Senate' if state in STATE_SENATE else f'{state} Senate'
 
 
+def chamber_of(title):
+    """(state, 'upper' or 'lower') for the name of a state legislature's chamber, as office_title() gives it."""
+    m = re.match(rf'^({STATE_RE}) (?:State )?Senate$', title)
+    if m:
+        return m.group(1), 'upper'
+    m = re.match(rf'^({STATE_RE}) (?:State )?(?:House of Representatives|House of Delegates|Assembly|General Assembly)$', title)
+    return (m.group(1), 'lower') if m else None
+
+
+# States whose legislators' terms change over in November or December, with the last year that was so (None: still):
+# Nevada's run "from the day next after their election" (Const. art. 4, secs. 3-4), Texas's ran from election day
+# until 1999. A term there ends before the January session that an infobox may date its end by.
+TERMS_END_BY_DECEMBER = {'California': None, 'Florida': None, 'Indiana': None, 'Nevada': None, 'Ohio': None, 'Oklahoma': None,
+                         'Pennsylvania': None, 'South Carolina': None, 'Tennessee': None, 'Texas': 1999}
+
+
 def office_title(title):
     """One name for one office, however a source words it: "State Senate of South Carolina" and "South Carolina
     Senate" are one office; so are "North Carolina Attorney General" and "Attorney General of North Carolina",
@@ -1110,6 +1126,20 @@ OFFICES_FIXED = {
     # December 1980 (Wikipedia, W. Timothy Simms; the Biographical Directory has her state Senate years as 1979-1980).
     # Her infobox ends the term in January 1981.
     'Q275753': {'Illinois Senate': [('', 1979, 1980)]},
+    # Ron Mottl sat in the Ohio House in 1967-68 and the Ohio Senate from 1969 (Biographical Directory; Francis D.
+    # Sullivan held his Senate seat until December 31, 1968, and Gertrude Polcar his House seat from January 3, 1969,
+    # in their infoboxes). His infobox has the 1967-68 term in a block that names no office, below the Senate's.
+    'Q2165678': {'Ohio Senate': [('', 1969, 1974)], 'Ohio House of Representatives': [('', 1967, 1968), ('', 1987, 1997)]},
+    # Jim Betts left the Ohio House at the end of 1980, when he ran for the Senate; Ohio House terms end on December 31
+    # of even years (Const. art. II, sec. 2; Jim Petro took the seat on January 3, 1981). His infobox has 1981.
+    'Q6193666': {'Ohio House of Representatives': [('', 1975, 1980)]},
+    # James Mann's two terms in the South Carolina House were 1949-1952 (Biographical Directory; his papers at the
+    # University of South Carolina); terms there end in November. His infobox ends them at the January 1953 session.
+    'Q476553': {'South Carolina House of Representatives': [('', 1949, 1952)]},
+    # Steven Horsford was sworn into the Nevada Senate at its special session of November 10, 2004 (Journal of the
+    # Senate) and served to the November 2012 election, when Kelvin Atkinson won the seat (Biographical Directory:
+    # 2004-2012). His infobox has February 2005 to January 2013.
+    'Q3514907': {'Nevada Senate': [('', 2004, 2012)]},
 }
 
 
@@ -1123,7 +1153,7 @@ def offices_shown(raw, died=None, wins=(), now=None, qid=None):
     Senate term closes when the term of their last win in that seat has run out, and a term the archive shows them
     winning since 2020 is added where neither source has it. Terms that haven't begun (2027) are left out."""
     now = now or time.localtime().tm_year
-    spans, rank_of, undated, names = {}, {}, {}, {}
+    spans, rank_of, undated, names, from_wp = {}, {}, {}, {}, set()
     for row in raw:
         label, frm, to, dist = row[:4]
         src = row[4] if len(row) > 4 else 'wd'
@@ -1156,6 +1186,24 @@ def offices_shown(raw, died=None, wins=(), now=None, qid=None):
         key = (title, where)
         spans.setdefault(key, []).append([f, u, src, fp, up, frm[:10], (to or '')[:10]])
         rank_of[key] = rule[2]
+        if src == 'wp':
+            from_wp.add(key)
+    near = lambda a, b: (a is None and b is None) or (a is not None and b is not None and abs(a - b) <= 1)
+    # Wikidata can file a state legislator's term under the other chamber: David Brock Smith's Oregon Senate seat as
+    # the Oregon House, Steven Horsford's Nevada Senate years as the Nevada Assembly. A Wikidata term in one chamber
+    # is dropped where the infobox has the same term (within a year at each end) in the state's other chamber and
+    # nothing in this one at that time.
+    for key in list(spans):
+        c = chamber_of(key[0])
+        if not c:
+            continue
+        other = [t for (ti, _), ts in spans.items() if chamber_of(ti) and chamber_of(ti)[0] == c[0] and chamber_of(ti)[1] != c[1]
+                 for t in ts if t[2] == 'wp']
+        ours = [t for t in spans[key] if t[2] == 'wp']
+        spans[key] = [d for d in spans[key] if not (d[2] == 'wd' and any(near(w[0], d[0]) and near(w[1], d[1]) for w in other)
+                                                    and not any(w[5] < (d[6] or '9999') and d[5] < (w[6] or '9999') for w in ours))]
+        if not spans[key]:
+            del spans[key]
     # Wikidata gives a seat in Congress Congress by Congress, and can start a member who came in partway through one
     # on the Congress's first day: Joseph Gaydos won a special election on November 5, 1968, and Wikidata has him from
     # January 3, 1967. Where the infobox starts a term inside such a statement, and no term of its own covers the
@@ -1176,9 +1224,12 @@ def offices_shown(raw, died=None, wins=(), now=None, qid=None):
             if ends and not covers(d[6]):
                 last = max(ends, key=lambda t: t[6])
                 d[1], d[4], d[6] = last[1], last[4], last[6]
-    # One term from both sources: each end from the more exact of the two.
-    near = lambda a, b: (a is None and b is None) or (a is not None and b is not None and abs(a - b) <= 1)
+    # One term from both sources: each end from the more exact of the two. The exception is an infobox end of
+    # "January 2017", known only to the month, in a state whose terms change over before January: that is the next
+    # session, and Wikidata's 2016 is kept (Ruben Kihuen left the Nevada Senate in November 2016).
     for key, terms in spans.items():
+        c = chamber_of(key[0])
+        until = TERMS_END_BY_DECEMBER.get(c[0], 0) if c else 0
         kept, used = [], set()
         for i, w in enumerate(terms):
             if w[2] != 'wp':
@@ -1186,7 +1237,9 @@ def offices_shown(raw, died=None, wins=(), now=None, qid=None):
             for j, d in enumerate(terms):
                 if d[2] == 'wd' and j not in used and near(w[0], d[0]) and near(w[1], d[1]):
                     used.add(j)
-                    w = [w[0] if w[3] >= d[3] else d[0], w[1] if w[4] >= d[4] else d[1], 'wp', max(w[3], d[3]), max(w[4], d[4])]
+                    session = until != 0 and w[4] == 10 and w[6][5:7] == '01' and d[4] <= 9 and d[1] == w[1] - 1 and (until is None or w[1] <= until)
+                    w = [w[0] if w[3] >= d[3] else d[0], d[1] if session or w[4] < d[4] else w[1], 'wp', max(w[3], d[3]),
+                         d[4] if session else max(w[4], d[4]), w[5], d[6] if session else w[6]]
             kept.append(w)
         spans[key] = [[t[0], t[1]] for t in kept] + [[t[0], t[1]] for j, t in enumerate(terms) if t[2] == 'wd' and j not in used]
     for fixed_title, rows in OFFICES_FIXED.get(qid, {}).items():
@@ -1255,14 +1308,16 @@ def offices_shown(raw, died=None, wins=(), now=None, qid=None):
         out = [o for o in out if not (o['t'] == f'Governor of {state}' and o['f'] and o['f'] < (t['e'] or now + 1) and t['f'] < (o['e'] or now + 1))]
     # A member holds one House district at a time. Where the spans of two districts overlap (Wikidata has Tip
     # O'Neill in MA-11 until 1987, though he moved to MA-08 in 1963, and Chuck Schumer in NY-09 for his whole House
-    # career, 1981-1999), each year goes to the most specific span covering it: the shortest.
+    # career, 1981-1999), each year goes to the most specific span covering it: the shortest, and between two of the
+    # same length, the infobox's (Wikidata has Andrew Jackson in Tennessee's 1st district, which dates from 1805; the
+    # infobox has the at-large seat he held).
     house = [o for o in out if o['t'] == 'U.S. Representative' and o['w'] and o['f'] is not None]
     if len(house) > 1:
         def years(o):
             end = o['u'] if o['u'] is not None else (o['e'] if o.get('x') else now + 1)
             return range(o['f'], max(o['f'] + 1, end))
         owner = {}
-        for i, o in sorted(enumerate(house), key=lambda io: len(years(io[1]))):
+        for i, o in sorted(enumerate(house), key=lambda io: (len(years(io[1])), ('U.S. Representative', io[1]['w']) not in from_wp)):
             for y in years(o):
                 owner.setdefault(y, i)
         rebuilt = []

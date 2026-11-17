@@ -158,7 +158,11 @@ fill a vacancy), the infobox's date is used. An infobox term that can't be right
 left out, as is an office won but not held (an office-elect, a nominee, Mel Carnahan's Senate seat) and a term not yet
 begun. A year is the year of the source's date. For a state legislature that is usually the first session, so a term
 that legally began at or soon after the November election (in Tennessee, Oklahoma, Pennsylvania, and Texas before
-1999) shows from the January after. Offices are then corrected with the archive: an open House or Senate term closes when the person's last win in that
+1999) shows from the January after. A state legislator's end year can differ by one between sources, too: an infobox
+may end a term at the next January's session, so where terms change over in November or December, an infobox end
+known only to the month ("January 2017") gives way to Wikidata's year before. Wikidata sometimes files a term under
+the other chamber; where the infobox has that term in the other chamber, Wikidata's is dropped. Offices are then
+corrected with the archive: an open House or Senate term closes when the person's last win in that
 seat has run out, a term won since 2020 that neither source has is added, and a member holds one House district at a
 time. The opening sentences come from Wikipedia (CC BY-SA, credited on the page); a photo only where
 `data/photos.json` already has one. Network replies are cached in `pipeline/.cache/people/` (`--refresh` starts over),
