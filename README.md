@@ -151,8 +151,14 @@ Born, died and party come from Wikidata (CC0). Each date comes from its best sta
 is dropped. Offices come from Wikidata and from the officeholder infobox of the person's Wikipedia article (CC BY-SA),
 whose terms Wikidata often lacks (Henry Clay's earlier House terms; Tip O'Neill's Massachusetts House years,
 1937-1953, which Wikidata gives as 1947-1949). The two are joined office by office under one name ("State Senate of
-Florida" is the Florida Senate), and an infobox term that can't be right (begun before 16 or after death) is left out.
-Offices are then corrected with the archive: an open House or Senate term closes when the person's last win in that
+Florida" is the Florida Senate; "Ambassador to Holy See" is the ambassador to the Holy See), and where they date one
+term a year or less apart, each end comes from the more exact date. Where Wikidata starts a House or Senate term on
+the first day of a Congress and the infobox starts it partway through (Joseph Gaydos, elected in November 1968 to
+fill a vacancy), the infobox's date is used. An infobox term that can't be right (begun before 16 or after death) is
+left out, as is an office won but not held (an office-elect, a nominee, Mel Carnahan's Senate seat) and a term not yet
+begun. A year is the year of the source's date. For a state legislature that is usually the first session, so a term
+that legally began at or soon after the November election (in Tennessee, Oklahoma, Pennsylvania, and Texas before
+1999) shows from the January after. Offices are then corrected with the archive: an open House or Senate term closes when the person's last win in that
 seat has run out, a term won since 2020 that neither source has is added, and a member holds one House district at a
 time. The opening sentences come from Wikipedia (CC BY-SA, credited on the page); a photo only where
 `data/photos.json` already has one. Network replies are cached in `pipeline/.cache/people/` (`--refresh` starts over),

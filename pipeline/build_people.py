@@ -27,6 +27,7 @@ Network replies are cached in pipeline/.cache/people/ (--refresh starts over). R
 """
 import glob
 import hashlib
+import html
 import http.client
 import json
 import os
@@ -708,7 +709,8 @@ OFFICE_RULES = [   # (pattern on the position's label, short name, rank: lower s
     (r'^Speaker of the United States House of Representatives$', 'Speaker of the House', 2),
     (r'^United States Secretary of ', None, 2),
     (r'^United States Attorney General$', 'Attorney General', 2),
-    (r'^(Governor of |Governor of the State of )', None, 3),
+    # A military governorship is listed under its own name (John C. Frémont's of California in 1847, before statehood).
+    (r'^(Governor of |Governor of the State of |Military Governor of )', None, 3),
     (r'^Lieutenant Governor of ', None, 5),
     (r'^Mayor of ', None, 6),
     (r'^(Attorney General|Secretary of State|State Treasurer|Treasurer) of ', None, 6),
@@ -736,6 +738,16 @@ LOWER_NAME = {'California': 'California State Assembly', 'New York': 'New York S
               'Nevada': 'Nevada Assembly', 'New Jersey': 'New Jersey General Assembly', 'Virginia': 'Virginia House of Delegates',
               'Maryland': 'Maryland House of Delegates', 'West Virginia': 'West Virginia House of Delegates'}
 STATE_PAGE = {'New York (state)': 'New York', 'Washington (state)': 'Washington', 'Georgia (U.S. state)': 'Georgia'}
+# Missions are named one way whichever source has them: with "the" where the place takes it (an infobox's country
+# field has "Holy See" where Wikidata has "the Holy See"), and by one name (Micronesia is the Federated States of
+# Micronesia).
+THE_NAMES = {'Bahamas', 'Holy See', 'Netherlands', 'Philippines', 'United Kingdom', 'Federated States of Micronesia',
+             'Marshall Islands', 'Solomon Islands', 'Gambia', 'Czech Republic', 'Dominican Republic', 'Central African Republic',
+             'Democratic Republic of the Congo', 'Republic of the Congo', 'United Arab Emirates', 'Maldives', 'Comoros',
+             'Soviet Union', 'Russian Empire', 'Ottoman Empire', 'Netherlands Antilles'}
+THE_PREFIX = r'^(United Nations|Organi[sz]ation|European|Republic of|Kingdom of|Empire of|Court of|Conference on|Association of|African Union)\b'
+MISSION_ALIAS = {'Micronesia': 'Federated States of Micronesia', 'Great Britain': 'United Kingdom', 'Vatican': 'Holy See',
+                 'Vatican City': 'Holy See', 'USSR': 'Soviet Union'}
 MONTH_NUM = {m: i + 1 for i, m in enumerate(['january', 'february', 'march', 'april', 'may', 'june', 'july', 'august',
                                              'september', 'october', 'november', 'december'])}
 MONTH_RE = r'(January|February|March|April|May|June|July|August|September|October|November|December|Jan|Feb|Mar|Apr|Jun|Jul|Aug|Sep|Sept|Oct|Nov|Dec)'
@@ -751,8 +763,17 @@ def chamber_name(kind, state):
 
 def office_title(title):
     """One name for one office, however a source words it: "State Senate of South Carolina" and "South Carolina
-    Senate" are one office; so are "North Carolina Attorney General" and "Attorney General of North Carolina", and
-    "Mayor of Parker, Colorado" and "Mayor of Parker" (the place's state is shown where a source gives it)."""
+    Senate" are one office; so are "North Carolina Attorney General" and "Attorney General of North Carolina",
+    "Mayor of Parker, Colorado" and "Mayor of Parker" (the place's state is shown where a source gives it),
+    "Ambassador to Holy See" and "to the Holy See", and "Governor of the Territory of Arizona" and "Governor of
+    Arizona Territory" (both "Governor of the Arizona Territory")."""
+    m = re.match(r'^United States Ambassador to (?:the )?(.+)$', title)
+    if m:
+        place = MISSION_ALIAS.get(m.group(1), m.group(1))
+        return f"United States Ambassador to {'the ' if place in THE_NAMES or re.match(THE_PREFIX, place) else ''}{place}"
+    m = re.match(r'^Governor of (?:the )?(?:Territory of (.+)|(.+) Territory)$', title)
+    if m:
+        return f'Governor of the {m.group(1) or m.group(2)} Territory'
     lower, upper = r'(?:State )?(?:House of Representatives|House of Delegates|Assembly|General Assembly)', r'(?:State )?Senate'
     for pat, kind in ((rf'^({STATE_RE}) {lower}$', 'lower'), (rf'^{lower} of (?:the State of )?({STATE_RE})$', 'lower'),
                       (rf'^({STATE_RE}) {upper}$', 'upper'), (rf'^{upper} of (?:the State of )?({STATE_RE})$', 'upper'),
@@ -780,9 +801,10 @@ def _date_template(m):
 
 def wikiclean(v):
     """Wikitext to plain text: links to their text; references, notes ({{efn}}), comments and other templates out;
-    a date template to its date; a list template ({{br separated entries}}, {{ubl}}) to its items."""
+    a date template to its date; a list template ({{br separated entries}}, {{ubl}}) to its items; entities such as
+    &ndash; and &nbsp; to their characters."""
     v = re.sub(r'<ref[^>]*/>|<ref[^>]*>.*?</ref>|<!--.*?-->', '', v or '', flags=re.S)
-    v = re.sub(r'<br\s*/?>', ' ', v)
+    v = html.unescape(re.sub(r'<br\s*/?>', ' ', v))
     v = re.sub(r'\{\{\s*(?:start[ _]date|end[ _]date|start date and age|end date and age|dts|date)\s*\|(?:\s*[a-z]+\s*=\s*[a-z0-9]*\s*\|)*'
                r'\s*(\d{4})(?:\s*\|\s*(\d{1,2}))?(?:\s*\|\s*(\d{1,2}))?[^{}]*\}\}', _date_template, v, flags=re.I)
     lists = r'\{\{\s*(?:br separated entries|ubl|unbulleted list|plainlist|plain list|flatlist|hlist|nowrap|nobr|small)\s*\|([^{}]*)\}\}'
@@ -867,12 +889,68 @@ def first_infobox_with_terms(text):
     return {}
 
 
+DATE_TOKEN = re.compile(rf'{MONTH_RE}\.?\s+\d{{1,2}},?\s+\d{{4}}|\d{{1,2}}\s+{MONTH_RE}\.?,?\s+\d{{4}}|{MONTH_RE}\.?,?\s+\d{{4}}'
+                        r'|\b\d{4}-\d{2}-\d{2}\b|\b(?:1[6-9]\d\d|20\d\d)\b|\b(?:present|incumbent)\b', re.I)
+
+
 def term_spans(value):
-    """The spans in a single termN field: "1782", "1786–1787; 1810–1811" -> [(1782, 1782), ...]."""
-    out = []
-    for a, b in re.findall(r'\b(1[6-9]\d\d|20\d\d)\b(?:\s*[–-]\s*(1[6-9]\d\d|20\d\d|present)\b)?', wikiclean(value)):
-        out.append((int(a), None if b == 'present' else int(b) if b else int(a)))
+    """The spans in a single termN field, as (from, precision, to, precision) like term_start and term_end give:
+    "1782" is a year; "1786–1787; 1810–1811" two spans; "January 3, 1949 – January 3, 1959" one span of ten years
+    (Bizz Johnson's state Senate term), not a year at each end."""
+    text = wikiclean(value)
+    found = list(DATE_TOKEN.finditer(text))
+    out, i = [], 0
+    while i < len(found):
+        a = found[i]
+        b = found[i + 1] if i + 1 < len(found) else None
+        joined = b is not None and re.fullmatch(r'\s*(?:[–—-]|to|until)\s*', text[a.end():b.start()], re.I)
+        i += 2 if joined else 1
+        if re.match(r'present|incumbent', a.group(0), re.I):
+            continue
+        fd, fp = date_in(a.group(0))
+        if joined and re.match(r'present|incumbent', b.group(0), re.I):
+            out.append((fd, fp, None, 0))
+            continue
+        ud, up = date_in(b.group(0)) if joined else (fd, fp)
+        out.append((fd, fp, ud[:4] + '-12-31' if up == 9 else ud, up))
     return out
+
+
+def office_name(t):
+    """An infobox's name for an office, worded as Wikidata words it: "64th Governor of Virginia" is "Governor of
+    Virginia", "U.S. Minister to Great Britain" "United States Ambassador to the United Kingdom", and a chamber named
+    alone ("Florida House of Representatives") "Member of the Florida House of Representatives"."""
+    t = re.sub(r'^(?:\d+(?:st|nd|rd|th)(?:,\s*|\s+and\s+|\s+))+', '', t).replace('U.S. ', 'United States ')
+    t = re.sub(r'^(?:United States )?Minister to (?:Great Britain|the United Kingdom)\b', 'United States Ambassador to the United Kingdom', t)
+    t = re.sub(r'^(?:United States )?(?:Minister|Envoy) to ', 'United States Ambassador to ', t)
+    if re.match(rf'^(?:{STATE_RE}) (?:State )?(?:House of Representatives|Senate|Assembly|House of Delegates|Legislature|General Assembly)$', t):
+        t = 'Member of the ' + t
+    return t
+
+
+def office_label(t):
+    """The label for an office name that isn't a seat in Congress: "Member of the Maryland House of Delegates from
+    Montgomery County" is "member of the Maryland House of Delegates"."""
+    if re.match(r'^Member of the ', t, re.I):
+        t = re.sub(r'\s+(?:from|for|representing)\s+.*$', '', t)
+    return re.sub(r'^Member of the ', 'member of the ', t)
+
+
+ELECT = r'-elect\b|\belect\b'   # "Senator-elect", "Governor-elect": won, not held
+
+
+def congress_seat(t):
+    """'house' or 'senate' for an infobox name for a seat in Congress, else None."""
+    if re.search(ELECT, t, re.I):
+        return None
+    if 'House of Representatives' in t and 'United States' in t and re.match(r'^(Member|Representative)', t):
+        return 'house'
+    return 'senate' if re.match(r'^United States Senator', t) else None
+
+
+def listed(t):
+    """Whether the profiles list an office of this name (a seat in Congress, or a label an office rule takes)."""
+    return not re.search(ELECT, t, re.I) and (congress_seat(t) is not None or any(re.match(r[0], office_label(t)) for r in OFFICE_RULES))
 
 
 def infobox_offices(text, born=None, died=None, now=None):
@@ -884,9 +962,11 @@ def infobox_offices(text, born=None, died=None, now=None):
     (state_senateN, state_houseN, state_legislatureN...), or a seat in Congress (stateN with a district is a House
     seat, alone a Senate seat); a block that names none continues the one before, House district and all. Dates are
     read from the text with footnotes, notes ({{efn}}) and comments taken out first. Terms that can't be right (begun
-    before 16 or after death, ending before they begin or after death, still open after death) are left out.
+    before 16 or after death, ending before they begin or after death, still open after death) are left out, and so
+    are offices won but not held (an office-elect, a nominee, an election won after death) and terms not yet begun.
     Returns (rows, left out)."""
     now = now or time.localtime().tm_year
+    today = min(time.strftime('%Y-%m-%d'), f'{now:04d}-12-31')
     blocks = {}
     for k, v in first_infobox_with_terms(text).items():
         m = re.match(r'^([a-z_/]+?)(\d*)$', k.strip())
@@ -903,26 +983,34 @@ def infobox_offices(text, born=None, died=None, now=None):
         # governorship, which would otherwise read as more of the Senate term above it), or in titleN.
         named = b.get('office') or next((b[k] for k in ('order', 'title') if b.get(k)
                                          and re.search(r'[A-Za-z]{3,}', re.sub(r'\b\d+(st|nd|rd|th)\b', '', wikiclean(b[k])))), None)
+        held = True
         if named:
-            t = wikiclean(named)
-            t = re.sub(r'^(?:\d+(?:st|nd|rd|th)(?:,\s*|\s+and\s+|\s+))+', '', t).replace('U.S. ', 'United States ')
-            t = re.sub(r'^(?:United States )?Minister to (?:Great Britain|the United Kingdom)\b', 'United States Ambassador to the United Kingdom', t)
-            t = re.sub(r'^(?:United States )?(?:Minister|Envoy) to ', 'United States Ambassador to ', t)
+            t = office_name(wikiclean(named))
+            if re.search(ELECT, t, re.I):
+                # Won but not held, or not yet: Mel Carnahan was elected to the Senate three weeks after he died. This
+                # block's dates are left out; a block after it that names no office is an earlier term of the office
+                # (Marc Molinaro's New York Assembly seat, 2007-2011).
+                held = False
+                t = office_name(re.sub(r'[-\s]elect\b', '', t, flags=re.I))
+            if not listed(t) and re.search(r'\b(?:Representative|Senator|Assembly(?:man|woman|member|person)?|Delegate|Member|Legislator)\b', t) \
+                    and not re.search(r'\b(?:Speaker|President|Leader|Whip|Chair\w*|Clerk|pro tempore|Dean)\b', t, re.I):
+                # A seat in a legislature named by a piped link whose text names no office: "[[Florida House of
+                # Representatives|State Representative from Palm Beach, Florida]]" (Skip Bafalis) is a seat in the
+                # chamber linked.
+                targets = (office_name(wikiclean(g.replace('_', ' '))) for g in re.findall(r'\[\[\s*([^\]|#]+)[^\]|]*\|', named))
+                t = next((g for g in targets if re.match(rf'^Member of the (?:{STATE_RE}) ', g) and listed(g)), t)
             fm = re.search(rf'\bfrom ({STATE_RE})\b', t)
-            if 'House of Representatives' in t and 'United States' in t and re.match(r'^(Member|Representative)', t):
-                office = ('house', fm.group(1) if fm else state)
-            elif re.match(r'^United States Senator', t):
-                office = ('senate', fm.group(1) if fm else state)
+            if congress_seat(t):
+                office = (congress_seat(t), fm.group(1) if fm else state)
             else:
-                if re.match(r'^Member of the ', t, re.I):   # "... House of Delegates from Montgomery County"
-                    t = re.sub(r'\s+(?:from|for|representing)\s+.*$', '', t)
-                office = ('label', re.sub(r'^Member of the ', 'member of the ', t))
+                office = ('label', office_label(t))
         elif b.get('ambassador_from') or b.get('minister_from') or b.get('country'):
             # A mission abroad: James Buchanan's to Russia and to Britain, which would otherwise read as House terms.
-            country = re.sub(r'^(?:Great Britain|United Kingdom)$', 'the United Kingdom', wikiclean(b.get('country', '')))
-            office = ('label', f'United States Ambassador to {country}') if country else ('other', None)
+            country = wikiclean(b.get('country', ''))
+            office = ('label', office_title(f'United States Ambassador to {country}')) if country else ('other', None)
         elif legislature:
-            st = STATE_PAGE.get(wikiclean(b[legislature]), wikiclean(b[legislature]))
+            # "state_senate = Louisiana State" is the Louisiana State Senate.
+            st = re.sub(r'\s+State$', '', STATE_PAGE.get(wikiclean(b[legislature]), wikiclean(b[legislature])))
             kind = 'upper' if legislature == 'state_senate' else 'lower'
             name = f'{st} Legislature' if legislature == 'state_legislature' else chamber_name(kind, st)
             office = ('label', f'member of the {name}') if st in STATES.values() else ('other', None)
@@ -934,6 +1022,9 @@ def infobox_offices(text, born=None, died=None, now=None):
             seats_value = ''
         if not office or office[0] == 'other':
             continue
+        # A block for an office not held: "term_label = Elected posthumously" (Mel Carnahan), "status = Nominee".
+        if not held or re.search(r'\belect|nominee|designate', wikiclean(b.get('term_label', '') + ' ' + b.get('status', '')), re.I):
+            continue
         # The dates: term_startN and term_endN, or one termN field ("1786–1787").
         if b.get('term_start'):
             s_text, e_text = wikiclean(b['term_start']), wikiclean(b.get('term_end', ''))
@@ -944,7 +1035,7 @@ def infobox_offices(text, born=None, died=None, now=None):
                 continue
             spans = [(fd, fp, ud, up)]
         elif b.get('term'):
-            spans = [(f'{a:04d}-01-01', 9, f'{z:04d}-12-31' if z else None, 9) for a, z in term_spans(b['term'])]
+            spans = term_spans(b['term'])
         else:
             continue
         for fd, fp, ud, up in spans:
@@ -958,6 +1049,8 @@ def infobox_offices(text, born=None, died=None, now=None):
                     u, ud, up = u - 1, f'{u - 1:04d}-12-01', 10
             if (born and f < born + 16) or f > (died or now) or (u is not None and u < f) or (died and (u is None or u > died + 1)):
                 left.append((office, f, u))
+                continue
+            if not died and fd > today:   # begins later this year (Alaska's governor takes office in December)
                 continue
             if office[0] == 'house':
                 if office[1] not in STATES.values():
@@ -1013,6 +1106,10 @@ OFFICES_FIXED = {
     # Benjamin Butler: the 5th district 1867-73, the 6th 1873-75, the 7th 1877-79 (The Political Graveyard; Wikipedia's
     # member lists for Massachusetts's 5th, 6th and 7th districts); his infobox has the 6th and the 7th for the first two.
     'Q817488': {'U.S. Representative': [('MA-05', 1867, 1873), ('MA-06', 1873, 1875), ('MA-07', 1877, 1879)]},
+    # Lynn Martin left the Illinois Senate in 1980, before she entered the House: W. Timothy Simms took her seat in
+    # December 1980 (Wikipedia, W. Timothy Simms; the Biographical Directory has her state Senate years as 1979-1980).
+    # Her infobox ends the term in January 1981.
+    'Q275753': {'Illinois Senate': [('', 1979, 1980)]},
 }
 
 
@@ -1057,8 +1154,28 @@ def offices_shown(raw, died=None, wins=(), now=None, qid=None):
             if m and m.group(1) in CODE:
                 where = f"{CODE[m.group(1)]}-{int(m.group(2)):02d}" if m.group(2) else f"{CODE[m.group(1)]}-AL"
         key = (title, where)
-        spans.setdefault(key, []).append([f, u, src, fp, up])
+        spans.setdefault(key, []).append([f, u, src, fp, up, frm[:10], (to or '')[:10]])
         rank_of[key] = rule[2]
+    # Wikidata gives a seat in Congress Congress by Congress, and can start a member who came in partway through one
+    # on the Congress's first day: Joseph Gaydos won a special election on November 5, 1968, and Wikidata has him from
+    # January 3, 1967. Where the infobox starts a term inside such a statement, and no term of its own covers the
+    # statement's first day, the statement starts when the infobox's term does; the same for a term ending inside one.
+    for (title, where), terms in spans.items():
+        if title not in ('U.S. Representative', 'U.S. Senator'):
+            continue
+        ours = [t for t in terms if t[2] == 'wp']
+        covers = lambda day: any(t[5] <= day and (not t[6] or t[6] >= day) for t in ours)
+        for d in terms:
+            if d[2] != 'wd' or not d[6] or d[3] < 11 or d[4] < 11 or d[1] - d[0] > 2:
+                continue
+            starts = [t for t in ours if t[3] >= 10 and d[5] < t[5] < d[6]]
+            if starts and not covers(d[5]):
+                first = min(starts, key=lambda t: t[5])
+                d[0], d[3], d[5] = first[0], first[3], first[5]
+            ends = [t for t in ours if t[6] and t[4] >= 10 and d[5] < t[6] < d[6]]
+            if ends and not covers(d[6]):
+                last = max(ends, key=lambda t: t[6])
+                d[1], d[4], d[6] = last[1], last[4], last[6]
     # One term from both sources: each end from the more exact of the two.
     near = lambda a, b: (a is None and b is None) or (a is not None and b is not None and abs(a - b) <= 1)
     for key, terms in spans.items():
@@ -1073,11 +1190,12 @@ def offices_shown(raw, died=None, wins=(), now=None, qid=None):
             kept.append(w)
         spans[key] = [[t[0], t[1]] for t in kept] + [[t[0], t[1]] for j, t in enumerate(terms) if t[2] == 'wd' and j not in used]
     for fixed_title, rows in OFFICES_FIXED.get(qid, {}).items():
+        rank = next((rank_of[k] for k in spans if k[0] == fixed_title), None)
         for k in [k for k in spans if k[0] == fixed_title]:
             del spans[k]
         for where, f, u in rows:
             spans.setdefault((fixed_title, where), []).append([f, u])
-            rank_of[(fixed_title, where)] = next(r[2] for r in OFFICE_RULES if r[1] == fixed_title)
+            rank_of[(fixed_title, where)] = rank if rank is not None else next(r[2] for r in OFFICE_RULES if r[1] == fixed_title)
     for title in ('U.S. Representative', 'U.S. Senator'):
         placed = [t for (ti, w), ts in spans.items() if ti == title and w for t in ts]
         bare = spans.get((title, ''), [])
@@ -1522,13 +1640,14 @@ def main():
     shutil.rmtree(new, ignore_errors=True)
     os.makedirs(os.path.join(new, 'p'))
     os.makedirs(os.path.join(new, 'years'))
-    index = []
+    index, raw_offices = [], {}
     for q in sorted(people):
         x, s = info[q], slug_of[q]
         art = x['article']
         photo = photos.get(art)
         wins = [(h['o'], h['k'], h['y']) for h in history[q] if h['o'] in 'HS' and h.get('w') and h['y'] <= 2024]
         offices = offices_shown(x['offices'] + wp_rows.get(q, []), died=x.get('died'), wins=wins, qid=q)
+        raw_offices[s] = x['offices'] + wp_rows.get(q, [])
         # A description whose years contradict the birth date (Wikidata has "(1745-1828)" for Thomas Pinckney, born
         # in 1750) loses the years.
         desc = x.get('desc')
@@ -1577,6 +1696,9 @@ def main():
               for r, c in runs26 if c['wiki'] in t2q and t2q[c['wiki']][0] in slug_of]
     with open(os.path.join(ROOT, 'pipeline', '.cache', 'people-links.json'), 'w') as f:
         json.dump(audit, f, ensure_ascii=False, indent=0)
+    # Each profile's office rows from both sources before they are merged, for checking.
+    with open(os.path.join(ROOT, 'pipeline', '.cache', 'people-offices.json'), 'w') as f:
+        json.dump(raw_offices, f, ensure_ascii=False)
     old = OUT + '.old'
     shutil.rmtree(old, ignore_errors=True)
     if os.path.exists(OUT):
