@@ -3,3 +3,5 @@ __pycache__/
 *.tmp
 .DS_Store
 node_modules
+data/people.new/
+data/people.old/

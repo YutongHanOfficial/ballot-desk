@@ -18,6 +18,7 @@ import * as credits from './views/credits.js';
 import * as legal from './views/legal.js';
 import * as archive from './views/archive.js';
 import * as swing from './views/swing.js';
+import * as person from './views/person.js';
 import { loadPhotos } from './photos.js';
 import { START, END, clockLabel, togglePlay, setSpeed, seek, stopSim } from './sim.js';
 import { navigate, currentPath, upgradeHashLink, tidyAddress } from './nav.js';
@@ -48,6 +49,8 @@ const ROUTES = [
   { re: /^\/archive$/, nav: 'archive', render: (root) => archive.renderIndex(root), title: () => archive.indexTitle() },
   { re: /^\/archive\/(\d{4})$/, nav: 'archive', render: (root, m) => archive.renderYear(root, m[1]), title: (m) => archive.yearTitle(m[1]) },
   { re: /^\/swing$/, nav: 'archive', render: (root) => swing.render(root), title: () => swing.title() },
+  { re: /^\/people$/, nav: 'archive', render: (root) => person.renderIndex(root), title: () => person.indexTitle() },
+  { re: /^\/person\/([a-z0-9-]+)$/, nav: 'archive', render: (root, m) => person.render(root, m[1]), title: (m) => person.title(m[1]) },
   { re: /^\/credits$/, nav: 'credits', render: (root) => credits.render(root), title: () => credits.title() },
   { re: /^\/terms$/, nav: 'terms', render: (root) => legal.renderTerms(root), title: () => legal.termsTitle() },
   { re: /^\/privacy$/, nav: 'privacy', render: (root) => legal.renderPrivacy(root), title: () => legal.privacyTitle() },

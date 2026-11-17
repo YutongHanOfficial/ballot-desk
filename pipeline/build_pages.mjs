@@ -38,6 +38,16 @@ const pages = [
 // can sit beside it: GitHub Pages sends /archive to /archive/ because the folder exists.
 const archive = read('data/archive/index.json');
 pages.push(['/archive/', 'Past elections', 'Every U.S. federal general election since the first in 1788–89: presidential results by state, the House and Senate, and county maps from 2000.', { file: 'archive/index' }]);
+// Politician profiles (data/people, from pipeline/build_people.py), when they have been built.
+if (fs.existsSync(path.join(ROOT, 'data/people/index.json'))) {
+  const people = read('data/people/index.json').people;
+  pages.push(['/people', 'Politicians', `Profiles of ${people.length.toLocaleString('en-US')} politicians: members of Congress since 1977, presidential candidates back to 1788 and 2026 candidates, with their electoral histories.`]);
+  for (const p of people) {
+    const span = p.y ? (p.y[0] === p.y[1] ? ` in ${p.y[0]}` : ` from ${p.y[0]} to ${p.y[1]}`) : '';
+    const desc = p.d ? `${p.d[0].toUpperCase()}${p.d.slice(1)}` : 'American politician';
+    pages.push([`/person/${p.s}`, p.n, `${p.n}: ${desc.replace(/\.$/, '')}. Electoral history${span}, offices held and a short biography.`]);
+  }
+}
 pages.push(['/swing', 'Swing map', 'How the presidential vote shifted between any two elections since 1856: by state, and county by county from 2000, as arrows or shading.']);
 const ord = (n) => { const s = ['th', 'st', 'nd', 'rd'], v = n % 100; return n + (s[(v - 20) % 10] || s[v] || s[0]); };
 // Wording for the two elections the House decided (who won comes from the index, as on the page).
@@ -109,8 +119,8 @@ function pageHtml(url, title, desc, { noindex = false } = {}) {
   return html.replace('<!doctype html>', '<!doctype html>\n<!-- Generated from index.html by pipeline/build_pages.mjs (npm run pages). Edit index.html instead. -->');
 }
 
-// The generator owns state/, race/ and archive/ outright, so pages for races that no longer exist disappear.
-for (const dir of ['state', 'race', 'archive']) fs.rmSync(path.join(ROOT, dir), { recursive: true, force: true });
+// The generator owns state/, race/, archive/ and person/ outright, so pages for races (or people) that no longer exist disappear.
+for (const dir of ['state', 'race', 'archive', 'person']) fs.rmSync(path.join(ROOT, dir), { recursive: true, force: true });
 for (const [p, title, desc, opts] of pages) {
   const file = path.join(ROOT, `${opts?.file || p}.html`);
   fs.mkdirSync(path.dirname(file), { recursive: true });

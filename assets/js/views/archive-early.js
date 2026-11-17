@@ -7,6 +7,7 @@ import {
   assignFamilies, preferredFamily, congressFamilies, familyFill, familyColor, familyText, familyChip, nationalStateMap, stateName, ttRow, ttTitle, pctOf, digitsOf,
 } from '../archive.js';
 import { swingUrl } from './swing.js';
+import { nameLink } from './person.js';
 
 // The two elections the House of Representatives decided. Who it chose comes with the data (president.winner).
 const CONTINGENT = {
@@ -286,7 +287,7 @@ function presidentEarly(e, p, reserved) {
   const evBar = h('div', { class: 'ar-ev' },
     h('div', { class: 'split-bar', style: { height: '14px' } },
       withEv.map(c => h('span', { title: `${full[c.id]} ${c.ev}`, style: { width: `${(100 * c.ev) / evTotal}%`, background: familyColor(famOf[c.id] || 'O') } }))),
-    h('div', { class: 'ar-ev-list' }, withEv.map(c => h('span', null, familyChip(famOf[c.id] || 'O', ''), h('b', null, full[c.id]), ` ${c.ev}`))),
+    h('div', { class: 'ar-ev-list' }, withEv.map(c => h('span', null, familyChip(famOf[c.id] || 'O', ''), h('b', null, nameLink(full[c.id], y, ['president'], c.name)), ` ${c.ev}`))),
     h('div', { class: 'xs muted', style: { marginTop: '6px' } }, y < 1804
       ? 'Before 1804 each elector cast two votes for president; the runner-up became vice president.'
       : `${p.needed ?? Math.floor(evTotal / 2) + 1} electoral votes to win.`));   // needed: a majority of electors appointed, where some didn't vote

@@ -875,6 +875,29 @@ html.bc-transparent, html.bc-transparent body { background: transparent !importa
 .ar-bar span { display: block; height: 100%; }
 /* A thin gap between parties, so two grey minor parties side by side still read as two. */
 .ar-bar.parts span + span { box-shadow: inset 1.5px 0 0 var(--surface); }
+
+/* Politician profiles (/person/<slug>) and the list of them (/people) */
+.person-top { display: flex; gap: 16px; align-items: center; }
+.person-photo { width: 96px; height: 96px; flex: none; font-size: 34px; border-width: 3px; }
+.person-photo img { width: 100%; height: 100%; }
+.person-facts { display: grid; grid-template-columns: max-content 1fr; gap: 4px 14px; margin: 16px 0 0; font-size: 14px; }
+.person-facts dt { color: var(--muted); }
+.person-facts dd { margin: 0; }
+.person-offices { list-style: none; margin: 0; padding: 0; }
+.person-offices li { display: flex; flex-wrap: wrap; gap: 0 6px; align-items: baseline; padding: 7px 0; border-bottom: 1px solid var(--line); }
+.person-offices li:last-child { border-bottom: 0; }
+.person-years { margin-left: auto; color: var(--muted); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.person-won { font-weight: 700; }
+.person-about p { margin: 0 0 10px; line-height: 1.55; }
+.person-now { display: grid; gap: 6px; }
+.search.people-search { max-width: 520px; margin: 0 0 14px; }
+.people-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 8px; }
+.people-item { display: flex; flex-direction: column; gap: 2px; padding: 10px 12px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface); color: var(--ink); text-decoration: none; }
+.people-item:hover { border-color: var(--ink-2); }
+/* A name with a profile: a quiet underline in the text's own colour, solid on hover. */
+.person-link { color: inherit; text-decoration: underline 1px; text-decoration-color: color-mix(in srgb, currentColor 40%, transparent); text-underline-offset: 3px; }
+.person-link:hover { text-decoration-color: currentColor; }
+@media (max-width: 560px) { .person-photo { width: 72px; height: 72px; font-size: 26px; } }
 /* On a year page the party list reads left to right, wrapping between parties like the other lists there. */
 .ar-ev-names .ar-seats { justify-content: flex-start; gap: 4px 14px; }
 .ar-mid { position: absolute; left: 50%; top: -3px; bottom: -3px; width: 2px; margin-left: -1px; background: var(--ink); opacity: .55; }

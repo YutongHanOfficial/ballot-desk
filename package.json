@@ -11,6 +11,7 @@
     "hex": "node pipeline/build_hex.mjs",
     "pages": "node pipeline/build_pages.mjs",
     "archive": "node pipeline/build_archive.mjs",
+    "people": "python3 pipeline/build_people.py",
     "icons": "node pipeline/build_icons.mjs"
   },
   "devDependencies": {

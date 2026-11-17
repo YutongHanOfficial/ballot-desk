@@ -10,6 +10,7 @@ import {
 } from '../archive.js';
 import { shiftMap, swingUrl } from './swing.js';
 import { earlyCard, earlyYearPage, earlySummary } from './archive-early.js';
+import { nameLink } from './person.js';
 
 const PARTY_WORD = { D: 'Democrats', R: 'Republicans', O: 'independents' };
 const colored = (party, text, tag = 'span') => h(tag, { style: { color: partyVar(party) } }, text);
@@ -28,7 +29,8 @@ export function renderIndex(root) {
       shiftMap({ from: 2020, to: 2024, level: 'counties', style: 'arrows' }, { key: 'archive-teaser' }),
       h('div', { class: 'sw-teaser-foot' }, h('a', { class: 'btn small', href: swingUrl({ from: 2020, to: 2024, level: 'counties', style: 'arrows' }) }, 'Compare any two elections'))),
     h('section', { class: 'section' },
-      h('div', { class: 'section-head' }, h('div', null, h('h2', null, 'Every election'), h('p', null, 'Presidential years and midterms, newest first.'))),
+      h('div', { class: 'section-head' }, h('div', null, h('h2', null, 'Every election'), h('p', null, 'Presidential years and midterms, newest first.')),
+        h('a', { class: 'small', href: '/people' }, 'Politician profiles →')),
       withData([INDEX_URL], (idx) => eraGrid(idx), 640)));
 }
 
@@ -142,7 +144,7 @@ function presidentSection(e, pres) {
   const margins = Object.fromEntries(Object.entries(p.states).map(([st, v]) => [st, marginOf(...v)]));
   const win = p.ev.D > p.ev.R ? 'D' : 'R';
   const evBar = h('div', { class: 'ar-ev' },
-    h('div', { class: 'ar-ev-names' }, colored('D', h('b', null, `${p.D} ${p.ev.D}`)), colored('R', h('b', null, `${p.ev.R} ${p.R}`))),
+    h('div', { class: 'ar-ev-names' }, colored('D', h('b', null, nameLink(p.D, y, ['president']), ` ${p.ev.D}`)), colored('R', h('b', null, `${p.ev.R} `, nameLink(p.R, y, ['president'])))),
     h('div', { class: 'split-bar', style: { height: '14px', position: 'relative' } },
       h('span', { style: { width: `${(100 * p.ev.D) / 538}%`, background: 'var(--dem)' } }),
       h('span', { style: { width: `${(100 * (538 - p.ev.D - p.ev.R)) / 538}%`, background: 'var(--oth)' } }),
@@ -249,8 +251,8 @@ function senateSection(e, races) {
   const map = nationalStateMap({ fill, tip, label: `Map of the ${e.year} Senate races` });
   const table = sortableTable([
     { key: 'st', label: 'State', render: r => h('span', null, stateName(r.state), r.special ? h('span', { class: 'pill', style: { marginLeft: '6px' } }, 'Special') : null), sort: r => stateName(r.state) + (r.special ? '2' : '1'), defaultAsc: true },
-    { key: 'w', label: 'Winner', render: r => candCell(r.cands[0], r.winner, r.note, r.unopposed), sort: r => r.winner?.party },
-    { key: 'l', label: 'Runner-up', hideSm: true, render: r => r.cands[1] ? candCell(r.cands[1]) : h('span', { class: 'muted' }, '—'), sort: r => r.cands[1]?.[0] },
+    { key: 'w', label: 'Winner', render: r => candCell(r.cands[0], r.winner, r.note, r.unopposed, nameLink(r.cands[0][0], e.year, ['senate', senateKey(r)])), sort: r => r.winner?.party },
+    { key: 'l', label: 'Runner-up', hideSm: true, render: r => r.cands[1] ? candCell(r.cands[1], null, null, false, nameLink(r.cands[1][0], e.year, ['senate', senateKey(r)])) : h('span', { class: 'muted' }, '—'), sort: r => r.cands[1]?.[0] },
     { key: 'm', label: 'Margin', num: true, render: r => r.unopposed ? h('span', { class: 'muted' }, 'Unopposed') : winnerMargin(r), sort: r => raceMargin(r) },
   ], races, { sortKey: 'st', desc: false, stateKey: `ar-senate-${e.year}` });
   const sw = e.senate.won;
@@ -260,9 +262,11 @@ function senateSection(e, races) {
     h('div', { class: 'ar-table', style: { marginTop: '16px' } }, table));
 }
 
-function candCell(c, winner = null, note = null, unopposed = false) {
+// A Senate race's key in the profile links: 'AZ', or 'AZ-special'.
+const senateKey = (r) => r.state + (r.special ? '-special' : '');
+function candCell(c, winner = null, note = null, unopposed = false, name = c[0]) {
   return h('div', { class: 'ar-cand' },
-    h('div', { class: 'cand-line' }, partyChip(c[1]), h('span', { class: 'nm', style: { fontWeight: winner ? 700 : 500 } }, c[0])),
+    h('div', { class: 'cand-line' }, partyChip(c[1]), h('span', { class: 'nm', style: { fontWeight: winner ? 700 : 500 } }, name)),
     note ? h('div', { class: 'xs muted ar-note' }, note) : null);
 }
 /** A race's share decimals: two, or more until its top two read apart. */
@@ -289,8 +293,8 @@ function houseSection(e, races) {
     const rows = filter.st ? races.filter(r => r.id.startsWith(`${filter.st}-`)) : races;
     holder.replaceChildren(sortableTable([
       { key: 'id', label: 'District', render: r => r.id, sort: r => r.id, defaultAsc: true },
-      { key: 'w', label: 'Winner', render: r => r.winner ? candCell(r.cands.find(c => c[0] === r.winner.name) || r.cands[0], r.winner, r.note) : h('div', { class: 'ar-cand' }, h('span', { class: 'muted' }, 'Vacant'), r.note ? h('div', { class: 'xs muted ar-note' }, r.note) : null), sort: r => r.winner?.party },
-      { key: 'l', label: 'Runner-up', hideSm: true, render: r => { const c = r.cands.find(x => !r.winner || x[0] !== r.winner.name); return c && !r.unopposed ? candCell(c) : h('span', { class: 'muted' }, '—'); }, sort: r => r.cands[1]?.[0] },
+      { key: 'w', label: 'Winner', render: r => { if (!r.winner) return h('div', { class: 'ar-cand' }, h('span', { class: 'muted' }, 'Vacant'), r.note ? h('div', { class: 'xs muted ar-note' }, r.note) : null); const c = r.cands.find(x => x[0] === r.winner.name) || r.cands[0]; return candCell(c, r.winner, r.note, false, nameLink(c[0], e.year, ['house', r.id])); }, sort: r => r.winner?.party },
+      { key: 'l', label: 'Runner-up', hideSm: true, render: r => { const c = r.cands.find(x => !r.winner || x[0] !== r.winner.name); return c && !r.unopposed ? candCell(c, null, null, false, nameLink(c[0], e.year, ['house', r.id])) : h('span', { class: 'muted' }, '—'); }, sort: r => r.cands[1]?.[0] },
       { key: 'm', label: 'Margin', num: true, render: r => r.unopposed ? h('span', { class: 'muted' }, 'Unopposed') : r.winner ? winnerMargin(r) : h('span', { class: 'muted' }, '—'), sort: r => (r.unopposed ? 1000 : raceMargin(r)), defaultAsc: true },
     ], rows, { sortKey: 'm', desc: false, limit: filter.st ? Infinity : 25, stateKey: `ar-house-${e.year}-${filter.st}` }));
   };

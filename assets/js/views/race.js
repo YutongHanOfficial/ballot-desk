@@ -9,6 +9,7 @@ import { wantCounties, resultsLoading } from '../live.js';
 import { CONFIG } from '../config.js';
 import { electionBanner, pollCloseText, raceCard } from './common.js';
 import { avatar, photoCredits } from '../photos.js';
+import { nameLink } from './person.js';
 
 function winsText(name, q) {
   if (q >= 0.995) return `${name} wins virtually every simulation`;
@@ -294,7 +295,7 @@ function ratingsCard(r) {
 
 function candidateList(r) {
   return h('div', { style: { marginTop: '12px' } }, h('div', { class: 'small muted', style: { marginBottom: '6px' } }, 'On the ballot'),
-    h('div', { class: 'chips' }, (r.candidates || []).map(k => h('span', { style: { display: 'inline-flex', gap: '6px', alignItems: 'center', padding: '3px 8px', borderRadius: '6px', background: 'var(--surface-2)', fontSize: '13px' } }, partyChip(k.party), k.name, k.incumbent ? h('span', { class: 'inc-star' }, 'INC') : null))));
+    h('div', { class: 'chips' }, (r.candidates || []).map(k => h('span', { style: { display: 'inline-flex', gap: '6px', alignItems: 'center', padding: '3px 8px', borderRadius: '6px', background: 'var(--surface-2)', fontSize: '13px' } }, partyChip(k.party), nameLink(k.name, 2026, ['races', r.id]), k.incumbent ? h('span', { class: 'inc-star' }, 'INC') : null))));
 }
 
 function context(r) {

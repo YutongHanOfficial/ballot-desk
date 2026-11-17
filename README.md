@@ -115,6 +115,46 @@ Republicans and Adams men gold; Democratic-Republicans teal), then a party's sec
 family that no party on the page prefers, the Congress split included, or grey. Maps stripe states with no popular-vote
 margin (electors chosen by the legislature, or no returns survive).
 
+### Politician profiles
+
+`/person/<slug>` is a profile: who the person is, the offices they held and every general election of theirs in the
+archive and on the 2026 ballot; `/people` lists and searches them all (`assets/js/views/person.js`). `npm run people`
+(`pipeline/build_people.py`, after `npm run archive`) builds them into `data/people/`: `index.json` (everyone),
+`p/<slug>.json` (one profile) and `years/<year>.json` (which names on each archive year page, and on 2026's race pages,
+have a profile, so those names link to it). A profile is a person with an English Wikipedia article who served in
+the House or Senate from 1977, ran for president, was a Senate nominee from 1976, or is a 2026 candidate. The slug is
+the article title, so it is stable and unique.
+
+As with the photos, a person is tied to a result through a seat or a link, never a bare name:
+- House and Senate winners: Wikidata's record of who held that seat in the next Congress. The surname must match,
+  give or take the typos in the 1970s-80s returns, with given names that fit, nicknames included. A widow or son who
+  took the seat later is passed over for whoever held it from the start.
+- Senate nominees: the infobox links in Wikipedia's article on that election, which win where they and the seat
+  disagree (Mel Carnahan, 2000, whose widow was appointed to the seat).
+- Presidential candidates: the election article's infobox, then Wikidata's list of the election's candidates, then
+  the links on their names in the article's results tables (the early elections' stray electoral votes).
+- House candidates 2020-2024, where Wikidata's seat records lag: the links in Wikipedia's article on that year's House
+  elections in their state, which win where they and the seat disagree.
+- 2026 candidates: the link on their name in the race tables.
+
+Every link is then checked: the archive's name must share a surname with a name the person goes by, which catches a
+redirect from a losing candidate's name to the winner's article. The one exception to "never a bare name" is a known
+person's other House and Senate runs, matched by name only in a state where they ran or served. The candidate must
+share the surname and a first name or nickname the person goes by (never a middle name: Bob Casey Jr.'s brother Pat
+ran in 1998), and no other middle initial. They can't run for a major party the person never belonged to, must be
+old enough, and can't have a second run that year. Further from the person's known races, a suffix of another
+generation, an age over 80 or a legal-name-only match rules it out.
+`pipeline/.cache/people-links.json` records how each race was tied (`seat`, `infobox`, `wikidata`, `article`, `name`
+or `link`).
+
+Born, died, party and offices come from Wikidata (CC0). Each date comes from its best statement; one known only to the
+decade is dropped. Offices are corrected with the archive: an open House or Senate term closes when the person's last
+win in that seat has run out, and a term won since 2020 that Wikidata lacks is added. The opening sentences come from
+Wikipedia (CC BY-SA, credited on the page); a photo only where `data/photos.json` already has one. Network replies are
+cached in `pipeline/.cache/people/` (`--refresh` starts over), so a re-run takes about 20 seconds. The output is written
+to `data/people.new/` and swapped in at the end. After `npm run people`, run `npm run pages` so every profile has its
+page copy.
+
 On election night the 2026 Senate and governor race pages can switch their county map to "Shift from 2024": each
 county's margin for the Democrat (or an independent running against a Republican) against Harris's margin over Trump
 (`view: 'shift'` in `countyMap()`, maps.js; the 2024 numbers are `data/geo/counties-2024.json`). Counties under 95% of
@@ -316,6 +356,8 @@ counted by the beacon itself (it follows the History API). Ad and tracker blocke
 | Past results (archive and swing map): president by state and county, Senate, House | [MIT Election Data and Science Lab](https://electionlab.mit.edu/data), Harvard Dataverse; a few gaps from Wikipedia | CC0 (Wikipedia: CC BY-SA 4.0) |
 | Past results before 1976: president by state | Wikipedia's election articles; some state returns corrected where two other sources agree, such as [The American Presidency Project](https://www.presidency.ucsb.edu/statistics/elections), Polidata, A New Nation Votes, Vote Archive, the World Almanac and Wikipedia's state articles | CC BY-SA 4.0 (Wikipedia); figures |
 | Party split of each Congress before 1976 | [House Office of the Historian](https://history.house.gov/Institution/Party-Divisions/Party-Divisions/) and [Senate Historical Office](https://www.senate.gov/about/parties-leadership/party-division.htm) | Public domain (U.S. government works) |
+| Politician profiles: born, died, party, offices held | [Wikidata](https://www.wikidata.org) | CC0 |
+| Politician profiles: opening sentences | Wikipedia | CC BY-SA 4.0 |
 | 2024 presidential vote by county | [tonmcg/US_County_Level_Election_Results_08-24](https://github.com/tonmcg/US_County_Level_Election_Results_08-24) | MIT |
 | Election-night county results | AP via each race's NYT results file (fetched in the browser) | Unofficial; see above |
 | Candidate photos | Lead images of the candidates' Wikipedia articles (Wikimedia Commons / Wikipedia), cropped | Each file's own: public domain, CC0, CC BY or CC BY-SA (listed on `/credits`) |
