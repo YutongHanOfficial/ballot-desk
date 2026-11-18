@@ -69,11 +69,11 @@ function races() {
   raceCount = store.races.length;
   raceIndex = store.races.map(r => {
     const names = [r.leftCand?.name || r.left, r.rightCand?.name || r.right].filter(Boolean);
-    const all = (r.candidates || []).map(c => c.name);
+    const all = [...new Set([...names, ...(r.candidates || []).map(c => c.name)])];
     return {
       r, id: fold(r.id), names,
       hw: words(fold(`${r.title} ${r.id} ${r.short} ${r.stateName} ${r.state} ${OFFICE_WORDS[r.type] || r.office}`)),
-      cw: words(fold([...names, ...all].join(' '))),
+      cands: all.map(name => ({ name, w: words(fold(name)) })),
     };
   });
   return raceIndex;
@@ -84,8 +84,13 @@ function matchRaces(q, qw) {
   const district = m ? `${m[1]} ${m[2].padStart(2, '0')}` : null;
   const hits = [];
   for (const e of races()) {
-    const score = e.id === q || e.id === district ? 0 : prefixesAll(qw, e.hw) ? 1 : q.length >= 3 && prefixesAll(qw, e.cw) ? 2 : -1;
-    if (score >= 0) hits.push([score, e]);
+    if (e.id === q || e.id === district) hits.push([0, e]);
+    else if (prefixesAll(qw, e.hw)) hits.push([1, e]);
+    else if (q.length >= 3) {
+      // A candidate's name, one candidate at a time; the result says who when it isn't one of the two leaders.
+      const who = e.cands.find(c => prefixesAll(qw, c.w));
+      if (who) hits.push([2, e, who.name]);
+    }
   }
   hits.sort((a, b) => a[0] - b[0] || OFFICE_ORDER[a[1].r.type] - OFFICE_ORDER[b[1].r.type] || (a[1].r.district || 0) - (b[1].r.district || 0) || a[1].r.title.localeCompare(b[1].r.title));
   return hits;
@@ -185,7 +190,11 @@ function draw() {
     }
     if (kind === 'races') {
       return group('2026 races', hits.length > top.length ? `${top.length} of ${num(hits.length)}` : null,
-        top.map(([, e]) => option(e.r.url, e.r.title, [e.r.type === 'house' ? e.r.short : null, e.names.length === 2 ? `${e.names[0]} vs. ${e.names[1]}` : e.names[0]].filter(Boolean).join(' · '))));
+        top.map(([, e, who]) => option(e.r.url, e.r.title, [
+          e.r.type === 'house' ? e.r.short : null,
+          e.names.length === 2 ? `${e.names[0]} vs. ${e.names[1]}` : e.names[0],
+          who && !e.names.includes(who) ? `also running: ${who}` : null,
+        ].filter(Boolean).join(' · '))));
     }
     if (kind === 'states') return group('States', null, top.map(([, s]) => option(`/state/${s.code}`, s.name, 'Its 2026 races, House map and ballot measures')));
     if (kind === 'years') return group('Past elections', null, top.map(([, y]) => option(y.href, y.title, y.sub)));
