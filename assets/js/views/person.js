@@ -182,6 +182,8 @@ function peopleList(idx) {
     note.hidden = !note.textContent;
   };
   input.addEventListener('input', draw);
+  // The site search's "See all" link brings its words along: /people?q=smith.
+  input.value = new URLSearchParams(location.search).get('q') || '';
   draw();
   return h('div', null, h('div', { class: 'search people-search' }, input), list, note);
 }

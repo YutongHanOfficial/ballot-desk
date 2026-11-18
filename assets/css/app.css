@@ -104,7 +104,7 @@ button { font: inherit; color: inherit; }
   backdrop-filter: saturate(1.4) blur(10px); -webkit-backdrop-filter: saturate(1.4) blur(10px);
   border-bottom: 1px solid var(--line);
 }
-.header-inner { max-width: var(--max); margin: 0 auto; padding: 0 16px; display: flex; align-items: center; gap: 18px; height: 58px; }
+.header-inner { max-width: var(--max); margin: 0 auto; padding: 0 16px; display: flex; align-items: center; gap: 14px; height: 58px; }
 .brand { display: flex; align-items: center; gap: 10px; text-decoration: none; flex-shrink: 0; }
 .brand-mark { width: 30px; height: 30px; display: block; flex-shrink: 0; }
 .brand-mark svg { display: block; width: 100%; height: 100%; }
@@ -113,7 +113,7 @@ button { font: inherit; color: inherit; }
 .brand-text span { font-size: 11px; color: var(--muted); letter-spacing: .02em; }
 .nav { display: flex; gap: 2px; align-items: center; overflow-x: auto; scrollbar-width: none; flex: 1; min-width: 0; }
 .nav::-webkit-scrollbar { display: none; }
-.nav a { text-decoration: none; padding: 7px 11px; border-radius: 8px; font-weight: 550; font-size: 14px; color: var(--ink-2); white-space: nowrap; }
+.nav a { text-decoration: none; padding: 7px 8px; border-radius: 8px; font-weight: 550; font-size: 14px; color: var(--ink-2); white-space: nowrap; }
 .nav a:hover { background: var(--surface-2); }
 .nav a.active { background: var(--ink); color: var(--bg); }
 .nav a.live-link { display: inline-flex; align-items: center; gap: 6px; }
@@ -393,6 +393,7 @@ footer.site-footer { border-top: 1px solid var(--line); background: var(--surfac
 @media (max-width: 760px) {
   .header-inner { gap: 6px 10px; flex-wrap: wrap; height: auto; padding: 9px 16px 0; }
   .nav { order: 3; flex-basis: 100%; margin: 0 -16px; padding: 0 12px 8px; }
+  .nav a { padding: 7px 11px; }
   .header-tools { margin-left: auto; }
   .brand-text span { display: none; }
   main { padding-top: 16px; }
@@ -970,4 +971,43 @@ html.bc-transparent, html.bc-transparent body { background: transparent !importa
   .ar-table .nm { white-space: normal; }
   .ar-table .pill { padding: 1px 6px; font-size: 11px; }
   .ar-note { max-width: 220px; }
+}
+
+/* ------------------------------------------------------------------ site search (assets/js/search.js) */
+.search-btn { display: inline-flex; align-items: center; gap: 7px; height: 34px; padding: 0 12px 0 10px; border-radius: 8px; border: 1px solid var(--line); background: var(--surface); color: var(--muted); font: inherit; font-size: 13.5px; cursor: pointer; }
+.search-btn:hover { border-color: var(--line-2); color: var(--ink-2); }
+.search-btn .sx-icon svg { width: 16px; height: 16px; display: block; }
+.search-btn-label { flex: 1; text-align: left; }
+.sx-close kbd { font: 600 11px/1 var(--sans); padding: 3px 6px; border: 1px solid var(--line-2); border-radius: 5px; color: var(--muted); background: var(--surface-2); }
+/* Labelled where the whole menu fits beside it (the header at its full width); an icon below that. */
+@media (max-width: 1251px) { .search-btn { width: 34px; padding: 0; justify-content: center; } .search-btn-label { display: none; } }
+body.sx-open { overflow: hidden; }
+.sx-overlay { position: fixed; inset: 0; z-index: 120; display: flex; justify-content: center; align-items: flex-start; padding: 9vh 16px 16px; background: rgba(10, 12, 15, .45); }
+.sx-overlay[hidden] { display: none; }
+.sx-panel { width: 100%; max-width: 640px; max-height: 78vh; display: flex; flex-direction: column; overflow: hidden; background: var(--surface); color: var(--ink); border: 1px solid var(--line-2); border-radius: 12px; box-shadow: 0 18px 50px rgba(0, 0, 0, .28); }
+.sx-bar { display: flex; align-items: center; gap: 10px; padding: 12px 14px; border-bottom: 1px solid var(--line); }
+.sx-bar .sx-icon { color: var(--muted); flex-shrink: 0; }
+.sx-bar .sx-icon svg { width: 19px; height: 19px; display: block; }
+.sx-input { flex: 1; min-width: 0; border: 0; background: transparent; color: var(--ink); font: inherit; font-size: 17px; outline: none; }
+.sx-input::-webkit-search-cancel-button { cursor: pointer; }
+.sx-close { border: 0; background: none; padding: 2px; cursor: pointer; flex-shrink: 0; }
+.sx-results { overflow-y: auto; overscroll-behavior: contain; padding: 4px 0 8px; }
+.sx-head { display: flex; justify-content: space-between; gap: 12px; padding: 12px 16px 4px; font-size: 11px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+.sx-head span:last-child { letter-spacing: 0; text-transform: none; font-weight: 600; }
+.sx-item { display: flex; flex-direction: column; gap: 2px; padding: 8px 16px 8px 13px; border-left: 3px solid transparent; color: var(--ink); text-decoration: none; }
+.sx-item b { font-size: 15px; font-weight: 650; }
+.sx-sub { font-size: 12.5px; color: var(--muted); }
+.sx-item.active { background: var(--surface-2); border-left-color: var(--focus); }
+.sx-item.sx-more b { font-size: 13.5px; font-weight: 600; color: var(--focus); }
+.sx-empty { padding: 14px 16px 6px; font-size: 14px; color: var(--muted); }
+.sx-retry { border: 0; background: none; padding: 0; color: var(--focus); font: inherit; font-weight: 600; cursor: pointer; text-decoration: underline; }
+.sx-tips { padding: 12px 16px 6px; font-size: 14px; color: var(--ink-2); }
+.sx-tips p { margin: 0 0 10px; }
+.sx-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px; }
+.sx-chip { border: 1px solid var(--line-2); background: var(--surface); color: var(--ink-2); border-radius: 999px; padding: 4px 11px; font: inherit; font-size: 13px; font-weight: 600; cursor: pointer; }
+.sx-chip:hover { border-color: var(--ink-2); color: var(--ink); }
+@media (max-width: 760px) {
+  .sx-overlay { padding: 8px; }
+  .sx-panel { max-height: calc(100dvh - 16px); border-radius: 10px; }
+  .sx-input { font-size: 16px; }   /* 16px keeps iOS from zooming in on focus */
 }

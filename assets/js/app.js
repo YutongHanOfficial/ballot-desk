@@ -23,6 +23,7 @@ import { loadPhotos } from './photos.js';
 import { START, END, clockLabel, togglePlay, setSpeed, seek, stopSim } from './sim.js';
 import { navigate, currentPath, upgradeHashLink, tidyAddress } from './nav.js';
 import { startAnalytics } from './analytics.js';
+import { setupSearch } from './search.js';
 
 const main = document.getElementById('main');
 const statusEl = document.getElementById('status');
@@ -240,6 +241,7 @@ async function boot() {
   tidyAddress();
   initTheme();
   setupNav();
+  setupSearch();   // the header's Search button; "/" or Ctrl/Cmd+K anywhere
   setupSupport();
   startAnalytics();   // off unless config.js has a token
   // GitHub Pages can answer 503 for a moment while a deploy (one every 20 minutes) spreads: retry before giving up.
