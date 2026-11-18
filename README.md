@@ -161,10 +161,16 @@ that legally began at or soon after the November election (in Tennessee, Oklahom
 1999) shows from the January after. A state legislator's end year can differ by one between sources, too: an infobox
 may end a term at the next January's session, so where terms change over in November or December, an infobox end
 known only to the month ("January 2017") gives way to Wikidata's year before. Wikidata sometimes files a term under
-the other chamber; where the infobox has that term in the other chamber, Wikidata's is dropped. Offices are then
-corrected with the archive: an open House or Senate term closes when the person's last win in that
-seat has run out, a term won since 2020 that neither source has is added, and a member holds one House district at a
-time. The opening sentences come from Wikipedia (CC BY-SA, credited on the page); a photo only where
+the other chamber; where the infobox has that term in the other chamber, Wikidata's is dropped. An office held acting,
+in either source's words ("Acting Secretary of War", Wikidata's "nature of statement: acting"), is a line of its
+own, "(acting)", never merged with a full term. Terms are merged into one line where they are a year or less apart,
+but not where both dates are known to the month and are more than six months apart (Strom Thurmond resigned in April
+1956 and came back that November). An open Wikidata term inside an infobox term that has ended is out of date and
+ends with it; an infobox end still to come is no end yet. Offices are then corrected with the archive: an open
+House or Senate term closes when the person's last win in that seat has run out, unless it began after that (Sherrod
+Brown's Senate term from December 2026); a term won since 2020 that neither source has is added, unless a source
+has the person leave the seat after that election (Matt Gaetz, George Santos); and a member holds one House district
+at a time. The opening sentences come from Wikipedia (CC BY-SA, credited on the page); a photo only where
 `data/photos.json` already has one. Network replies are cached in `pipeline/.cache/people/` (`--refresh` starts over),
 so a re-run takes about 20 seconds. The output is written to `data/people.new/` and swapped in at the end. After `npm
 run people`, run `npm run pages` so every profile has its page copy.

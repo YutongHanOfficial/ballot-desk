@@ -26,6 +26,7 @@ Usage: python3 pipeline/build_people.py [--refresh]
 Network replies are cached in pipeline/.cache/people/ (--refresh starts over). Run after `npm run archive`.
 """
 import glob
+import datetime
 import hashlib
 import html
 import http.client
@@ -642,16 +643,20 @@ def people_details(qids):
                 st['from'].add((isodate(r['from'])[:10], int(r.get('fp') or 9)))
             if isodate(r.get('to')):
                 st['to'].add((isodate(r['to'])[:10], int(r.get('tp') or 9)))
-        for st in stmts.values():
+        # Statements of an office held acting, whichever qualifier says so (nature of statement, has characteristic):
+        # Mick Mulvaney's as White House chief of staff.
+        acting = {r['s'] for r in sparql('''SELECT DISTINCT ?s WHERE { VALUES ?p { %s } ?p p:P39 ?s . ?s ?q wd:Q4676846 .
+            ?qp wikibase:qualifier ?q }''' % values)}
+        for s, st in stmts.items():
             starts, ends = sorted(st['from']), sorted(st['to'])
             if not starts:
-                info[st['p']]['offices'].append((st['label'], '', ends[0][0] if ends else '', st['dist'], 'wd', 0, ends[0][1] if ends else 0))
+                info[st['p']]['offices'].append((st['label'], '', ends[0][0] if ends else '', st['dist'], 'wd', 0, ends[0][1] if ends else 0, s in acting))
                 continue
             for a in starts:
                 e = next((x for x in ends if x[0] >= a[0]), None)
                 if e:
                     ends.remove(e)
-                info[st['p']]['offices'].append((st['label'], a[0], e[0] if e else '', st['dist'], 'wd', a[1], e[1] if e else 0))
+                info[st['p']]['offices'].append((st['label'], a[0], e[0] if e else '', st['dist'], 'wd', a[1], e[1] if e else 0, s in acting))
     # Born and died, each from its best statement: not deprecated, preferred rank first, then the most precise. A
     # value known only to the decade or century is no date at all (Wikidata has 2000 for Kathy Jennings, born 1953);
     # one known to the year or month is kept as "1735" or "1735-10", so the page shows no made-up day or age.
@@ -867,6 +872,14 @@ def date_in(text):
     return None, 0
 
 
+def days_apart(a, b):
+    """Days from one ISO date to another (a large number when either can't be read)."""
+    try:
+        return (datetime.date.fromisoformat(b[:10]) - datetime.date.fromisoformat(a[:10])).days
+    except ValueError:
+        return 10 ** 6
+
+
 def house_seats(value, f, u):
     """The districts of an infobox's House block, from {{ushr|KY|2|...}} or a link to "Kentucky's 2nd congressional
     district", with or without the years beside each: [(district code, or '' when it can't be told, from, to)]."""
@@ -969,7 +982,7 @@ def listed(t):
     return not re.search(ELECT, t, re.I) and (congress_seat(t) is not None or any(re.match(r[0], office_label(t)) for r in OFFICE_RULES))
 
 
-def infobox_offices(text, born=None, died=None, now=None):
+def infobox_offices(text, born=None, died=None, now=None, today=None):
     """The offices in a person's Wikipedia infobox, as rows like Wikidata's (label, from, to, district, 'wp',
     from precision, to precision), with what the infobox has that Wikidata may lack (Henry Clay's earlier House
     terms, DeWitt Clinton's years as lieutenant governor, Tip O'Neill's Massachusetts House years from 1937 where
@@ -980,9 +993,10 @@ def infobox_offices(text, born=None, died=None, now=None):
     read from the text with footnotes, notes ({{efn}}) and comments taken out first. Terms that can't be right (begun
     before 16 or after death, ending before they begin or after death, still open after death) are left out, and so
     are offices won but not held (an office-elect, a nominee, an election won after death) and terms not yet begun.
-    Returns (rows, left out)."""
+    An office held acting ("Acting United States Secretary of the Navy", or a term labelled or with the status
+    "Acting") is marked in an eighth column. today (YYYY-MM-DD) is for tests. Returns (rows, left out)."""
     now = now or time.localtime().tm_year
-    today = min(time.strftime('%Y-%m-%d'), f'{now:04d}-12-31')
+    today = today or min(time.strftime('%Y-%m-%d'), f'{now:04d}-12-31')
     blocks = {}
     for k, v in first_infobox_with_terms(text).items():
         m = re.match(r'^([a-z_/]+?)(\d*)$', k.strip())
@@ -990,7 +1004,7 @@ def infobox_offices(text, born=None, died=None, now=None):
             blocks.setdefault(int(m.group(2) or 0), {})[m.group(1)] = v
     born = int(born[:4]) if born else None
     died = int(died[:4]) if died else None
-    rows, left, office, seats_value = [], [], None, ''
+    rows, left, office, seats_value, office_acting = [], [], None, '', False
     for n in sorted(blocks):
         b = blocks[n]
         state = STATE_PAGE.get(wikiclean(b.get('state', '')), wikiclean(b.get('state', '')))
@@ -1001,7 +1015,11 @@ def infobox_offices(text, born=None, died=None, now=None):
                                          and re.search(r'[A-Za-z]{3,}', re.sub(r'\b\d+(st|nd|rd|th)\b', '', wikiclean(b[k])))), None)
         held = True
         if named:
-            t = office_name(wikiclean(named))
+            t = wikiclean(named)
+            # "Acting United States Secretary of the Navy", "White House Chief of Staff (acting)": the office, held acting.
+            office_acting = bool(re.match(r'^(?:\d+(?:st|nd|rd|th)\s+)?Acting\s', t, re.I) or re.search(r'\(\s*acting\s*\)\s*$', t, re.I))
+            t = re.sub(r'\s*\(\s*acting\s*\)\s*$', '', re.sub(r'^(\d+(?:st|nd|rd|th)\s+)?Acting\s+', r'\1', t, flags=re.I), flags=re.I)
+            t = office_name(t)
             if re.search(ELECT, t, re.I):
                 # Won but not held, or not yet: Mel Carnahan was elected to the Senate three weeks after he died. This
                 # block's dates are left out; a block after it that names no office is an earlier term of the office
@@ -1024,14 +1042,17 @@ def infobox_offices(text, born=None, died=None, now=None):
             # A mission abroad: James Buchanan's to Russia and to Britain, which would otherwise read as House terms.
             country = wikiclean(b.get('country', ''))
             office = ('label', office_title(f'United States Ambassador to {country}')) if country else ('other', None)
+            office_acting = False
         elif legislature:
             # "state_senate = Louisiana State" is the Louisiana State Senate.
             st = re.sub(r'\s+State$', '', STATE_PAGE.get(wikiclean(b[legislature]), wikiclean(b[legislature])))
             kind = 'upper' if legislature == 'state_senate' else 'lower'
             name = f'{st} Legislature' if legislature == 'state_legislature' else chamber_name(kind, st)
             office = ('label', f'member of the {name}') if st in STATES.values() else ('other', None)
+            office_acting = False
         elif state:
             office = ('house', state) if (b.get('district') or b.get('constituency')) else ('senate', state)
+            office_acting = False
         if office and office[0] == 'house' and (b.get('constituency') or b.get('district')):
             seats_value = b.get('constituency') or b.get('district')
         elif office and office[0] != 'house':
@@ -1041,6 +1062,7 @@ def infobox_offices(text, born=None, died=None, now=None):
         # A block for an office not held: "term_label = Elected posthumously" (Mel Carnahan), "status = Nominee".
         if not held or re.search(r'\belect|nominee|designate', wikiclean(b.get('term_label', '') + ' ' + b.get('status', '')), re.I):
             continue
+        acting = office_acting or bool(re.search(r'\bacting\b', wikiclean(b.get('term_label', '') + ' ' + b.get('status', '')), re.I))
         # The dates: term_startN and term_endN, or one termN field ("1786–1787").
         if b.get('term_start'):
             s_text, e_text = wikiclean(b['term_start']), wikiclean(b.get('term_end', ''))
@@ -1063,6 +1085,9 @@ def infobox_offices(text, born=None, died=None, now=None):
                     f, fd, fp = f - 1, f'{f - 1:04d}-12-01', 10
                 if ud and ud[5:7] == '01' and u % 2 == 1:
                     u, ud, up = u - 1, f'{u - 1:04d}-12-01', 10
+            # An end still to come (Robin Kelly's "December 2026") is no end yet.
+            if ud and ud > today and not died:
+                u, ud, up = None, None, 0
             if (born and f < born + 16) or f > (died or now) or (u is not None and u < f) or (died and (u is None or u > died + 1)):
                 left.append((office, f, u))
                 continue
@@ -1075,13 +1100,13 @@ def infobox_offices(text, born=None, died=None, now=None):
                     st, num = (STATES[seat[:2]], seat[3:]) if seat else (None, None)
                     dist = '' if not seat else (f"{st}'s at-large congressional district" if num == 'AL' else f"{st}'s {int(num)}th congressional district")
                     whole = (a, z) == (f, u)
-                    rows.append(('United States representative', fd if whole else f'{a:04d}-01-01', (ud or '') if whole else (f'{z:04d}-01-01' if z else ''),
+                    rows.append(('United States representative', fd if whole else f'{a:04d}-01-01', (ud or '') if whole else (f'{z:04d}-01-01' if z and f'{z:04d}' <= today[:4] else ''),
                                  dist, 'wp', fp if whole else 9, up if whole else 9))
             elif office[0] == 'senate':
                 if office[1] in STATES.values():
                     rows.append(('United States senator', fd, ud or '', f'{office[1]} Class 1 senate seat', 'wp', fp, up))
             else:
-                rows.append((office[1], fd, ud or '', '', 'wp', fp, up))
+                rows.append((office[1], fd, ud or '', '', 'wp', fp, up, acting))
     return rows, left
 
 
@@ -1145,13 +1170,15 @@ OFFICES_FIXED = {
 
 def offices_shown(raw, died=None, wins=(), now=None, qid=None):
     """The offices worth listing, merged into spans: [{t: title, w: where, f: from year, u: to year (None: now)}].
-    raw: rows (label, from, to, district, source 'wd' or 'wp', from precision, to precision) from Wikidata and the
-    Wikipedia infobox. Where the two give the same term within a year at each end, each end comes from whichever
+    raw: rows (label, from, to, district, source 'wd' or 'wp', from precision, to precision, held acting) from Wikidata
+    and the Wikipedia infobox. An office held acting is a line of its own, "United States Secretary of Commerce
+    (acting)", never merged with a full term of the office. Where the two give the same term within a year at each end, each end comes from whichever
     states it more exactly (Wikidata knows Jim Risch's first Idaho Senate term only as 1974-1989; the infobox has
     December 1, 1988). For someone who has died, a term with no end date has an unknown end, not "present": x marks
     those spans. wins: the person's House and Senate wins in the archive, [(kind, race key, year)]: an open House or
     Senate term closes when the term of their last win in that seat has run out, and a term the archive shows them
-    winning since 2020 is added where neither source has it. Terms that haven't begun (2027) are left out."""
+    winning since 2020 is added where neither source has it; a term begun after that term ran out stays open. Terms
+    that haven't begun (2027) are left out."""
     now = now or time.localtime().tm_year
     spans, rank_of, undated, names, from_wp = {}, {}, {}, {}, set()
     for row in raw:
@@ -1159,11 +1186,14 @@ def offices_shown(raw, died=None, wins=(), now=None, qid=None):
         src = row[4] if len(row) > 4 else 'wd'
         fp = row[5] if len(row) > 5 else 9
         up = row[6] if len(row) > 6 else 9
+        acting = bool(row[7]) if len(row) > 7 else False
         rule = next((r for r in OFFICE_RULES if re.match(r[0], label)), None)
         if not rule or (qid, label, int(frm[:4]) if frm else None) in WIKIDATA_WRONG:
             continue
         shown = rule[1] or re.sub(r'^[Mm]ember of the ', '', label)
         title = office_title(shown)
+        if acting:
+            title, shown = title + ' (acting)', shown + ' (acting)'
         if not frm:
             # No dates in either source (Thomas Pinckney's mission to Britain): listed by name only, last.
             undated[title] = rule[2]
@@ -1189,6 +1219,20 @@ def offices_shown(raw, died=None, wins=(), now=None, qid=None):
         if src == 'wp':
             from_wp.add(key)
     near = lambda a, b: (a is None and b is None) or (a is not None and b is not None and abs(a - b) <= 1)
+    # One source can say a stint was acting where the other doesn't (Bud Brown's 1987 term as Secretary of Commerce is
+    # "Acting" in his infobox): a term of the office with the same years as an acting one, its start within a month
+    # where both are dated to the day or month, is that stint.
+    for key in [k for k in spans if k[0].endswith(' (acting)')]:
+        base = (key[0][:-len(' (acting)')], key[1])
+        same = lambda t, a: t[0] == a[0] and t[1] == a[1] and (t[3] < 10 or a[3] < 10 or abs(days_apart(t[5], a[5])) <= 31)
+        moved = [t for t in spans.get(base, []) if any(same(t, a) for a in spans[key])]
+        if moved:
+            spans[key] += moved
+            spans[base] = [t for t in spans[base] if not any(t is m for m in moved)]
+            if any(t[2] == 'wp' for t in moved):
+                from_wp.add(key)
+            if not spans[base]:
+                del spans[base]
     # Wikidata can file a state legislator's term under the other chamber: David Brock Smith's Oregon Senate seat as
     # the Oregon House, Steven Horsford's Nevada Senate years as the Nevada Assembly. A Wikidata term in one chamber
     # is dropped where the infobox has the same term (within a year at each end) in the state's other chamber and
@@ -1204,6 +1248,18 @@ def offices_shown(raw, died=None, wins=(), now=None, qid=None):
                                                     and not any(w[5] < (d[6] or '9999') and d[5] < (w[6] or '9999') for w in ours))]
         if not spans[key]:
             del spans[key]
+    # An open Wikidata statement that began inside an infobox term which has ended, where the infobox has no open
+    # term for the office, is out of date: it ends with the infobox's term (Brian Higgins resigned from the House in
+    # 2024; Wikidata has him there from 2021 with no end).
+    for key, terms in spans.items():
+        ours = [t for t in terms if t[2] == 'wp']
+        if not ours or any(t[1] is None for t in ours):
+            continue
+        for d in terms:
+            if d[2] == 'wd' and d[1] is None:
+                w = next((w for w in ours if w[5] <= d[5] < w[6]), None)
+                if w:
+                    d[1], d[4], d[6] = w[1], w[4], w[6]
     # Wikidata gives a seat in Congress Congress by Congress, and can start a member who came in partway through one
     # on the Congress's first day: Joseph Gaydos won a special election on November 5, 1968, and Wikidata has him from
     # January 3, 1967. Where the infobox starts a term inside such a statement, and no term of its own covers the
@@ -1238,10 +1294,13 @@ def offices_shown(raw, died=None, wins=(), now=None, qid=None):
                 if d[2] == 'wd' and j not in used and near(w[0], d[0]) and near(w[1], d[1]):
                     used.add(j)
                     session = until != 0 and w[4] == 10 and w[6][5:7] == '01' and d[4] <= 9 and d[1] == w[1] - 1 and (until is None or w[1] <= until)
-                    w = [w[0] if w[3] >= d[3] else d[0], d[1] if session or w[4] < d[4] else w[1], 'wp', max(w[3], d[3]),
-                         d[4] if session else max(w[4], d[4]), w[5], d[6] if session else w[6]]
+                    start = (w[0], w[3], w[5]) if w[3] >= d[3] else (d[0], d[3], d[5])
+                    end = (d[1], d[4], d[6]) if session or w[4] < d[4] else (w[1], w[4], w[6])
+                    w = [start[0], end[0], 'wp', start[1], end[1], start[2], end[2]]
             kept.append(w)
-        spans[key] = [[t[0], t[1]] for t in kept] + [[t[0], t[1]] for j, t in enumerate(terms) if t[2] == 'wd' and j not in used]
+        # From here on a term is [from, to, from date, from precision, to date, to precision], or [from, to].
+        spans[key] = [[t[0], t[1], t[5], t[3], t[6], t[4]] for t in kept] + \
+                     [[t[0], t[1], t[5], t[3], t[6], t[4]] for j, t in enumerate(terms) if t[2] == 'wd' and j not in used]
     for fixed_title, rows in OFFICES_FIXED.get(qid, {}).items():
         rank = next((rank_of[k] for k in spans if k[0] == fixed_title), None)
         for k in [k for k in spans if k[0] == fixed_title]:
@@ -1265,33 +1324,49 @@ def offices_shown(raw, died=None, wins=(), now=None, qid=None):
         if y >= 2020:
             k = seat(kind, key)
             end = y + (3 if kind == 'H' else 7)
-            if not any(f <= y + 1 and (u is None or u >= y + 2) for f, u in spans.get(k, [])):
+            # Not where a source has them leave the seat after that election, before the term (Matt Gaetz resigned
+            # on November 13, 2024) or during it (George Santos was expelled in December 2023). A Congress's last day
+            # (early January of an odd year) is not leaving.
+            left = any(len(t) > 2 and t[5] >= 10 and t[4] and f'{y}-11-01' <= t[4] < f'{end}-01-01'
+                       and not (int(t[4][:4]) % 2 == 1 and t[4][5:7] == '01' and t[4][8:10] <= '10') for t in spans.get(k, []))
+            if not left and not any(t[0] <= y + 1 and (t[1] is None or t[1] >= y + 2) for t in spans.get(k, [])):
                 spans.setdefault(k, []).append([y + 1, end if end <= now else None])
                 rank_of[k] = 4 if kind == 'H' else 3
     out = []
     for (title, where), terms in spans.items():
-        # [from, to, end unknown]; an unknown end counts as the start year while merging.
-        terms = sorted(([f, f if (u is None and died) else u, u is None and bool(died)] for f, u in terms), key=lambda t: t[0])
-        merged = [terms[0][:]]
-        for f, u, x in terms[1:]:
+        # [from, to, end unknown, from date, from precision, to date, to precision, first year of the open part]; an
+        # unknown end counts as the start year while merging. Terms a year or less apart are joined, unless both dates
+        # are known to the month and more than six months apart: Sherrod Brown left the Senate in January 2025 and
+        # came back in December 2026, two terms, not one.
+        rows = []
+        for t in sorted(terms, key=lambda t: (t[0], t[2] if len(t) > 2 else '')):
+            f, u = t[0], t[1]
+            fd, fp, ud, up = (t[2], t[3], t[4], t[5]) if len(t) > 2 else (f'{f:04d}-01-01', 9, f'{u:04d}-12-31' if u else '', 9)
+            x = u is None and bool(died)
+            rows.append([f, f if x else u, x, fd, fp, '' if x else ud, 0 if x else up, f if u is None and not x else None])
+        merged = [rows[0][:]]
+        for f, u, x, fd, fp, ud, up, op in rows[1:]:
             last = merged[-1]
-            if last[1] is not None and f <= last[1] + 1:
+            apart = last[6] >= 10 and fp >= 10 and bool(last[5]) and days_apart(last[5], fd) > 183
+            if last[1] is not None and f <= last[1] + 1 and not apart:
                 if u is None:
-                    last[1] = None
+                    last[1], last[7] = None, f
                 elif u >= last[1]:
-                    last[1], last[2] = u, x
+                    last[1], last[2], last[5], last[6] = u, x, ud, up
             elif last[1] is None:
                 continue
             else:
-                merged.append([f, u, x])
+                merged.append([f, u, x, fd, fp, ud, up, op])
         shown = max(names.get(title, {title}), key=len) if title.startswith('Mayor of ') else title
-        for f, u, x in merged:
+        for f, u, x, fd, fp, ud, up, op in merged:
             if f > now:
                 continue
             last = last_win.get((title, where))
             if u is None and not x and last:
                 end = last + (3 if title == 'U.S. Representative' else 7)
-                if end <= now:
+                # The open term is the one that win began (or Wikidata's stale record of it); a term begun after it
+                # ran out (Sherrod Brown's from December 2026, his last win in the archive being 2018) stays open.
+                if end <= now and (op is None or op <= end):
                     u = max(end, f)
             o = {'t': shown, 'w': where, 'f': f, 'u': None if x else u, 'r': rank_of[(title, where)], 'e': u}
             if x:
