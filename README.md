@@ -163,7 +163,8 @@ may end a term at the next January's session, so where terms change over in Nove
 known only to the month ("January 2017") gives way to Wikidata's year before. Wikidata sometimes files a term under
 the other chamber; where the infobox has that term in the other chamber, Wikidata's is dropped. An office held acting,
 in either source's words ("Acting Secretary of War", Wikidata's "nature of statement: acting"), is a line of its
-own, "(acting)", never merged with a full term. Terms are merged into one line where they are a year or less apart,
+own, "(acting)", never merged with a full term; one whose years fall within a full term of the same office is left
+out (James Monroe's acting 1814-1815 at State, which he held from 1811 to 1817). Terms are merged into one line where they are a year or less apart,
 but not where both dates are known to the month and are more than six months apart (Strom Thurmond resigned in April
 1956 and came back that November). An open Wikidata term inside an infobox term that has ended is out of date and
 ends with it; an infobox end still to come is no end yet. Offices are then corrected with the archive: an open

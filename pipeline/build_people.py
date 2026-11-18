@@ -1376,6 +1376,12 @@ def offices_shown(raw, died=None, wins=(), now=None, qid=None):
         shown = max(names.get(title, {title}), key=len) if title.startswith('Mayor of ') else title
         if not any(office_title(o['t']) == title for o in out) and title not in ('U.S. Representative', 'U.S. Senator'):
             out.append({'t': shown, 'w': '', 'f': None, 'u': None, 'r': rank, 'e': None, 'n': True})
+    # An acting stint whose years fall within a full term of the same office is left out: James Monroe held State from
+    # 1811 to 1817, and Wikidata's acting 1814-1815 there (while he also ran War) would read as a second stint.
+    last_year = lambda o: o['u'] if o['u'] is not None else (o['e'] if o.get('x') else 9999)
+    full = [o for o in out if o['f'] is not None and not o['t'].endswith(' (acting)')]
+    out = [o for o in out if not (o['t'].endswith(' (acting)') and o['f'] is not None and any(
+        g['t'] == o['t'][:-len(' (acting)')] and g['w'] == o['w'] and g['f'] <= o['f'] and last_year(o) <= last_year(g) for g in full))]
     # A territory's governorship under the state's name (Wikidata has Lewis Cass as "Governor of Michigan" for his
     # years governing the Michigan Territory): the state's line goes where the territory's covers the same years.
     for t in [o for o in out if re.match(r'^Governor of (the )?.+ Territory$', o['t']) and o['f']]:
